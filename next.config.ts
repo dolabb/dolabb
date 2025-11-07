@@ -11,8 +11,17 @@ const nextConfig: NextConfig = {
         hostname: 'images.unsplash.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+        pathname: '/**',
+      },
     ],
+    unoptimized: false,
   },
+  // Optimize for production
+  output: 'standalone',
+  poweredByHeader: false,
 };
 
 export default withNextIntl(nextConfig);
