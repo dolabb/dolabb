@@ -20,7 +20,6 @@ const nextConfig: NextConfig = {
     unoptimized: false,
   },
   // Optimize for production
-  output: 'standalone',
   poweredByHeader: false,
 };
 
