@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "home": "الرئيسية",
+    "shop": "تسوق",
+    "sell": "بيع",
+    "search": "بحث",
+    "favorites": "المفضلة",
+    "messages": "الرسائل",
+    "profile": "الملف الشخصي"
+  },
+  "navigation": {
+    "women": "نساء",
+    "men": "رجال",
+    "kids": "أطفال",
+    "sports": "رياضة",
+    "brands": "العلامات التجارية",
+    "trending": "الترند",
+    "sale": "تخفيضات",
+    "shopByCategory": "تسوق حسب الفئة",
+    "featured": "مميز",
+    "styles": "الأنماط",
+    "seeAll": "عرض الكل",
+    "womenSub": {
+      "tops": "قمصان",
+      "jeans": "جينز",
+      "sweaters": "كنزات",
+      "skirts": "تنانير",
+      "dresses": "فساتين",
+      "coats-jackets": "معاطف وجاكيتات",
+      "shoes": "أحذية",
+      "bags-purses": "حقائب ومحافظ",
+      "sunglasses": "نظارات شمسية",
+      "hats": "قبعات",
+      "jewelry": "مجوهرات",
+      "plus-size": "مقاسات كبيرة",
+      "featured": {
+        "wardrobe-essentials": "أساسيات الخزانة",
+        "denim-everything": "كل شيء من الجينز",
+        "lifestyle-sneakers": "أحذية رياضية",
+        "office-wear": "ملابس المكتب",
+        "gym-gear": "ملابس الجيم"
+      },
+      "styles": {
+        "minimalism": "الحد الأدنى",
+        "coquette": "كوكيت",
+        "y2k": "Y2K",
+        "boho": "بوهو"
+      }
+    },
+    "menSub": {
+      "tshirts": "قمصان",
+      "jeans": "جينز",
+      "hoodies": "هوديز",
+      "shorts": "شورتات",
+      "jackets": "جاكيتات",
+      "sneakers": "أحذية رياضية",
+      "watches": "ساعات",
+      "bags": "حقائب",
+      "accessories": "إكسسوارات",
+      "featured": {
+        "streetwear": "ستريت وير",
+        "vintage-finds": "قطع عتيقة",
+        "formal-wear": "ملابس رسمية"
+      },
+      "styles": {
+        "streetwear": "ستريت وير",
+        "minimalist": "الحد الأدنى",
+        "vintage": "عتيق",
+        "athletic": "رياضي"
+      }
+    },
+    "kidsSub": {
+      "girls": "بنات",
+      "boys": "أولاد",
+      "baby": "أطفال",
+      "shoes": "أحذية",
+      "accessories": "إكسسوارات",
+      "featured": {
+        "back-to-school": "العودة للمدرسة",
+        "playtime": "وقت اللعب"
+      }
+    },
+    "sportsSub": {
+      "activewear": "ملابس رياضية",
+      "sneakers": "أحذية رياضية",
+      "equipment": "معدات",
+      "featured": {
+        "running-gear": "معدات الجري",
+        "gym-essentials": "أساسيات الجيم"
+      }
+    },
+    "brandsSub": {
+      "designer": "مصمم",
+      "vintage": "عتيق",
+      "streetwear": "ستريت وير",
+      "featured": {
+        "top-brands": "أفضل العلامات",
+        "new-arrivals": "وصل حديثاً"
+      }
+    },
+    "trendingSub": {
+      "this-week": "هذا الأسبوع",
+      "new-arrivals": "وصل حديثاً",
+      "most-liked": "الأكثر إعجاباً"
+    },
+    "saleSub": {
+      "up-to-50": "خصم حتى 50%",
+      "up-to-70": "خصم حتى 70%",
+      "clearance": "تصفية"
+    }
+  },
+  "hero": {
+    "title": "ابحث عن أسلوبك",
+    "subtitle": "اشتري وبيع الأزياء الفريدة من المبدعين المستقلين",
+    "cta": "ابدأ التسوق"
+  },
+  "categories": {
+    "title": "تسوق حسب الفئة",
+    "women": "نساء",
+    "men": "رجال",
+    "vintage": "عتيق",
+    "designer": "مصمم",
+    "accessories": "إكسسوارات",
+    "shoes": "أحذية"
+  },
+  "featured": {
+    "title": "العناصر المميزة",
+    "viewAll": "عرض الكل"
+  },
+  "trending": {
+    "title": "الترند الآن"
+  },
+  "footer": {
+    "about": "حول",
+    "help": "مساعدة",
+    "terms": "الشروط",
+    "privacy": "الخصوصية",
+    "copyright": "© 2024 Depop Clone. جميع الحقوق محفوظة."
+  }
+}
+

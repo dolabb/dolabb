@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "home": "Home",
+    "shop": "Shop",
+    "sell": "Sell",
+    "search": "Search",
+    "favorites": "Favorites",
+    "messages": "Messages",
+    "profile": "Profile"
+  },
+  "navigation": {
+    "women": "Women",
+    "men": "Men",
+    "kids": "Kids",
+    "sports": "Sports",
+    "brands": "Brands",
+    "trending": "Trending",
+    "sale": "Sale",
+    "shopByCategory": "Shop by category",
+    "featured": "Featured",
+    "styles": "Styles",
+    "seeAll": "See all",
+    "womenSub": {
+      "tops": "Tops",
+      "jeans": "Jeans",
+      "sweaters": "Sweaters",
+      "skirts": "Skirts",
+      "dresses": "Dresses",
+      "coats-jackets": "Coats & Jackets",
+      "shoes": "Shoes",
+      "bags-purses": "Bags & Purses",
+      "sunglasses": "Sunglasses",
+      "hats": "Hats",
+      "jewelry": "Jewelry",
+      "plus-size": "Plus Size",
+      "featured": {
+        "wardrobe-essentials": "Wardrobe essentials",
+        "denim-everything": "Denim everything",
+        "lifestyle-sneakers": "Lifestyle sneakers",
+        "office-wear": "Office wear",
+        "gym-gear": "Gym gear"
+      },
+      "styles": {
+        "minimalism": "Minimalism",
+        "coquette": "Coquette",
+        "y2k": "Y2K",
+        "boho": "Boho"
+      }
+    },
+    "menSub": {
+      "tshirts": "T-Shirts",
+      "jeans": "Jeans",
+      "hoodies": "Hoodies",
+      "shorts": "Shorts",
+      "jackets": "Jackets",
+      "sneakers": "Sneakers",
+      "watches": "Watches",
+      "bags": "Bags",
+      "accessories": "Accessories",
+      "featured": {
+        "streetwear": "Streetwear",
+        "vintage-finds": "Vintage finds",
+        "formal-wear": "Formal wear"
+      },
+      "styles": {
+        "streetwear": "Streetwear",
+        "minimalist": "Minimalist",
+        "vintage": "Vintage",
+        "athletic": "Athletic"
+      }
+    },
+    "kidsSub": {
+      "girls": "Girls",
+      "boys": "Boys",
+      "baby": "Baby",
+      "shoes": "Shoes",
+      "accessories": "Accessories",
+      "featured": {
+        "back-to-school": "Back to school",
+        "playtime": "Playtime"
+      }
+    },
+    "sportsSub": {
+      "activewear": "Activewear",
+      "sneakers": "Sneakers",
+      "equipment": "Equipment",
+      "featured": {
+        "running-gear": "Running gear",
+        "gym-essentials": "Gym essentials"
+      }
+    },
+    "brandsSub": {
+      "designer": "Designer",
+      "vintage": "Vintage",
+      "streetwear": "Streetwear",
+      "featured": {
+        "top-brands": "Top brands",
+        "new-arrivals": "New arrivals"
+      }
+    },
+    "trendingSub": {
+      "this-week": "This week",
+      "new-arrivals": "New arrivals",
+      "most-liked": "Most liked"
+    },
+    "saleSub": {
+      "up-to-50": "Up to 50% off",
+      "up-to-70": "Up to 70% off",
+      "clearance": "Clearance"
+    }
+  },
+  "hero": {
+    "title": "Find your style",
+    "subtitle": "Buy and sell unique fashion from independent creators",
+    "cta": "Start Shopping"
+  },
+  "categories": {
+    "title": "Shop by Category",
+    "women": "Women",
+    "men": "Men",
+    "vintage": "Vintage",
+    "designer": "Designer",
+    "accessories": "Accessories",
+    "shoes": "Shoes"
+  },
+  "featured": {
+    "title": "Featured Items",
+    "viewAll": "View All"
+  },
+  "trending": {
+    "title": "Trending Now"
+  },
+  "footer": {
+    "about": "About",
+    "help": "Help",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "copyright": "© 2024 Depop Clone. All rights reserved."
+  }
+}
+
