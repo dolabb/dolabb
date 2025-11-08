@@ -1,20 +1,22 @@
 'use client';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useRef, useState } from 'react';
 import {
+  HiArrowRightOnRectangle,
   HiBars3,
+  HiChatBubbleLeftRight,
   HiHeart,
   HiMagnifyingGlass,
-  HiTag,
-  HiXMark,
+  HiPencilSquare,
   HiShoppingBag,
-  HiChatBubbleLeftRight,
+  HiTag,
   HiUser,
+  HiXMark,
 } from 'react-icons/hi2';
 
 export default function Header() {
@@ -26,6 +28,8 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,6 +38,26 @@ export default function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileDropdownRef.current &&
+        !profileDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    if (isProfileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProfileDropdownOpen]);
 
   const toggleLanguage = () => {
     const newLocale = locale === 'en' ? 'ar' : 'en';
@@ -46,9 +70,7 @@ export default function Header() {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-off-white '
-          : 'bg-off-white/95 backdrop-blur-sm'
+        isScrolled ? 'bg-off-white ' : 'bg-off-white/95 backdrop-blur-sm'
       }`}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
@@ -120,13 +142,51 @@ export default function Header() {
                 >
                   <HiChatBubbleLeftRight className='w-6 h-6 transition-transform group-hover:scale-110' />
                 </Link>
-                <Link
-                  href={`/${locale}/profile`}
-                  className='text-deep-charcoal hover:text-saudi-green transition-colors relative group'
-                  title={locale === 'en' ? 'Profile' : 'الملف الشخصي'}
-                >
-                  <HiUser className='w-6 h-6 transition-transform group-hover:scale-110' />
-                </Link>
+                {/* Profile Dropdown */}
+                <div className='relative' ref={profileDropdownRef}>
+                  <button
+                    onClick={() =>
+                      setIsProfileDropdownOpen(!isProfileDropdownOpen)
+                    }
+                    className='text-deep-charcoal hover:text-saudi-green transition-colors relative group'
+                    title={locale === 'en' ? 'Profile' : 'الملف الشخصي'}
+                  >
+                    <HiUser className='w-6 h-6 transition-transform group-hover:scale-110' />
+                  </button>
+                  {isProfileDropdownOpen && (
+                    <div
+                      className={`absolute ${
+                        isRTL ? 'left-0' : 'right-0'
+                      } mt-2 w-48 bg-white rounded-lg shadow-lg border border-rich-sand/30 py-2 z-50`}
+                    >
+                      <Link
+                        href={`/${locale}/profile`}
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                        className='flex items-center gap-3 px-4 py-2 text-sm text-deep-charcoal hover:bg-rich-sand/10 hover:text-saudi-green transition-colors whitespace-nowrap'
+                      >
+                        <HiPencilSquare className='w-4 h-4 flex-shrink-0' />
+                        <span className='font-medium'>
+                          {locale === 'en'
+                            ? 'Edit Profile'
+                            : 'تعديل الملف الشخصي'}
+                        </span>
+                      </Link>
+                      <button
+                        onClick={() => {
+                          logout();
+                          setIsProfileDropdownOpen(false);
+                          router.push(`/${locale}`);
+                        }}
+                        className='w-full flex items-center gap-3 px-4 py-2 text-sm text-deep-charcoal hover:bg-rich-sand/10 hover:text-red-600 transition-colors whitespace-nowrap'
+                      >
+                        <HiArrowRightOnRectangle className='w-4 h-4 flex-shrink-0' />
+                        <span className='font-medium'>
+                          {locale === 'en' ? 'Logout' : 'تسجيل الخروج'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -234,24 +294,53 @@ export default function Header() {
                     <HiChatBubbleLeftRight className='w-5 h-5' />
                     {locale === 'en' ? 'Messages' : 'الرسائل'}
                   </Link>
-                  <Link
-                    href={`/${locale}/profile`}
-                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <HiUser className='w-5 h-5' />
-                    {locale === 'en' ? 'Profile' : 'الملف الشخصي'}
-                  </Link>
-                  <button
-                    onClick={() => {
-                      logout();
-                      setIsMobileMenuOpen(false);
-                      router.push(`/${locale}`);
-                    }}
-                    className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-rich-sand text-deep-charcoal hover:border-saudi-green hover:text-saudi-green hover:bg-saudi-green/5 transition-all duration-200 font-medium'
-                  >
-                    {locale === 'en' ? 'Log Out' : 'تسجيل الخروج'}
-                  </button>
+                  {/* Profile Dropdown - Mobile */}
+                  <div className='border-t border-rich-sand/30 pt-2 mt-2'>
+                    <button
+                      onClick={() =>
+                        setIsProfileDropdownOpen(!isProfileDropdownOpen)
+                      }
+                      className='w-full flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
+                    >
+                      <HiUser className='w-5 h-5 flex-shrink-0' />
+                      <span className='text-sm whitespace-nowrap'>
+                        {locale === 'en' ? 'Profile' : 'الملف الشخصي'}
+                      </span>
+                    </button>
+                    {isProfileDropdownOpen && (
+                      <div className='pl-8 pt-2 space-y-2'>
+                        <Link
+                          href={`/${locale}/profile`}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className='flex items-center gap-3 text-sm text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 whitespace-nowrap'
+                        >
+                          <HiPencilSquare className='w-4 h-4 flex-shrink-0' />
+                          <span>
+                            {locale === 'en'
+                              ? 'Edit Profile'
+                              : 'تعديل الملف الشخصي'}
+                          </span>
+                        </Link>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsMobileMenuOpen(false);
+                            setIsProfileDropdownOpen(false);
+                            router.push(`/${locale}`);
+                          }}
+                          className='w-full flex items-center gap-3 text-sm text-deep-charcoal hover:text-red-600 transition-colors font-medium py-2 whitespace-nowrap'
+                        >
+                          <HiArrowRightOnRectangle className='w-4 h-4 flex-shrink-0' />
+                          <span>
+                            {locale === 'en' ? 'Logout' : 'تسجيل الخروج'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
