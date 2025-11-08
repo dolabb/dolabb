@@ -3,8 +3,7 @@ import {
   HiUser, 
   HiClock, 
   HiSparkles, 
-  HiTag, 
-  HiShoe 
+  HiTag
 } from 'react-icons/hi2';
 import { FaShoePrints } from 'react-icons/fa';
 
