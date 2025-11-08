@@ -38,7 +38,8 @@
         "denim-everything": "Denim everything",
         "lifestyle-sneakers": "Lifestyle sneakers",
         "office-wear": "Office wear",
-        "gym-gear": "Gym gear"
+        "gym-gear": "Gym gear",
+        "see-all-womens": "See all women's"
       },
       "styles": {
         "minimalism": "Minimalism",
@@ -49,18 +50,24 @@
     },
     "menSub": {
       "tshirts": "T-Shirts",
-      "jeans": "Jeans",
-      "hoodies": "Hoodies",
-      "shorts": "Shorts",
-      "jackets": "Jackets",
-      "sneakers": "Sneakers",
-      "watches": "Watches",
+      "shoes": "Shoes",
+      "shirts": "Shirts",
       "bags": "Bags",
-      "accessories": "Accessories",
+      "hoodies": "Hoodies",
+      "hats": "Hats",
+      "jeans": "Jeans",
+      "jewelry": "Jewelry",
+      "sweaters": "Sweaters",
+      "sunglasses": "Sunglasses",
+      "coats-jackets": "Coats & Jackets",
+      "big-tall": "Big & Tall",
       "featured": {
-        "streetwear": "Streetwear",
-        "vintage-finds": "Vintage finds",
-        "formal-wear": "Formal wear"
+        "wardrobe-essentials": "Wardrobe essentials",
+        "denim-everything": "Denim everything",
+        "lifestyle-sneakers": "Lifestyle sneakers",
+        "office-wear": "Office wear",
+        "gym-gear": "Gym gear",
+        "see-all-mens": "See all men's"
       },
       "styles": {
         "streetwear": "Streetwear",
@@ -70,43 +77,122 @@
       }
     },
     "kidsSub": {
-      "girls": "Girls",
-      "boys": "Boys",
-      "baby": "Baby",
+      "tshirts": "T-shirts",
       "shoes": "Shoes",
-      "accessories": "Accessories",
+      "shirts": "Shirts",
+      "bags": "Bags",
+      "hoodies": "Hoodies",
+      "hats": "Hats",
+      "jeans": "Jeans",
+      "jewelry": "Jewelry",
+      "sweaters": "Sweaters",
+      "sunglasses": "Sunglasses",
+      "coats-jackets": "Coats & Jackets",
+      "big-tall": "Big & Tall",
       "featured": {
-        "back-to-school": "Back to school",
-        "playtime": "Playtime"
+        "wardrobe-essentials": "Wardrobe essentials",
+        "denim-everything": "Denim everything",
+        "lifestyle-sneakers": "Lifestyle sneakers",
+        "office-wear": "Office wear",
+        "gym-gear": "Gym gear",
+        "see-all-kids": "See all kids'"
       }
     },
     "sportsSub": {
-      "activewear": "Activewear",
+      "jerseys": "Jerseys",
       "sneakers": "Sneakers",
-      "equipment": "Equipment",
+      "sweatpants": "Sweatpants",
+      "sweatshirts": "Sweatshirts",
+      "tracksuits": "Tracksuits",
+      "hats": "Hats",
+      "scarves": "Scarves",
+      "cleats": "Cleats",
       "featured": {
-        "running-gear": "Running gear",
-        "gym-essentials": "Gym essentials"
+        "shop-vintage": "Shop vintage",
+        "shop-by-league": "Shop by league",
+        "vintage-jerseys": "Vintage jerseys",
+        "nfl": "NFL",
+        "vintage-sneakers": "Vintage sneakers",
+        "nhl": "NHL",
+        "vintage-sweatpants": "Vintage sweatpants",
+        "nba": "NBA",
+        "vintage-sweatshirts": "Vintage sweatshirts",
+        "mlb": "MLB",
+        "vintage-tracksuits": "Vintage tracksuits",
+        "ncaa": "NCAA",
+        "vintage-hats": "Vintage hats",
+        "vintage-scarves": "Vintage scarves",
+        "vintage-shorts": "Vintage shorts",
+        "see-all-sportswear": "See all sportswear"
       }
     },
     "brandsSub": {
-      "designer": "Designer",
-      "vintage": "Vintage",
-      "streetwear": "Streetwear",
+      "abercrombie-fitch": "Abercrombie & Fitch",
+      "free-people": "Free People",
+      "patagonia": "Patagonia",
+      "adidas": "Adidas",
+      "harley-davidson": "Harley Davidson",
+      "polo-ralph-lauren": "Polo Ralph Lauren",
+      "brandy-melville": "Brandy Melville",
+      "jordan": "Jordan",
+      "supreme": "Supreme",
+      "carhartt": "Carhartt",
+      "lululemon": "Lululemon",
+      "the-north-face": "The North Face",
+      "coach": "Coach",
+      "new-balance": "New Balance",
+      "urban-outfitters": "Urban Outfitters",
+      "dickies": "Dickies",
+      "nike": "Nike",
+      "zara": "Zara",
       "featured": {
-        "top-brands": "Top brands",
-        "new-arrivals": "New arrivals"
+        "see-all-brands": "See all brands"
       }
     },
     "trendingSub": {
-      "this-week": "This week",
-      "new-arrivals": "New arrivals",
-      "most-liked": "Most liked"
+      "trending-womens": "Trending in women's",
+      "trending-mens": "Trending in men's",
+      "trending-items": "Trending items",
+      "boots-weather": "Boots weather",
+      "black-tie": "Black tie",
+      "barn-jackets": "Barn jackets",
+      "outerwear-season": "Outerwear season",
+      "cardigans": "Cardigans",
+      "party-fits": "Party fits",
+      "festive-knits": "Festive knits",
+      "bridal-edit": "The bridal edit",
+      "henley-tops": "Henley tops",
+      "wedding-guests": "Wedding guests",
+      "knee-high-boots": "Knee high boots",
+      "sherpa-jackets": "Sherpa jackets",
+      "pea-coats": "Pea coats",
+      "featured": {
+        "fall-winter-trends": "See our Fall/Winter trends"
+      }
     },
     "saleSub": {
-      "up-to-50": "Up to 50% off",
-      "up-to-70": "Up to 70% off",
-      "clearance": "Clearance"
+      "womens-sale": "Women's sale",
+      "mens-sale": "Men's sale",
+      "tops": "Tops",
+      "tshirts": "T-shirts",
+      "sweaters": "Sweaters",
+      "bottoms": "Bottoms",
+      "bags-purses": "Bags & Purses",
+      "windbreakers": "Windbreakers",
+      "dresses": "Dresses",
+      "casual-pants": "Casual pants",
+      "skirts": "Skirts",
+      "coats-jackets": "Coats & Jackets",
+      "leather-jackets": "Leather jackets",
+      "shoes": "Shoes",
+      "sneakers": "Sneakers",
+      "accessories": "Accessories",
+      "boots": "Boots",
+      "jeans": "Jeans",
+      "featured": {
+        "see-all-womens-sale": "See all women's sale",
+        "see-all-mens-sale": "See all men's sale"
+      }
     }
   },
   "hero": {

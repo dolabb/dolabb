@@ -38,7 +38,8 @@
         "denim-everything": "كل شيء من الجينز",
         "lifestyle-sneakers": "أحذية رياضية",
         "office-wear": "ملابس المكتب",
-        "gym-gear": "ملابس الجيم"
+        "gym-gear": "ملابس الجيم",
+        "see-all-womens": "عرض كل منتجات النساء"
       },
       "styles": {
         "minimalism": "الحد الأدنى",
@@ -49,18 +50,24 @@
     },
     "menSub": {
       "tshirts": "قمصان",
-      "jeans": "جينز",
-      "hoodies": "هوديز",
-      "shorts": "شورتات",
-      "jackets": "جاكيتات",
-      "sneakers": "أحذية رياضية",
-      "watches": "ساعات",
+      "shoes": "أحذية",
+      "shirts": "قمصان",
       "bags": "حقائب",
-      "accessories": "إكسسوارات",
+      "hoodies": "هوديز",
+      "hats": "قبعات",
+      "jeans": "جينز",
+      "jewelry": "مجوهرات",
+      "sweaters": "كنزات",
+      "sunglasses": "نظارات شمسية",
+      "coats-jackets": "معاطف وجاكيتات",
+      "big-tall": "كبير وطويل",
       "featured": {
-        "streetwear": "ستريت وير",
-        "vintage-finds": "قطع عتيقة",
-        "formal-wear": "ملابس رسمية"
+        "wardrobe-essentials": "أساسيات الخزانة",
+        "denim-everything": "كل شيء من الجينز",
+        "lifestyle-sneakers": "أحذية رياضية",
+        "office-wear": "ملابس المكتب",
+        "gym-gear": "ملابس الجيم",
+        "see-all-mens": "عرض كل منتجات الرجال"
       },
       "styles": {
         "streetwear": "ستريت وير",
@@ -70,43 +77,122 @@
       }
     },
     "kidsSub": {
-      "girls": "بنات",
-      "boys": "أولاد",
-      "baby": "أطفال",
+      "tshirts": "قمصان",
       "shoes": "أحذية",
-      "accessories": "إكسسوارات",
+      "shirts": "قمصان",
+      "bags": "حقائب",
+      "hoodies": "هوديز",
+      "hats": "قبعات",
+      "jeans": "جينز",
+      "jewelry": "مجوهرات",
+      "sweaters": "كنزات",
+      "sunglasses": "نظارات شمسية",
+      "coats-jackets": "معاطف وجاكيتات",
+      "big-tall": "كبير وطويل",
       "featured": {
-        "back-to-school": "العودة للمدرسة",
-        "playtime": "وقت اللعب"
+        "wardrobe-essentials": "أساسيات الخزانة",
+        "denim-everything": "كل شيء من الجينز",
+        "lifestyle-sneakers": "أحذية رياضية",
+        "office-wear": "ملابس المكتب",
+        "gym-gear": "ملابس الجيم",
+        "see-all-kids": "عرض كل منتجات الأطفال"
       }
     },
     "sportsSub": {
-      "activewear": "ملابس رياضية",
+      "jerseys": "قمصان رياضية",
       "sneakers": "أحذية رياضية",
-      "equipment": "معدات",
+      "sweatpants": "بناطيل رياضية",
+      "sweatshirts": "كنزات رياضية",
+      "tracksuits": "بدلات رياضية",
+      "hats": "قبعات",
+      "scarves": "أوشحة",
+      "cleats": "أحذية كرة قدم",
       "featured": {
-        "running-gear": "معدات الجري",
-        "gym-essentials": "أساسيات الجيم"
+        "shop-vintage": "تسوق العتيق",
+        "shop-by-league": "تسوق حسب الدوري",
+        "vintage-jerseys": "قمصان رياضية عتيقة",
+        "nfl": "الدوري الوطني لكرة القدم",
+        "vintage-sneakers": "أحذية رياضية عتيقة",
+        "nhl": "الدوري الوطني للهوكي",
+        "vintage-sweatpants": "بناطيل رياضية عتيقة",
+        "nba": "الدوري الوطني لكرة السلة",
+        "vintage-sweatshirts": "كنزات رياضية عتيقة",
+        "mlb": "الدوري الرئيسي لكرة القاعدة",
+        "vintage-tracksuits": "بدلات رياضية عتيقة",
+        "ncaa": "الرابطة الوطنية لرياضة الجامعات",
+        "vintage-hats": "قبعات عتيقة",
+        "vintage-scarves": "أوشحة عتيقة",
+        "vintage-shorts": "شورتات عتيقة",
+        "see-all-sportswear": "عرض كل الملابس الرياضية"
       }
     },
     "brandsSub": {
-      "designer": "مصمم",
-      "vintage": "عتيق",
-      "streetwear": "ستريت وير",
+      "abercrombie-fitch": "أبيركرومبي آند فيتش",
+      "free-people": "فري بيبول",
+      "patagonia": "باتاغونيا",
+      "adidas": "أديداس",
+      "harley-davidson": "هارلي ديفيدسون",
+      "polo-ralph-lauren": "بولو رالف لورين",
+      "brandy-melville": "براندي ميلفيل",
+      "jordan": "جوردان",
+      "supreme": "سوبرم",
+      "carhartt": "كارهارت",
+      "lululemon": "لولوليمون",
+      "the-north-face": "ذا نورث فيس",
+      "coach": "كوتش",
+      "new-balance": "نيو بالانس",
+      "urban-outfitters": "أوربان أوتفيترز",
+      "dickies": "ديكيز",
+      "nike": "نايك",
+      "zara": "زارا",
       "featured": {
-        "top-brands": "أفضل العلامات",
-        "new-arrivals": "وصل حديثاً"
+        "see-all-brands": "عرض كل العلامات التجارية"
       }
     },
     "trendingSub": {
-      "this-week": "هذا الأسبوع",
-      "new-arrivals": "وصل حديثاً",
-      "most-liked": "الأكثر إعجاباً"
+      "trending-womens": "الترند في منتجات النساء",
+      "trending-mens": "الترند في منتجات الرجال",
+      "trending-items": "العناصر الترندية",
+      "boots-weather": "طقس الأحذية",
+      "black-tie": "ربطة عنق سوداء",
+      "barn-jackets": "جاكيتات الحظيرة",
+      "outerwear-season": "موسم الملابس الخارجية",
+      "cardigans": "كنزات",
+      "party-fits": "ملابس الحفلات",
+      "festive-knits": "ملابس محبوكة احتفالية",
+      "bridal-edit": "تحرير العروس",
+      "henley-tops": "قمصان هينلي",
+      "wedding-guests": "ضيوف الأعراس",
+      "knee-high-boots": "أحذية طويلة حتى الركبة",
+      "sherpa-jackets": "جاكيتات شيربا",
+      "pea-coats": "معاطف بي",
+      "featured": {
+        "fall-winter-trends": "شاهد ترندات الخريف/الشتاء"
+      }
     },
     "saleSub": {
-      "up-to-50": "خصم حتى 50%",
-      "up-to-70": "خصم حتى 70%",
-      "clearance": "تصفية"
+      "womens-sale": "تخفيضات النساء",
+      "mens-sale": "تخفيضات الرجال",
+      "tops": "قمصان",
+      "tshirts": "قمصان",
+      "sweaters": "كنزات",
+      "bottoms": "بناطيل",
+      "bags-purses": "حقائب ومحافظ",
+      "windbreakers": "سترات رياح",
+      "dresses": "فساتين",
+      "casual-pants": "بناطيل غير رسمية",
+      "skirts": "تنانير",
+      "coats-jackets": "معاطف وجاكيتات",
+      "leather-jackets": "جاكيتات جلدية",
+      "shoes": "أحذية",
+      "sneakers": "أحذية رياضية",
+      "accessories": "إكسسوارات",
+      "boots": "أحذية طويلة",
+      "jeans": "جينز",
+      "featured": {
+        "see-all-womens-sale": "عرض كل تخفيضات النساء",
+        "see-all-mens-sale": "عرض كل تخفيضات الرجال"
+      }
     }
   },
   "hero": {
