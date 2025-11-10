@@ -58,7 +58,7 @@ export default function ProductCard({
             e.stopPropagation();
             setLiked(!liked);
           }}
-          className={`absolute top-2 ${isRTL ? 'left-2' : 'right-2'} p-2 rounded-full bg-white/90 backdrop-blur-sm transition-all hover:bg-white hover:scale-110 z-10 ${
+          className={`absolute top-2 ${isRTL ? 'left-2' : 'right-2'} p-2 rounded-full bg-white/90 backdrop-blur-sm transition-all hover:bg-white hover:scale-110 z-10 cursor-pointer ${
             liked ? 'text-coral-red' : 'text-deep-charcoal/70'
           }`}
           aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}

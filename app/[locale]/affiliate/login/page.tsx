@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HiEnvelope, HiEye, HiEyeSlash, HiLockClosed } from 'react-icons/hi2';
-export default function LoginPage() {
+
+export default function AffiliateLoginPage() {
   const locale = useLocale();
   const router = useRouter();
   const { login } = useAuth();
@@ -61,19 +62,30 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
+    // In production, this would authenticate with backend
+    // For now, check if affiliate exists in localStorage
     setTimeout(() => {
       setIsLoading(false);
-      // Login user
-      login({
-        id: '1',
-        username: 'summernorton_',
-        email: formData.email,
-        profileImage:
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-      });
-      // Redirect to home page
-      router.push(`/${locale}`);
+      
+      // Simulate checking affiliate data
+      // In production, this would be an API call
+      const storedAffiliates = JSON.parse(
+        localStorage.getItem('affiliates') || '[]'
+      );
+      const affiliate = storedAffiliates.find(
+        (a: any) => a.email === formData.email
+      );
+
+      if (affiliate) {
+        // Store affiliate session
+        localStorage.setItem('affiliate', JSON.stringify(affiliate));
+        // Redirect to affiliate dashboard
+        router.push(`/${locale}/affiliate/dashboard`);
+      } else {
+        setErrors({
+          email: locale === 'en' ? 'Invalid credentials' : 'بيانات الدخول غير صحيحة',
+        });
+      }
     }, 1500);
   };
 
@@ -86,17 +98,17 @@ export default function LoginPage() {
         {/* Logo/Title */}
         <div className='text-center'>
           <h2 className='text-2xl font-semibold text-deep-charcoal font-display mb-2'>
-            {locale === 'en' ? 'Welcome back' : 'مرحباً بعودتك'}
+            {locale === 'en' ? 'Affiliate Login' : 'تسجيل دخول الشريك'}
           </h2>
           <p className='text-deep-charcoal/70'>
             {locale === 'en'
-              ? 'Log in to your account'
-              : 'سجل الدخول إلى حسابك'}
+              ? 'Log in to your affiliate account'
+              : 'سجل الدخول إلى حساب الشريك'}
           </p>
         </div>
 
         {/* Login Form */}
-        <div className='bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30'>
+        <div className='bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30 mt-6'>
           <form onSubmit={handleSubmit} className='space-y-5'>
             {/* Email */}
             <div>
@@ -105,8 +117,8 @@ export default function LoginPage() {
                 className='block text-sm font-medium text-deep-charcoal mb-2'
               >
                 {locale === 'en'
-                  ? 'Email or Username'
-                  : 'البريد الإلكتروني أو اسم المستخدم'}
+                  ? 'Email'
+                  : 'البريد الإلكتروني'}
               </label>
               <div className='relative'>
                 <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
@@ -187,12 +199,6 @@ export default function LoginPage() {
                   {locale === 'en' ? 'Remember me' : 'تذكرني'}
                 </span>
               </label>
-              <Link
-                href={`/${locale}/forgot-password`}
-                className='text-sm text-saudi-green hover:text-saudi-green/80 font-medium transition-colors'
-              >
-                {locale === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}
-              </Link>
             </div>
 
             {/* Submit Button */}
@@ -223,27 +229,20 @@ export default function LoginPage() {
           {/* Signup Link */}
           <div className='text-center'>
             <p className='text-sm text-deep-charcoal/70'>
-              {locale === 'en' ? "Don't have an account?" : 'ليس لديك حساب؟'}{' '}
+              {locale === 'en'
+                ? "Don't have an affiliate account?"
+                : 'ليس لديك حساب شريك؟'}{' '}
               <Link
-                href={`/${locale}/signup`}
+                href={`/${locale}/affiliate/register`}
                 className='text-saudi-green hover:text-saudi-green/80 font-semibold transition-colors'
               >
-                {locale === 'en' ? 'Sign up' : 'إنشاء حساب'}
+                {locale === 'en' ? 'Register' : 'التسجيل'}
               </Link>
             </p>
-          </div>
-
-          {/* Affiliate Registration Link */}
-          <div className='mt-4 text-center'>
-            <Link
-              href={`/${locale}/affiliate/register`}
-              className='inline-block text-sm text-deep-charcoal/70 hover:text-saudi-green transition-colors font-medium'
-            >
-              {locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
-            </Link>
           </div>
         </div>
       </div>
     </div>
   );
 }
+

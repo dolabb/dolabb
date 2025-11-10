@@ -232,7 +232,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         }, 4000);
                       }
                     }}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                       selectedImage === index
                         ? 'border-saudi-green shadow-md'
                         : 'border-rich-sand/30 hover:border-saudi-green/50'
@@ -287,7 +287,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
 
               {/* Action Buttons */}
               <div className='flex gap-2.5 pt-2'>
-                <button className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors'>
+                <button className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'>
                   {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
                 </button>
                 <button
@@ -303,7 +303,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         : 'تم إضافة المنتج إلى الحقيبة!'
                     );
                   }}
-                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors'
+                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
                 >
                   {locale === 'en' ? 'Add to bag' : 'أضف إلى الحقيبة'}
                 </button>
@@ -379,7 +379,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                   </p>
                 </div>
               </div>
-              <button className='w-full bg-white border border-saudi-green text-saudi-green py-2 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors'>
+              <button className='w-full bg-white border border-saudi-green text-saudi-green py-2 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'>
                 {locale === 'en' ? 'Ask a question' : 'اسأل سؤالاً'}
               </button>
             </div>
@@ -390,7 +390,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
                 <button
                   onClick={() => toggleSection('itemDetails')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors'
+                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
                 >
                   <h2 className='text-sm font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Item Details' : 'تفاصيل العنصر'}
@@ -477,7 +477,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
                 <button
                   onClick={() => toggleSection('productInfo')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors'
+                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
                 >
                   <h2 className='text-sm font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Product Information' : 'معلومات المنتج'}
@@ -536,7 +536,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
                 <button
                   onClick={() => toggleSection('description')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors'
+                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
                 >
                   <h2 className='text-sm font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Description' : 'الوصف'}
@@ -571,7 +571,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
                 <button
                   onClick={() => toggleSection('shipping')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors'
+                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
                 >
                   <h2 className='text-sm font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Shipping' : 'الشحن'}
@@ -612,7 +612,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
                 <button
                   onClick={() => toggleSection('tags')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors'
+                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
                 >
                   <h2 className='text-sm font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Tags' : 'العلامات'}

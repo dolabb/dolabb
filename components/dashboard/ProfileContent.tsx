@@ -70,7 +70,7 @@ export default function ProfileContent() {
                 <h1 className='text-2xl font-bold text-deep-charcoal'>
                   @{user?.username || 'username'}
                 </h1>
-                <button className='p-2 hover:bg-rich-sand/20 rounded-full transition-colors'>
+                <button className='p-2 hover:bg-rich-sand/20 rounded-full transition-colors cursor-pointer'>
                   <HiBell className='w-5 h-5 text-deep-charcoal' />
                 </button>
               </div>
@@ -100,7 +100,7 @@ export default function ProfileContent() {
         <div className='flex gap-4 mb-6 border-b border-rich-sand/30'>
           <button
             onClick={() => setActiveTab('shop')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
               activeTab === 'shop'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -110,7 +110,7 @@ export default function ProfileContent() {
           </button>
           <button
             onClick={() => setActiveTab('reviews')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
               activeTab === 'reviews'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'

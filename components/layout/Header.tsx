@@ -16,6 +16,7 @@ import {
   HiShoppingBag,
   HiTag,
   HiUser,
+  HiUserGroup,
   HiXMark,
 } from 'react-icons/hi2';
 
@@ -123,7 +124,7 @@ export default function Header() {
               <>
                 <button
                   onClick={() => router.push(`/${locale}/my-store`)}
-                  className='text-deep-charcoal hover:text-saudi-green transition-colors font-medium flex items-center gap-1.5 group'
+                  className='text-deep-charcoal hover:text-saudi-green transition-colors font-medium flex items-center gap-1.5 group cursor-pointer'
                 >
                   <HiTag className='w-4 h-4 group-hover:scale-110 transition-transform' />
                   {locale === 'en' ? 'My Store' : 'متجري'}
@@ -148,7 +149,7 @@ export default function Header() {
                     onClick={() =>
                       setIsProfileDropdownOpen(!isProfileDropdownOpen)
                     }
-                    className='text-deep-charcoal hover:text-saudi-green transition-colors relative group'
+                    className='text-deep-charcoal hover:text-saudi-green transition-colors relative group cursor-pointer'
                     title={locale === 'en' ? 'Profile' : 'الملف الشخصي'}
                   >
                     <HiUser className='w-6 h-6 transition-transform group-hover:scale-110' />
@@ -177,7 +178,7 @@ export default function Header() {
                           setIsProfileDropdownOpen(false);
                           router.push(`/${locale}`);
                         }}
-                        className='w-full flex items-center gap-3 px-4 py-2 text-sm text-deep-charcoal hover:bg-rich-sand/10 hover:text-red-600 transition-colors whitespace-nowrap'
+                        className='w-full flex items-center gap-3 px-4 py-2 text-sm text-deep-charcoal hover:bg-rich-sand/10 hover:text-red-600 transition-colors whitespace-nowrap cursor-pointer'
                       >
                         <HiArrowRightOnRectangle className='w-4 h-4 flex-shrink-0' />
                         <span className='font-medium'>
@@ -192,7 +193,7 @@ export default function Header() {
               <>
                 <button
                   onClick={() => router.push(`/${locale}/login`)}
-                  className='text-deep-charcoal hover:text-saudi-green transition-colors font-medium flex items-center gap-1.5 group'
+                  className='text-deep-charcoal hover:text-saudi-green transition-colors font-medium flex items-center gap-1.5 group cursor-pointer'
                 >
                   <HiTag className='w-4 h-4 group-hover:scale-110 transition-transform' />
                   {locale === 'en' ? 'My Store' : 'متجري'}
@@ -203,6 +204,14 @@ export default function Header() {
                   title={t('favorites')}
                 >
                   <HiHeart className='w-6 h-6 transition-transform group-hover:scale-110 fill-saudi-green/50 text-saudi-green' />
+                </Link>
+                <Link
+                  href={`/${locale}/affiliate/register`}
+                  className='px-4 py-2 rounded-full border border-saudi-green/50 text-saudi-green hover:border-saudi-green hover:bg-saudi-green/10 transition-all duration-200 font-medium text-sm flex items-center gap-1.5'
+                  title={locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
+                >
+                  <HiUserGroup className='w-4 h-4' />
+                  <span className='hidden lg:inline'>{locale === 'en' ? 'Affiliate' : 'شريك'}</span>
                 </Link>
                 <Link
                   href={`/${locale}/login`}
@@ -220,7 +229,7 @@ export default function Header() {
             )}
             <button
               onClick={toggleLanguage}
-              className='px-6 py-2 rounded-full border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2'
+              className='px-6 py-2 rounded-full border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer'
             >
               <span className='text-base'>{locale === 'en' ? 'ع' : 'EN'}</span>
               <span className='text-xs'>{locale === 'en' ? 'AR' : 'EN'}</span>
@@ -230,7 +239,7 @@ export default function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className='md:hidden text-deep-charcoal p-2 hover:bg-rich-sand/30 rounded-lg transition-colors'
+            className='md:hidden text-deep-charcoal p-2 hover:bg-rich-sand/30 rounded-lg transition-colors cursor-pointer'
             aria-label='Toggle menu'
           >
             {isMobileMenuOpen ? (
@@ -273,7 +282,7 @@ export default function Header() {
                       setIsMobileMenuOpen(false);
                       router.push(`/${locale}/my-store`);
                     }}
-                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 text-left'
+                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 text-left cursor-pointer'
                   >
                     <HiTag className='w-5 h-5' />
                     {locale === 'en' ? 'My Store' : 'متجري'}
@@ -300,7 +309,7 @@ export default function Header() {
                       onClick={() =>
                         setIsProfileDropdownOpen(!isProfileDropdownOpen)
                       }
-                      className='w-full flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
+                      className='w-full flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 cursor-pointer'
                     >
                       <HiUser className='w-5 h-5 flex-shrink-0' />
                       <span className='text-sm whitespace-nowrap'>
@@ -331,7 +340,7 @@ export default function Header() {
                             setIsProfileDropdownOpen(false);
                             router.push(`/${locale}`);
                           }}
-                          className='w-full flex items-center gap-3 text-sm text-deep-charcoal hover:text-red-600 transition-colors font-medium py-2 whitespace-nowrap'
+                          className='w-full flex items-center gap-3 text-sm text-deep-charcoal hover:text-red-600 transition-colors font-medium py-2 whitespace-nowrap cursor-pointer'
                         >
                           <HiArrowRightOnRectangle className='w-4 h-4 flex-shrink-0' />
                           <span>
@@ -349,7 +358,7 @@ export default function Header() {
                       setIsMobileMenuOpen(false);
                       router.push(`/${locale}/login`);
                     }}
-                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 text-left'
+                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 text-left cursor-pointer'
                   >
                     <HiTag className='w-5 h-5' />
                     {locale === 'en' ? 'My Store' : 'متجري'}
@@ -361,6 +370,14 @@ export default function Header() {
                   >
                     <HiHeart className='w-5 h-5 fill-saudi-green text-saudi-green' />
                     {t('favorites')}
+                  </Link>
+                  <Link
+                    href={`/${locale}/affiliate/register`}
+                    className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-saudi-green/50 text-saudi-green hover:border-saudi-green hover:bg-saudi-green/10 transition-all duration-200 font-medium'
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <HiUserGroup className='w-5 h-5' />
+                    {locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
                   </Link>
                   <Link
                     href={`/${locale}/login`}
@@ -380,7 +397,7 @@ export default function Header() {
               )}
               <button
                 onClick={toggleLanguage}
-                className='px-4 py-2 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 w-fit'
+                className='px-4 py-2 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 w-fit cursor-pointer'
               >
                 <span className='text-base'>
                   {locale === 'en' ? 'ع' : 'EN'}

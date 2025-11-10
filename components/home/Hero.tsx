@@ -30,9 +30,6 @@ export default function Hero() {
         <p className='text-lg md:text-xl lg:text-2xl text-deep-charcoal/80 mb-8 max-w-2xl mx-auto leading-relaxed font-medium'>
           {t('subtitle')}
         </p>
-        <button className='px-8 py-4 bg-saudi-green text-white rounded-full font-semibold text-lg hover:bg-saudi-green/90 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl relative z-20 font-display'>
-          {t('cta')}
-        </button>
       </div>
 
       {/* Decorative Elements */}

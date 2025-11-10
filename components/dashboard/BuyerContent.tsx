@@ -94,7 +94,7 @@ export default function BuyerContent() {
         <div className='flex gap-4 mb-6 border-b border-rich-sand/30'>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
               activeTab === 'orders'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -104,7 +104,7 @@ export default function BuyerContent() {
           </button>
           <button
             onClick={() => setActiveTab('offers')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
               activeTab === 'offers'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -244,10 +244,10 @@ export default function BuyerContent() {
                     {locale === 'en' ? 'Pending' : 'قيد الانتظار'}
                   </span>
                   <div className='flex gap-2'>
-                    <button className='flex-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors'>
+                    <button className='flex-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors cursor-pointer'>
                       {locale === 'en' ? 'Accept' : 'قبول'}
                     </button>
-                    <button className='flex-1 px-4 py-2 bg-saudi-green text-white rounded-lg text-sm font-medium hover:bg-saudi-green/90 transition-colors'>
+                    <button className='flex-1 px-4 py-2 bg-saudi-green text-white rounded-lg text-sm font-medium hover:bg-saudi-green/90 transition-colors cursor-pointer'>
                       {locale === 'en' ? 'Counter' : 'مقابل'}
                     </button>
                   </div>

@@ -155,7 +155,7 @@ export default function SignupPage() {
                   <button
                     type="button"
                     onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                    className={`flex items-center gap-2 px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green transition-all bg-white ${
+                    className={`flex items-center gap-2 px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green transition-all bg-white cursor-pointer ${
                       errors.phone
                         ? 'border-coral-red'
                         : 'border-rich-sand hover:border-saudi-green'
@@ -189,7 +189,7 @@ export default function SignupPage() {
                                 setShowCountryDropdown(false);
                                 setCountrySearch('');
                               }}
-                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-saudi-green/10 transition-colors text-left ${
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-saudi-green/10 transition-colors text-left cursor-pointer ${
                                 selectedCountry.code === country.code ? 'bg-saudi-green/20' : ''
                               }`}
                             >
@@ -293,7 +293,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-deep-charcoal/40 hover:text-deep-charcoal transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-deep-charcoal/40 hover:text-deep-charcoal transition-colors cursor-pointer"
                 >
                   {showPassword ? (
                     <HiEyeSlash className="h-5 w-5" />
@@ -332,7 +332,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-deep-charcoal/40 hover:text-deep-charcoal transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-deep-charcoal/40 hover:text-deep-charcoal transition-colors cursor-pointer"
                 >
                   {showConfirmPassword ? (
                     <HiEyeSlash className="h-5 w-5" />
@@ -350,7 +350,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display"
+              className="w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display cursor-pointer"
             >
               {isLoading
                 ? (locale === 'en' ? 'Creating account...' : 'جاري إنشاء الحساب...')
@@ -378,6 +378,16 @@ export default function SignupPage() {
                 {locale === 'en' ? 'Log in' : 'تسجيل الدخول'}
               </Link>
             </p>
+          </div>
+
+          {/* Affiliate Registration Link */}
+          <div className="mt-4 text-center">
+            <Link
+              href={`/${locale}/affiliate/register`}
+              className="inline-block text-sm text-deep-charcoal/70 hover:text-saudi-green transition-colors font-medium"
+            >
+              {locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
+            </Link>
           </div>
         </div>
 

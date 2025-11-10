@@ -1,6 +1,7 @@
 'use client';
 
 import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -73,6 +74,7 @@ interface AttachedFile {
 
 export default function MessagesContent() {
   const locale = useLocale();
+  const router = useRouter();
   const isRTL = locale === 'ar';
   const [selectedUser, setSelectedUser] = useState(users[0]);
   const [showChat, setShowChat] = useState(false); // Mobile: controls chat visibility
@@ -194,7 +196,7 @@ export default function MessagesContent() {
                 <button
                   key={user.id}
                   onClick={() => handleUserSelect(user)}
-                  className={`w-full p-4 flex items-center gap-3 hover:bg-rich-sand/10 transition-colors text-left ${
+                  className={`w-full p-4 flex items-center gap-3 hover:bg-rich-sand/10 transition-colors text-left cursor-pointer ${
                     selectedUser.id === user.id ? 'bg-saudi-green/5' : ''
                   }`}
                 >
@@ -242,7 +244,7 @@ export default function MessagesContent() {
                 <div className='p-4 border-b border-rich-sand/30 flex items-center gap-3 flex-shrink-0'>
                   <button
                     onClick={handleBackToUsers}
-                    className='md:hidden p-2 hover:bg-rich-sand/10 rounded-lg transition-colors'
+                    className='md:hidden p-2 hover:bg-rich-sand/10 rounded-lg transition-colors cursor-pointer'
                     aria-label={locale === 'en' ? 'Back' : 'رجوع'}
                   >
                     <HiArrowLeft className='w-5 h-5 text-deep-charcoal' />
@@ -339,11 +341,34 @@ export default function MessagesContent() {
                             </p>
                           </div>
                           <div className='flex gap-2'>
-                            <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors'>
+                            <button
+                              onClick={() => {
+                                // Redirect to checkout with offer data
+                                const offerData = {
+                                  id: offer.id,
+                                  product: offer.product,
+                                  size: offer.size,
+                                  price: offer.price,
+                                  offer: offer.offer,
+                                  shipping: offer.shipping,
+                                };
+                                // Encode offer data as query params
+                                const params = new URLSearchParams({
+                                  offerId: offer.id,
+                                  product: offer.product,
+                                  size: offer.size,
+                                  price: offer.price.toString(),
+                                  offerPrice: offer.offer.toString(),
+                                  shipping: offer.shipping.toString(),
+                                });
+                                router.push(`/${locale}/checkout?${params.toString()}`);
+                              }}
+                              className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors cursor-pointer'
+                            >
                               <HiCheck className='w-5 h-5' />
                               {locale === 'en' ? 'Accept' : 'قبول'}
                             </button>
-                            <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-saudi-green text-white rounded-lg font-medium hover:bg-saudi-green/90 transition-colors'>
+                            <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-saudi-green text-white rounded-lg font-medium hover:bg-saudi-green/90 transition-colors cursor-pointer'>
                               {locale === 'en' ? 'Counter' : 'مقابل'}
                             </button>
                           </div>
@@ -433,7 +458,7 @@ export default function MessagesContent() {
                           />
                           <button
                             onClick={() => removeAttachment(file.id)}
-                            className='absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors'
+                            className='absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors cursor-pointer'
                             aria-label={locale === 'en' ? 'Remove' : 'إزالة'}
                           >
                             <HiXMark className='w-3 h-3' />
@@ -497,7 +522,7 @@ export default function MessagesContent() {
                       disabled={
                         !messageText.trim() && attachedFiles.length === 0
                       }
-                      className='p-2.5 md:p-3 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0'
+                      className='p-2.5 md:p-3 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 cursor-pointer'
                       aria-label={
                         locale === 'en' ? 'Send message' : 'إرسال رسالة'
                       }

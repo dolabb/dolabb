@@ -249,8 +249,11 @@ export default function NavigationBar() {
           <div className='flex md:hidden items-center justify-center gap-2 sm:gap-3 h-14 overflow-x-auto scrollbar-hide'>
             {userNavItems.map(item => {
               const IconComponent = item.icon;
+              // For home route, only match exact pathname, not sub-routes
               const isActive =
-                pathname === item.href || pathname.startsWith(item.href + '/');
+                item.key === 'home'
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(item.href + '/');
 
               return (
                 <Link
@@ -286,8 +289,11 @@ export default function NavigationBar() {
           <div className='hidden md:flex items-center justify-center gap-6 lg:gap-8 h-14'>
             {userNavItems.map(item => {
               const IconComponent = item.icon;
+              // For home route, only match exact pathname, not sub-routes
               const isActive =
-                pathname === item.href || pathname.startsWith(item.href + '/');
+                item.key === 'home'
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(item.href + '/');
 
               return (
                 <Link

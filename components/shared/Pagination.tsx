@@ -92,7 +92,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all duration-200 ${
           currentPage === 1
             ? 'border-rich-sand/30 bg-off-white text-deep-charcoal/30 cursor-not-allowed'
-            : 'border-rich-sand bg-white text-deep-charcoal hover:border-saudi-green hover:bg-saudi-green hover:text-white hover:scale-105'
+            : 'border-rich-sand bg-white text-deep-charcoal hover:border-saudi-green hover:bg-saudi-green hover:text-white hover:scale-105 cursor-pointer'
         }`}
         aria-label={locale === 'en' ? 'Previous page' : 'الصفحة السابقة'}
       >
@@ -124,7 +124,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             <button
               key={pageNum}
               onClick={() => onPageChange(pageNum)}
-              className={`min-w-[2.5rem] h-10 px-3 rounded-lg border transition-all duration-200 font-medium ${
+              className={`min-w-[2.5rem] h-10 px-3 rounded-lg border transition-all duration-200 font-medium cursor-pointer ${
                 isActive
                   ? 'bg-saudi-green border-saudi-green text-white shadow-lg shadow-saudi-green/30 scale-105'
                   : 'bg-white border-rich-sand text-deep-charcoal hover:border-saudi-green hover:text-saudi-green hover:bg-saudi-green/5'
@@ -145,7 +145,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all duration-200 ${
           currentPage === totalPages
             ? 'border-rich-sand/30 bg-off-white text-deep-charcoal/30 cursor-not-allowed'
-            : 'border-rich-sand bg-white text-deep-charcoal hover:border-saudi-green hover:bg-saudi-green hover:text-white hover:scale-105'
+            : 'border-rich-sand bg-white text-deep-charcoal hover:border-saudi-green hover:bg-saudi-green hover:text-white hover:scale-105 cursor-pointer'
         }`}
         aria-label={locale === 'en' ? 'Next page' : 'الصفحة التالية'}
       >

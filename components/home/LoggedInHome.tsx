@@ -3,11 +3,9 @@
 import ProductCard from '@/components/shared/ProductCard';
 import { featuredProducts, trendingProducts } from '@/data/products';
 import { useLocale } from 'next-intl';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
-
+import Hero from './Hero';
 export default function LoggedInHome() {
   const locale = useLocale();
   const isRTL = locale === 'ar';
@@ -59,85 +57,7 @@ export default function LoggedInHome() {
     <div className='bg-off-white' dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Hero Section - Trending Clothes with Carousel */}
       <section>
-          {/* Image Carousel */}
-          <div className='relative mb-8 md:mb-12'>
-            <div className='relative h-64 md:h-96 lg:h-[500px] overflow-hidden shadow-xl'>
-              {carouselProducts.map((product, index) => (
-                <div
-                  key={product.id}
-                  className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                    currentSlide === index
-                      ? 'opacity-100 z-10'
-                      : 'opacity-0 z-0'
-                  }`}
-                >
-                  <Image
-                    src={product.image}
-                    alt={product.title}
-                    fill
-                    className='object-cover'
-                    priority={index === 0}
-                    unoptimized={product.image.includes('unsplash.com')}
-                  />
-                  {/* Overlay with product info */}
-                  <div className='absolute inset-0 bg-gradient-to-t from-deep-charcoal/80 via-deep-charcoal/20 to-transparent'>
-                    <div className='absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white'>
-                      <h3 className='text-2xl md:text-3xl font-bold mb-2 font-display'>
-                        {product.title}
-                      </h3>
-                      <p className='text-xl md:text-2xl font-semibold text-saudi-green mb-4'>
-                        {locale === 'ar' ? 'ر.س' : 'SAR'} {product.price.toFixed(2)}
-                      </p>
-                      <Link
-                        href={`/${locale}/product/${product.id}`}
-                        className='inline-block px-4 py-2 text-sm bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors shadow-lg hover:shadow-xl'
-                      >
-                        {locale === 'en' ? 'Shop Now' : 'تسوق الآن'}
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Navigation Arrows - Hidden on mobile */}
-              <button
-                onClick={prevSlide}
-                className={`hidden md:flex absolute top-1/2 -translate-y-1/2 ${
-                  isRTL ? 'right-4' : 'left-4'
-                } z-20 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-all hover:scale-110 items-center justify-center`}
-                aria-label={
-                  locale === 'en' ? 'Previous slide' : 'الشريحة السابقة'
-                }
-              >
-                <HiChevronLeft className='w-6 h-6 text-deep-charcoal' />
-              </button>
-              <button
-                onClick={nextSlide}
-                className={`hidden md:flex absolute top-1/2 -translate-y-1/2 ${
-                  isRTL ? 'left-4' : 'right-4'
-                } z-20 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-all hover:scale-110 items-center justify-center`}
-                aria-label={locale === 'en' ? 'Next slide' : 'الشريحة التالية'}
-              >
-                <HiChevronRight className='w-6 h-6 text-deep-charcoal' />
-              </button>
-
-              {/* Dots Indicator */}
-              <div className='absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2'>
-                {carouselProducts.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToSlide(index)}
-                    className={`h-2 rounded-full transition-all ${
-                      currentSlide === index
-                        ? 'w-8 bg-white'
-                        : 'w-2 bg-white/50 hover:bg-white/75'
-                    }`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+        <Hero />
       </section>
 
       {/* Items You Might Like */}

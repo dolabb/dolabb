@@ -51,6 +51,7 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
     tags: '',
     shippingCost: '',
     processingTime: '',
+    affiliateCode: '',
   });
 
   const [customSizes, setCustomSizes] = useState<string[]>([]);
@@ -124,7 +125,17 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
     const submitData = {
       ...formData,
       tags: tags.join(', '),
+      id: `ITEM-${Date.now()}`,
+      listedAt: new Date().toISOString(),
     };
+    
+    // Store listed item with affiliate code
+    if (typeof window !== 'undefined') {
+      const listedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+      listedItems.push(submitData);
+      localStorage.setItem('listedItems', JSON.stringify(listedItems));
+    }
+    
     console.log('Form submitted:', submitData);
     alert(
       locale === 'en' ? 'Item listed successfully!' : 'تم إضافة المنتج بنجاح!'
@@ -139,7 +150,17 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
     const submitData = {
       ...formData,
       tags: tags.join(', '),
+      id: `ITEM-${Date.now()}`,
+      listedAt: new Date().toISOString(),
     };
+    
+    // Store listed item with affiliate code
+    if (typeof window !== 'undefined') {
+      const listedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+      listedItems.push(submitData);
+      localStorage.setItem('listedItems', JSON.stringify(listedItems));
+    }
+    
     console.log('Form submitted:', submitData);
     alert(
       locale === 'en' ? 'Item listed successfully!' : 'تم إضافة المنتج بنجاح!'
@@ -209,7 +230,7 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className={`w-full px-3 py-2 text-sm text-left hover:bg-saudi-green/10 transition-colors ${
+                className={`w-full px-3 py-2 text-sm text-left hover:bg-saudi-green/10 transition-colors cursor-pointer ${
                   value === option.value
                     ? 'bg-saudi-green/20 text-saudi-green font-medium'
                     : 'text-deep-charcoal'
@@ -275,7 +296,7 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
                   <button
                     type='button'
                     onClick={() => removePhoto(index)}
-                    className='absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md'
+                    className='absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md cursor-pointer'
                   >
                     <HiXMark className='w-3 h-3' />
                   </button>
@@ -455,7 +476,7 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
               <button
                 type='button'
                 onClick={addCustomSize}
-                className='px-2 py-1 bg-saudi-green text-white rounded hover:bg-saudi-green/90 transition-colors text-xs'
+                className='px-2 py-1 bg-saudi-green text-white rounded hover:bg-saudi-green/90 transition-colors text-xs cursor-pointer'
               >
                 <HiPlus className='w-3 h-3' />
               </button>
@@ -471,7 +492,7 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
                     <button
                       type='button'
                       onClick={() => removeCustomSize(index)}
-                      className='hover:text-red-500'
+                      className='hover:text-red-500 cursor-pointer'
                     >
                       <HiXMark className='w-2.5 h-2.5' />
                     </button>
@@ -605,7 +626,7 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
                   <button
                     type='button'
                     onClick={() => removeTag(index)}
-                    className='hover:text-red-500 transition-colors'
+                    className='hover:text-red-500 transition-colors cursor-pointer'
                   >
                     <HiXMark className='w-4 h-4' />
                   </button>
@@ -662,18 +683,43 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
           </div>
         </div>
 
+        {/* Affiliate Code (Optional) */}
+        <div>
+          <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
+            {locale === 'en' ? 'Affiliate Code (Optional)' : 'رمز الشريك (اختياري)'}
+          </label>
+          <input
+            type='text'
+            value={formData.affiliateCode}
+            onChange={e =>
+              setFormData(prev => ({
+                ...prev,
+                affiliateCode: e.target.value.toUpperCase(),
+              }))
+            }
+            placeholder={locale === 'en' ? 'AFF-XXXXXX' : 'AFF-XXXXXX'}
+            className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+            style={{ textTransform: 'uppercase' }}
+          />
+          <p className='mt-1 text-xs text-deep-charcoal/60'>
+            {locale === 'en'
+              ? 'Enter an affiliate code if you want to share commission with an affiliate'
+              : 'أدخل رمز الشريك إذا كنت تريد مشاركة العمولة مع شريك'}
+          </p>
+        </div>
+
         {/* Form Actions */}
         <div className='flex gap-3 pt-4 border-t-2 border-rich-sand/30'>
           <button
             type='button'
             onClick={onCancel}
-            className='flex-1 px-4 py-2.5 border-2 border-rich-sand/30 text-deep-charcoal rounded-lg font-semibold hover:bg-rich-sand/20 hover:border-rich-sand/50 transition-all text-sm'
+            className='flex-1 px-4 py-2.5 border-2 border-rich-sand/30 text-deep-charcoal rounded-lg font-semibold hover:bg-rich-sand/20 hover:border-rich-sand/50 transition-all text-sm cursor-pointer'
           >
             {locale === 'en' ? 'Cancel' : 'إلغاء'}
           </button>
           <button
             type='submit'
-            className='flex-1 px-4 py-2.5 bg-gradient-to-r from-saudi-green to-emerald-600 text-white rounded-lg font-semibold hover:from-saudi-green/90 hover:to-emerald-500 transition-all shadow-md hover:shadow-lg text-sm'
+            className='flex-1 px-4 py-2.5 bg-gradient-to-r from-saudi-green to-emerald-600 text-white rounded-lg font-semibold hover:from-saudi-green/90 hover:to-emerald-500 transition-all shadow-md hover:shadow-lg text-sm cursor-pointer'
           >
             {locale === 'en' ? 'Submit' : 'إرسال'}
           </button>

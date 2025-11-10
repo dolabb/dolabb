@@ -25,7 +25,7 @@ export default function MyStoreContent() {
           </h1>
           <button
             onClick={() => setShowListForm(!showListForm)}
-            className='flex items-center gap-2 px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors shadow-md hover:shadow-lg'
+            className='flex items-center gap-2 px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors shadow-md hover:shadow-lg cursor-pointer'
           >
             <HiPlus className='w-5 h-5' />
             {locale === 'en' ? 'List an item' : 'إضافة منتج'}
@@ -39,7 +39,7 @@ export default function MyStoreContent() {
               setActiveTab('manage');
               setShowListForm(false);
             }}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
               activeTab === 'manage'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -52,7 +52,7 @@ export default function MyStoreContent() {
               setActiveTab('payments');
               setShowListForm(false);
             }}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
               activeTab === 'payments'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
