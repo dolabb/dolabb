@@ -98,7 +98,7 @@ export default function AffiliateLoginPage() {
         {/* Logo/Title */}
         <div className='text-center'>
           <h2 className='text-2xl font-semibold text-deep-charcoal font-display mb-2'>
-            {locale === 'en' ? 'Affiliate Login' : 'تسجيل دخول الشريك'}
+            {locale === 'en' ? 'Welcome back' : 'مرحباً بعودتك'}
           </h2>
           <p className='text-deep-charcoal/70'>
             {locale === 'en'
@@ -108,7 +108,7 @@ export default function AffiliateLoginPage() {
         </div>
 
         {/* Login Form */}
-        <div className='bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30 mt-6'>
+        <div className='bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30'>
           <form onSubmit={handleSubmit} className='space-y-5'>
             {/* Email */}
             <div>
@@ -117,8 +117,8 @@ export default function AffiliateLoginPage() {
                 className='block text-sm font-medium text-deep-charcoal mb-2'
               >
                 {locale === 'en'
-                  ? 'Email'
-                  : 'البريد الإلكتروني'}
+                  ? 'Email or Username'
+                  : 'البريد الإلكتروني أو اسم المستخدم'}
               </label>
               <div className='relative'>
                 <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
@@ -199,6 +199,12 @@ export default function AffiliateLoginPage() {
                   {locale === 'en' ? 'Remember me' : 'تذكرني'}
                 </span>
               </label>
+              <Link
+                href={`/${locale}/affiliate/forgot-password`}
+                className='text-sm text-saudi-green hover:text-saudi-green/80 font-medium transition-colors'
+              >
+                {locale === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}
+              </Link>
             </div>
 
             {/* Submit Button */}

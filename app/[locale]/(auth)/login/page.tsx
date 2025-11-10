@@ -232,16 +232,6 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
-
-          {/* Affiliate Registration Link */}
-          <div className='mt-4 text-center'>
-            <Link
-              href={`/${locale}/affiliate/register`}
-              className='inline-block text-sm text-deep-charcoal/70 hover:text-saudi-green transition-colors font-medium'
-            >
-              {locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
-            </Link>
-          </div>
         </div>
       </div>
     </div>

@@ -3,8 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import { HiHeart } from 'react-icons/hi2';
-import { FaHeart } from 'react-icons/fa';
 
 interface ProductCardProps {
   id?: string;
@@ -25,7 +23,6 @@ export default function ProductCard({
   isLiked = false,
   locale = 'en',
 }: ProductCardProps) {
-  const [liked, setLiked] = useState(isLiked);
   const [imageError, setImageError] = useState(false);
   const isRTL = locale === 'ar';
   
@@ -51,24 +48,6 @@ export default function ProductCard({
           onError={() => setImageError(true)}
           unoptimized={image.includes('unsplash.com') || imageError}
         />
-        {/* Like Button */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setLiked(!liked);
-          }}
-          className={`absolute top-2 ${isRTL ? 'left-2' : 'right-2'} p-2 rounded-full bg-white/90 backdrop-blur-sm transition-all hover:bg-white hover:scale-110 z-10 cursor-pointer ${
-            liked ? 'text-coral-red' : 'text-deep-charcoal/70'
-          }`}
-          aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          {liked ? (
-            <FaHeart className="w-5 h-5 fill-current" />
-          ) : (
-            <HiHeart className="w-5 h-5" />
-          )}
-        </button>
       </div>
 
       {/* Product Info */}

@@ -10,7 +10,6 @@ import {
   HiArrowRightOnRectangle,
   HiBars3,
   HiChatBubbleLeftRight,
-  HiHeart,
   HiMagnifyingGlass,
   HiPencilSquare,
   HiShoppingBag,
@@ -199,23 +198,16 @@ export default function Header() {
                   {locale === 'en' ? 'My Store' : 'متجري'}
                 </button>
                 <Link
-                  href={`/${locale}/favorites`}
-                  className='text-deep-charcoal hover:text-saudi-green transition-colors relative group'
-                  title={t('favorites')}
-                >
-                  <HiHeart className='w-6 h-6 transition-transform group-hover:scale-110 fill-saudi-green/50 text-saudi-green' />
-                </Link>
-                <Link
-                  href={`/${locale}/affiliate/register`}
-                  className='px-4 py-2 rounded-full border border-saudi-green/50 text-saudi-green hover:border-saudi-green hover:bg-saudi-green/10 transition-all duration-200 font-medium text-sm flex items-center gap-1.5'
-                  title={locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
+                  href={`/${locale}/affiliate/login`}
+                  className='px-4 py-2 rounded-full bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold text-sm shadow-md hover:shadow-lg hover:scale-105 font-display flex items-center gap-1.5'
+                  title={locale === 'en' ? 'Affiliate Login' : 'تسجيل دخول الشريك'}
                 >
                   <HiUserGroup className='w-4 h-4' />
                   <span className='hidden lg:inline'>{locale === 'en' ? 'Affiliate' : 'شريك'}</span>
                 </Link>
                 <Link
                   href={`/${locale}/login`}
-                  className='px-4 py-2 rounded-full border border-rich-sand text-deep-charcoal hover:border-saudi-green hover:text-saudi-green hover:bg-saudi-green/5 transition-all duration-200 font-medium text-sm'
+                  className='px-4 py-2 rounded-full bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold text-sm shadow-md hover:shadow-lg hover:scale-105 font-display'
                 >
                   {locale === 'en' ? 'Log In' : 'تسجيل الدخول'}
                 </Link>
@@ -364,24 +356,16 @@ export default function Header() {
                     {locale === 'en' ? 'My Store' : 'متجري'}
                   </button>
                   <Link
-                    href={`/${locale}/favorites`}
-                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <HiHeart className='w-5 h-5 fill-saudi-green text-saudi-green' />
-                    {t('favorites')}
-                  </Link>
-                  <Link
-                    href={`/${locale}/affiliate/register`}
-                    className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-saudi-green/50 text-saudi-green hover:border-saudi-green hover:bg-saudi-green/10 transition-all duration-200 font-medium'
+                    href={`/${locale}/affiliate/login`}
+                    className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold shadow-md hover:shadow-lg font-display'
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <HiUserGroup className='w-5 h-5' />
-                    {locale === 'en' ? 'Affiliate Registration' : 'تسجيل كشريك'}
+                    {locale === 'en' ? 'Affiliate Login' : 'تسجيل دخول الشريك'}
                   </Link>
                   <Link
                     href={`/${locale}/login`}
-                    className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-rich-sand text-deep-charcoal hover:border-saudi-green hover:text-saudi-green hover:bg-saudi-green/5 transition-all duration-200 font-medium'
+                    className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold shadow-md hover:shadow-lg font-display'
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {locale === 'en' ? 'Log In' : 'تسجيل الدخول'}
