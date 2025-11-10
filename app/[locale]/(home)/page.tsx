@@ -2,11 +2,9 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import Hero from '@/components/home/Hero';
-import CategoriesSection from '@/components/home/CategoriesSection';
 import FeaturedProductsSection from '@/components/home/FeaturedProductsSection';
-import TrendingProductsSection from '@/components/home/TrendingProductsSection';
 import LoggedInHome from '@/components/home/LoggedInHome';
-import { featuredProducts, trendingProducts } from '@/data/products';
+import { featuredProducts } from '@/data/products';
 import { useLocale } from 'next-intl';
 
 export default function HomePage() {
@@ -22,9 +20,7 @@ export default function HomePage() {
   return (
     <div className='bg-off-white' dir={isRTL ? 'rtl' : 'ltr'}>
       <Hero />
-      <CategoriesSection />
       <FeaturedProductsSection products={featuredProducts} />
-      <TrendingProductsSection products={trendingProducts} />
     </div>
   );
 }

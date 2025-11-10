@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { HiPhone, HiUser, HiLockClosed, HiEye, HiEyeSlash, HiChevronDown } from 'react-icons/hi2';
 import { countries, defaultCountry, Country } from '@/data/countries';
+import TermsModal from '@/components/shared/TermsModal';
 
 export default function SignupPage() {
   const locale = useLocale();
@@ -25,6 +26,8 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
   
   // Filter countries based on search
@@ -95,12 +98,29 @@ export default function SignupPage() {
       return;
     }
 
+    // Show terms modal if not accepted
+    if (!termsAccepted) {
+      setShowTermsModal(true);
+      return;
+    }
+
     setIsLoading(true);
     
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
       // Redirect to login or home page
+      router.push(`/${locale}/login`);
+    }, 1500);
+  };
+
+  const handleAcceptTerms = () => {
+    setTermsAccepted(true);
+    setShowTermsModal(false);
+    // Automatically submit form after accepting terms
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
       router.push(`/${locale}/login`);
     }, 1500);
   };
@@ -368,6 +388,15 @@ export default function SignupPage() {
             : 'بالتسجيل، أنت توافق على شروط الخدمة وسياسة الخصوصية'}
         </p>
       </div>
+
+      {/* Terms Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onAccept={handleAcceptTerms}
+        onClose={() => setShowTermsModal(false)}
+        title={locale === 'en' ? 'Accept Terms of Service' : 'قبول شروط الخدمة'}
+        description={locale === 'en' ? 'You must accept our Terms of Service to create an account' : 'يجب عليك قبول شروط الخدمة لإنشاء حساب'}
+      />
     </div>
   );
 }

@@ -126,7 +126,7 @@ export default function Header() {
                   className='text-deep-charcoal hover:text-saudi-green transition-colors font-medium flex items-center gap-1.5 group'
                 >
                   <HiTag className='w-4 h-4 group-hover:scale-110 transition-transform' />
-                  {locale === 'en' ? 'Sell now' : 'بيع الآن'}
+                  {locale === 'en' ? 'My Store' : 'متجري'}
                 </button>
                 <Link
                   href={`/${locale}/cart`}
@@ -195,7 +195,7 @@ export default function Header() {
                   className='text-deep-charcoal hover:text-saudi-green transition-colors font-medium flex items-center gap-1.5 group'
                 >
                   <HiTag className='w-4 h-4 group-hover:scale-110 transition-transform' />
-                  {t('sell')}
+                  {locale === 'en' ? 'My Store' : 'متجري'}
                 </button>
                 <Link
                   href={`/${locale}/favorites`}
@@ -276,7 +276,7 @@ export default function Header() {
                     className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 text-left'
                   >
                     <HiTag className='w-5 h-5' />
-                    {locale === 'en' ? 'Sell now' : 'بيع الآن'}
+                    {locale === 'en' ? 'My Store' : 'متجري'}
                   </button>
                   <Link
                     href={`/${locale}/cart`}
@@ -352,7 +352,7 @@ export default function Header() {
                     className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 text-left'
                   >
                     <HiTag className='w-5 h-5' />
-                    {t('sell')}
+                    {locale === 'en' ? 'My Store' : 'متجري'}
                   </button>
                   <Link
                     href={`/${locale}/favorites`}

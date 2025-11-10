@@ -1,18 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { HiEnvelope, HiLockClosed, HiEye, HiEyeSlash } from 'react-icons/hi2';
-
+import { useState } from 'react';
+import { HiEnvelope, HiEye, HiEyeSlash, HiLockClosed } from 'react-icons/hi2';
 export default function LoginPage() {
   const locale = useLocale();
   const router = useRouter();
   const { login } = useAuth();
   const isRTL = locale === 'ar';
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -35,13 +34,18 @@ export default function LoginPage() {
     const newErrors: Record<string, string> = {};
 
     if (!formData.email.trim()) {
-      newErrors.email = locale === 'en' ? 'Email is required' : 'البريد الإلكتروني مطلوب';
+      newErrors.email =
+        locale === 'en' ? 'Email is required' : 'البريد الإلكتروني مطلوب';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = locale === 'en' ? 'Please enter a valid email' : 'يرجى إدخال بريد إلكتروني صحيح';
+      newErrors.email =
+        locale === 'en'
+          ? 'Please enter a valid email'
+          : 'يرجى إدخال بريد إلكتروني صحيح';
     }
 
     if (!formData.password) {
-      newErrors.password = locale === 'en' ? 'Password is required' : 'كلمة المرور مطلوبة';
+      newErrors.password =
+        locale === 'en' ? 'Password is required' : 'كلمة المرور مطلوبة';
     }
 
     setErrors(newErrors);
@@ -50,13 +54,13 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    
+
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
@@ -65,7 +69,8 @@ export default function LoginPage() {
         id: '1',
         username: 'summernorton_',
         email: formData.email,
-        profileImage: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
+        profileImage:
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
       });
       // Redirect to home page
       router.push(`/${locale}`);
@@ -73,108 +78,118 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-off-white flex items-center justify-center py-12 px-4" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="w-full max-w-md">
+    <div
+      className='min-h-screen bg-off-white flex items-center justify-center py-12 px-4'
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
+      <div className='w-full max-w-md'>
         {/* Logo/Title */}
-        <div className="text-center mb-8">
-          <Link href={`/${locale}`} className="inline-block">
-            <h1 className="text-4xl font-bold text-saudi-green font-display mb-2">Depop</h1>
-          </Link>
-          <h2 className="text-2xl font-semibold text-deep-charcoal font-display mb-2">
+        <div className='text-center'>
+          <h2 className='text-2xl font-semibold text-deep-charcoal font-display mb-2'>
             {locale === 'en' ? 'Welcome back' : 'مرحباً بعودتك'}
           </h2>
-          <p className="text-deep-charcoal/70">
-            {locale === 'en' ? 'Log in to your account' : 'سجل الدخول إلى حسابك'}
+          <p className='text-deep-charcoal/70'>
+            {locale === 'en'
+              ? 'Log in to your account'
+              : 'سجل الدخول إلى حسابك'}
           </p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className='bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30'>
+          <form onSubmit={handleSubmit} className='space-y-5'>
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-deep-charcoal mb-2">
-                {locale === 'en' ? 'Email or Username' : 'البريد الإلكتروني أو اسم المستخدم'}
+              <label
+                htmlFor='email'
+                className='block text-sm font-medium text-deep-charcoal mb-2'
+              >
+                {locale === 'en'
+                  ? 'Email or Username'
+                  : 'البريد الإلكتروني أو اسم المستخدم'}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <HiEnvelope className="h-5 w-5 text-deep-charcoal/40" />
+              <div className='relative'>
+                <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                  <HiEnvelope className='h-5 w-5 text-deep-charcoal/40' />
                 </div>
                 <input
-                  type="text"
-                  id="email"
-                  name="email"
+                  type='text'
+                  id='email'
+                  name='email'
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder={locale === 'en' ? 'you@example.com' : 'example@email.com'}
+                  placeholder={
+                    locale === 'en' ? 'you@example.com' : 'example@email.com'
+                  }
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                    errors.email
-                      ? 'border-coral-red'
-                      : 'border-rich-sand'
+                    errors.email ? 'border-coral-red' : 'border-rich-sand'
                   }`}
-                  dir="ltr"
+                  dir='ltr'
                 />
               </div>
               {errors.email && (
-                <p className="mt-1 text-sm text-coral-red">{errors.email}</p>
+                <p className='mt-1 text-sm text-coral-red'>{errors.email}</p>
               )}
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-deep-charcoal mb-2">
+              <label
+                htmlFor='password'
+                className='block text-sm font-medium text-deep-charcoal mb-2'
+              >
                 {locale === 'en' ? 'Password' : 'كلمة المرور'}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <HiLockClosed className="h-5 w-5 text-deep-charcoal/40" />
+              <div className='relative'>
+                <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                  <HiLockClosed className='h-5 w-5 text-deep-charcoal/40' />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
+                  id='password'
+                  name='password'
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder={locale === 'en' ? 'Enter your password' : 'أدخل كلمة المرور'}
+                  placeholder={
+                    locale === 'en' ? 'Enter your password' : 'أدخل كلمة المرور'
+                  }
                   className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                    errors.password
-                      ? 'border-coral-red'
-                      : 'border-rich-sand'
+                    errors.password ? 'border-coral-red' : 'border-rich-sand'
                   }`}
                 />
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-deep-charcoal/40 hover:text-deep-charcoal transition-colors"
+                  className='absolute inset-y-0 right-0 pr-3 flex items-center text-deep-charcoal/40 hover:text-deep-charcoal transition-colors'
                 >
                   {showPassword ? (
-                    <HiEyeSlash className="h-5 w-5" />
+                    <HiEyeSlash className='h-5 w-5' />
                   ) : (
-                    <HiEye className="h-5 w-5" />
+                    <HiEye className='h-5 w-5' />
                   )}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-sm text-coral-red">{errors.password}</p>
+                <p className='mt-1 text-sm text-coral-red'>{errors.password}</p>
               )}
             </div>
 
             {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className='flex items-center justify-between'>
+              <label className='flex items-center gap-2 cursor-pointer'>
                 <input
-                  type="checkbox"
+                  type='checkbox'
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className=""
+                  onChange={e => setRememberMe(e.target.checked)}
+                  className=''
                 />
-                <span className="text-sm text-deep-charcoal">
+                <span className='text-sm text-deep-charcoal'>
                   {locale === 'en' ? 'Remember me' : 'تذكرني'}
                 </span>
               </label>
               <Link
                 href={`/${locale}/forgot-password`}
-                className="text-sm text-saudi-green hover:text-saudi-green/80 font-medium transition-colors"
+                className='text-sm text-saudi-green hover:text-saudi-green/80 font-medium transition-colors'
               >
                 {locale === 'en' ? 'Forgot password?' : 'نسيت كلمة المرور؟'}
               </Link>
@@ -182,32 +197,36 @@ export default function LoginPage() {
 
             {/* Submit Button */}
             <button
-              type="submit"
+              type='submit'
               disabled={isLoading}
-              className="w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display"
+              className='w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display'
             >
               {isLoading
-                ? (locale === 'en' ? 'Logging in...' : 'جاري تسجيل الدخول...')
-                : (locale === 'en' ? 'Log In' : 'تسجيل الدخول')}
+                ? locale === 'en'
+                  ? 'Logging in...'
+                  : 'جاري تسجيل الدخول...'
+                : locale === 'en'
+                ? 'Log In'
+                : 'تسجيل الدخول'}
             </button>
           </form>
 
           {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-rich-sand"></div>
-            <span className="px-4 text-sm text-deep-charcoal/60">
+          <div className='my-6 flex items-center'>
+            <div className='flex-1 border-t border-rich-sand'></div>
+            <span className='px-4 text-sm text-deep-charcoal/60'>
               {locale === 'en' ? 'or' : 'أو'}
             </span>
-            <div className="flex-1 border-t border-rich-sand"></div>
+            <div className='flex-1 border-t border-rich-sand'></div>
           </div>
 
           {/* Signup Link */}
-          <div className="text-center">
-            <p className="text-sm text-deep-charcoal/70">
+          <div className='text-center'>
+            <p className='text-sm text-deep-charcoal/70'>
               {locale === 'en' ? "Don't have an account?" : 'ليس لديك حساب؟'}{' '}
               <Link
                 href={`/${locale}/signup`}
-                className="text-saudi-green hover:text-saudi-green/80 font-semibold transition-colors"
+                className='text-saudi-green hover:text-saudi-green/80 font-semibold transition-colors'
               >
                 {locale === 'en' ? 'Sign up' : 'إنشاء حساب'}
               </Link>
@@ -218,4 +237,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

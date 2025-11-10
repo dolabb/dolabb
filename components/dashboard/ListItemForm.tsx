@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { HiPlus, HiXMark } from 'react-icons/hi2';
+import TermsModal from '@/components/shared/TermsModal';
 
 interface ListItemFormProps {
   onCancel: () => void;
@@ -55,6 +56,8 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
   const [customSizes, setCustomSizes] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -110,7 +113,29 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Show terms modal if not accepted
+    if (!termsAccepted) {
+      setShowTermsModal(true);
+      return;
+    }
+
     // Handle form submission
+    const submitData = {
+      ...formData,
+      tags: tags.join(', '),
+    };
+    console.log('Form submitted:', submitData);
+    alert(
+      locale === 'en' ? 'Item listed successfully!' : 'تم إضافة المنتج بنجاح!'
+    );
+    onCancel();
+  };
+
+  const handleAcceptTerms = () => {
+    setTermsAccepted(true);
+    setShowTermsModal(false);
+    // Automatically submit form after accepting terms
     const submitData = {
       ...formData,
       tags: tags.join(', '),
@@ -654,6 +679,15 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
           </button>
         </div>
       </form>
+
+      {/* Terms Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onAccept={handleAcceptTerms}
+        onClose={() => setShowTermsModal(false)}
+        title={locale === 'en' ? 'Accept Terms of Service' : 'قبول شروط الخدمة'}
+        description={locale === 'en' ? 'You must accept our Terms of Service to list an item' : 'يجب عليك قبول شروط الخدمة لإدراج منتج'}
+      />
     </div>
   );
 }

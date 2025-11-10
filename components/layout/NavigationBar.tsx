@@ -9,19 +9,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  HiAcademicCap,
-  HiArrowTrendingUp,
-  HiBars3,
-  HiChevronDown,
+  HiClock,
   HiHome,
   HiShoppingBag,
   HiSparkles,
   HiTag,
   HiUser,
   HiUserGroup,
-  HiXMark,
 } from 'react-icons/hi2';
-import { MdSportsSoccer } from 'react-icons/md';
 
 // Style Image Component with error handling
 const StyleImage = ({
@@ -58,57 +53,9 @@ const categoryIcons: Record<
 > = {
   women: HiUserGroup,
   men: HiUser,
-  kids: HiAcademicCap,
-  sports: MdSportsSoccer,
-  brands: HiSparkles,
-  trending: HiArrowTrendingUp,
-  sale: HiTag,
-};
-
-// Ordinal Icon Component
-const OrdinalIcon = ({
-  number,
-  className = '',
-}: {
-  number: number;
-  className?: string;
-}) => {
-  const getOrdinalSuffix = (num: number): string => {
-    const j = num % 10;
-    const k = num % 100;
-    if (j === 1 && k !== 11) return 'st';
-    if (j === 2 && k !== 12) return 'nd';
-    if (j === 3 && k !== 13) return 'rd';
-    return 'th';
-  };
-
-  const ordinal = `${number}${getOrdinalSuffix(number)}`;
-
-  return (
-    <svg
-      width='80'
-      height='80'
-      viewBox='0 0 80 80'
-      fill='none'
-      xmlns='http://www.w3.org/2000/svg'
-      className={className}
-    >
-      <circle cx='40' cy='40' r='38' fill='#006747' opacity='0.1' />
-      <circle cx='40' cy='40' r='36' stroke='#006747' strokeWidth='2.5' />
-      <text
-        x='40'
-        y='40'
-        textAnchor='middle'
-        dominantBaseline='middle'
-        fontSize='24'
-        fontWeight='700'
-        fill='#006747'
-        fontFamily='Poppins, sans-serif'
-      >
-        {ordinal}
-      </text>
-    </svg>
-  );
+  watches: HiClock,
+  jewellery: HiSparkles,
+  accessories: HiTag,
 };
 
 export default function NavigationBar() {
@@ -221,7 +168,6 @@ export default function NavigationBar() {
     }
   }, [clickedCategory, activeCategory, displayedCategory]);
 
-
   const handleCategoryEnter = (categoryKey: string) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -258,7 +204,6 @@ export default function NavigationBar() {
     setActiveCategory(null);
     setHoveredCategory(null);
   };
-
 
   const activeCategoryData = navigationCategories.find(
     cat => cat.key === displayedCategory
@@ -464,7 +409,6 @@ export default function NavigationBar() {
               );
             })}
           </div>
-
         </div>
       </div>
 

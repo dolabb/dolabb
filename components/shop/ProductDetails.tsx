@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { HiChevronDown, HiChevronUp, HiShieldCheck } from 'react-icons/hi2';
+import TermsModal from '@/components/shared/TermsModal';
 
 interface ProductDetailsProps {
   productId: string;
@@ -19,6 +20,8 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
   const [saved, setSaved] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({
@@ -287,7 +290,21 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 <button className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors'>
                   {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
                 </button>
-                <button className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors'>
+                <button
+                  onClick={() => {
+                    if (!termsAccepted) {
+                      setShowTermsModal(true);
+                      return;
+                    }
+                    // Add to bag logic
+                    alert(
+                      locale === 'en'
+                        ? 'Item added to bag!'
+                        : 'تم إضافة المنتج إلى الحقيبة!'
+                    );
+                  }}
+                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors'
+                >
                   {locale === 'en' ? 'Add to bag' : 'أضف إلى الحقيبة'}
                 </button>
               </div>
@@ -628,6 +645,24 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
           </div>
         </div>
       </div>
+
+      {/* Terms Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onAccept={() => {
+          setTermsAccepted(true);
+          setShowTermsModal(false);
+          // Add to bag after accepting terms
+          alert(
+            locale === 'en'
+              ? 'Item added to bag!'
+              : 'تم إضافة المنتج إلى الحقيبة!'
+          );
+        }}
+        onClose={() => setShowTermsModal(false)}
+        title={locale === 'en' ? 'Accept Terms of Service' : 'قبول شروط الخدمة'}
+        description={locale === 'en' ? 'You must accept our Terms of Service to add items to your bag' : 'يجب عليك قبول شروط الخدمة لإضافة منتجات إلى حقيبتك'}
+      />
     </div>
   );
 }
