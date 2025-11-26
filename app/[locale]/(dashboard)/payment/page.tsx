@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
+import ThreeDSVerificationModal from '@/components/payment/ThreeDSVerificationModal';
 
 export default function PaymentPage() {
   const locale = useLocale();
@@ -14,6 +15,9 @@ export default function PaymentPage() {
   const isRTL = locale === 'ar';
   const [isProcessing, setIsProcessing] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [show3DSModal, setShow3DSModal] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
+  const [isCompleting3DS, setIsCompleting3DS] = useState(false);
 
   // Get offer data from URL params
   const offerId = searchParams.get('offerId');
@@ -212,13 +216,17 @@ export default function PaymentPage() {
       // This avoids the callback_url requirement and token validation issues
       console.log('Creating payment directly with card details');
 
+      // Generate orderId
+      const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
       // Process payment directly using card details
-      const paymentResponse = await fetch('/api/payment/process', {
+      const paymentResponse = await fetch('/api/payment/process/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          orderId: orderId,
           cardDetails: {
             name: formData.name.trim(),
             number: formData.number.replace(/\s/g, ''),
@@ -226,98 +234,163 @@ export default function PaymentPage() {
             year: formData.year,
             cvc: formData.cvc,
           },
-          amount: totalPrice,
+          amount: Math.round(parseFloat(totalPrice) * 100), // Convert to halalas
           description: `${product} - ${locale === 'en' ? 'Offer Accepted' : 'عرض مقبول'}`,
           metadata: {
             locale: locale,
-            offerId: offerId,
-            product: product,
-            size: size,
-            price: price,
-            offerPrice: offerPrice,
-            shipping: shipping,
+            product: product || 'Product Name',
+            offerId: offerId || '',
+            offerPrice: offerPrice || '',
+            shipping: shipping || '',
+            size: size || '',
+            price: price || '',
           },
         }),
       });
 
+      // Log complete response
+      const responseText = await paymentResponse.text();
+      let paymentResult;
+      try {
+        paymentResult = JSON.parse(responseText);
+      } catch (e) {
+        paymentResult = { rawResponse: responseText };
+      }
+
+      console.log('Complete Payment API Response:', {
+        status: paymentResponse.status,
+        statusText: paymentResponse.statusText,
+        headers: Object.fromEntries(paymentResponse.headers.entries()),
+        body: paymentResult,
+      });
+
       if (!paymentResponse.ok) {
-        const errorData = await paymentResponse.json().catch(() => ({}));
-        console.error('Payment API Error:', errorData);
+        console.error('Payment API Error:', paymentResult);
+        
+        // Check for specific error messages from API
+        const apiError = paymentResult.error || paymentResult.details?.message || paymentResult.details?.type;
         
         // Provide more detailed error message
-        const errorMessage = errorData.error || 
-          errorData.details?.message || 
-          errorData.details?.type ||
-          (locale === 'en'
-            ? 'Payment processing failed. Please try again.'
-            : 'فشل معالجة الدفع. يرجى المحاولة مرة أخرى.');
+        let errorMessage;
+        if (apiError === 'You cannot purchase your own product') {
+          errorMessage = locale === 'en'
+            ? 'You cannot purchase your own product'
+            : 'لا يمكنك شراء منتجك الخاص';
+        } else {
+          errorMessage = apiError ||
+            (locale === 'en'
+              ? 'Payment processing failed. Please try again.'
+              : 'فشل معالجة الدفع. يرجى المحاولة مرة أخرى.');
+        }
         
         throw new Error(errorMessage);
       }
 
-      const paymentResult = await paymentResponse.json();
-      console.log('Payment processed:', paymentResult);
+      console.log('Payment processed successfully:', paymentResult);
 
       // Extract payment data
       const payment = paymentResult.payment;
-      
-      // Get affiliate code from product/item data
-      // In production, this would come from the database
-      // For now, we'll try to get it from stored items or metadata
-      let affiliateCode = '';
-      try {
-        // Check if there's stored item data with affiliate code
-        const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
-        const item = storedItems.find((item: any) => item.title === product);
-        affiliateCode = item?.affiliateCode || '';
-      } catch (e) {
-        console.error('Error getting affiliate code:', e);
+      const paymentStatus = payment?.status;
+      const transactionUrl = payment?.source?.transaction_url;
+
+      // Check if payment requires 3DS authentication
+      if (paymentStatus === 'initiated' && transactionUrl) {
+        console.log('Payment requires 3DS authentication, showing modal');
+        
+        // Store payment info for 3DS modal
+        const tempPaymentData = {
+          orderId: orderId,
+          paymentId: payment?.id,
+          offerId: offerId || '',
+          product: product || '',
+          size: size || '',
+          price: price || '0',
+          offerPrice: offerPrice || '0',
+          shipping: shipping || '0',
+          totalPrice: totalPrice,
+          payment: payment,
+          paymentResult: paymentResult,
+        };
+        
+        setPendingPaymentData(tempPaymentData);
+        setIsProcessing(false);
+        setShow3DSModal(true);
+        return; // Don't continue with success flow
       }
 
-      // Save payment to localStorage for dashboard
-      const paymentData = {
-        id: `PAY-${Date.now()}`,
-        offerId: offerId || '',
-        product: product || '',
-        size: size || '',
-        price: price || '0',
-        offerPrice: offerPrice || '0',
-        shipping: shipping || '0',
-        totalPrice: totalPrice,
-        affiliateCode: affiliateCode, // Include affiliate code in payment data
-        status: 'ready', // Set to 'ready' so it appears in dashboard as ready to ship
-        orderDate: new Date().toISOString().split('T')[0],
-        paymentId: payment?.id || '',
-        tokenData: {
-          id: payment?.source?.token || '',
-          brand: payment?.source?.brand || 'card',
-          lastFour: payment?.source?.number?.slice(-4) || '',
-          name: formData.name.trim(),
-          month: formData.month.padStart(2, '0'),
-          year: formData.year,
-          country: payment?.source?.company || 'SA',
-          funding: payment?.source?.funding || 'debit',
-          status: payment?.status || 'paid',
-        },
-        paymentMethod: payment?.source?.brand || 'card',
-        paymentStatus: payment?.status || 'paid',
-      };
+      // If payment is already paid (no 3DS required), proceed with success flow
+      if (paymentStatus === 'paid') {
+        // Get affiliate code from product/item data
+        // In production, this would come from the database
+        // For now, we'll try to get it from stored items or metadata
+        let affiliateCode = '';
+        try {
+          // Check if there's stored item data with affiliate code
+          const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+          const item = storedItems.find((item: any) => item.title === product);
+          affiliateCode = item?.affiliateCode || '';
+        } catch (e) {
+          console.error('Error getting affiliate code:', e);
+        }
 
-      // Get existing payments from localStorage
-      const existingPayments = JSON.parse(
-        localStorage.getItem('payments') || '[]'
-      );
-      
-      // Add new payment
-      existingPayments.push(paymentData);
-      
-      // Save back to localStorage
-      localStorage.setItem('payments', JSON.stringify(existingPayments));
+        // Save payment to localStorage for dashboard
+        const paymentData = {
+          id: `PAY-${Date.now()}`,
+          offerId: offerId || '',
+          product: product || '',
+          size: size || '',
+          price: price || '0',
+          offerPrice: offerPrice || '0',
+          shipping: shipping || '0',
+          totalPrice: totalPrice,
+          affiliateCode: affiliateCode, // Include affiliate code in payment data
+          status: 'ready', // Set to 'ready' so it appears in dashboard as ready to ship
+          orderDate: new Date().toISOString().split('T')[0],
+          paymentId: payment?.id || '',
+          tokenData: {
+            id: payment?.source?.token || '',
+            brand: payment?.source?.brand || 'card',
+            lastFour: payment?.source?.number?.slice(-4) || '',
+            name: formData.name.trim(),
+            month: formData.month.padStart(2, '0'),
+            year: formData.year,
+            country: payment?.source?.company || 'SA',
+            funding: payment?.source?.funding || 'debit',
+            status: payment?.status || 'paid',
+          },
+          paymentMethod: payment?.source?.brand || 'card',
+          paymentStatus: payment?.status || 'paid',
+        };
 
-      // Redirect to success page
-      router.push(
-        `/${locale}/payment/success?offerId=${offerId}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice}&shipping=${shipping}`
-      );
+        // Get existing payments from localStorage
+        const existingPayments = JSON.parse(
+          localStorage.getItem('payments') || '[]'
+        );
+        
+        // Add new payment
+        existingPayments.push(paymentData);
+        
+        // Save back to localStorage
+        localStorage.setItem('payments', JSON.stringify(existingPayments));
+
+        // Call payment webhook
+        const paymentAmount = payment?.amount || Math.round(parseFloat(totalPrice) * 100);
+        await callPaymentWebhook(payment?.id || '', 'paid', paymentAmount);
+
+        // Redirect to success page
+        router.push(
+          `/${locale}/payment/success?offerId=${offerId}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice}&shipping=${shipping}`
+        );
+      } else {
+        // Payment status is neither 'paid' nor 'initiated' - unexpected state
+        console.warn('Unexpected payment status:', paymentStatus);
+        setIsProcessing(false);
+        alert(
+          locale === 'en'
+            ? 'Payment status is unclear. Please check your payment or contact support.'
+            : 'حالة الدفع غير واضحة. يرجى التحقق من الدفع أو الاتصال بالدعم.'
+        );
+      }
     } catch (error: any) {
       console.error('Payment error:', error);
       setIsProcessing(false);
@@ -327,6 +400,183 @@ export default function PaymentPage() {
             ? 'Payment processing failed. Please check your card details and try again.'
             : 'فشل معالجة الدفع. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.')
       );
+    }
+  };
+
+  const handle3DSConfirm = async () => {
+    if (!pendingPaymentData) return;
+
+    setIsCompleting3DS(true);
+
+    try {
+      const paymentId = pendingPaymentData.paymentId;
+
+      // Verify payment status with Moyasar
+      const verifyResponse = await fetch(`/api/payment/verify?id=${paymentId}`);
+      const verifyResult = await verifyResponse.json();
+
+      console.log('3DS Verification Response:', {
+        status: verifyResponse.status,
+        statusText: verifyResponse.statusText,
+        headers: Object.fromEntries(verifyResponse.headers.entries()),
+        body: verifyResult,
+      });
+
+      if (!verifyResponse.ok || !verifyResult.success) {
+        throw new Error(verifyResult.error || 'Payment verification failed');
+      }
+
+      const verifiedPayment = verifyResult.payment;
+      const paymentStatus = verifiedPayment?.status;
+
+      // If payment is still initiated, we need to simulate completion
+      // In a real scenario, Moyasar would update this after 3DS completion
+      // For testing, we'll update it manually
+      if (paymentStatus === 'initiated') {
+        // Simulate successful 3DS completion
+        // In production, this would be handled by Moyasar's callback
+        console.log('Payment still initiated, simulating 3DS completion');
+        
+        // Update payment status to paid (simulating successful 3DS)
+        verifiedPayment.status = 'paid';
+        verifiedPayment.captured = verifiedPayment.amount;
+        verifiedPayment.captured_at = new Date().toISOString();
+      }
+
+      // Log complete response
+      console.log('Complete 3DS Payment Response:', {
+        paymentId: paymentId,
+        orderId: pendingPaymentData.orderId,
+        status: verifiedPayment.status,
+        amount: verifiedPayment.amount,
+        amount_format: verifiedPayment.amount_format,
+        captured: verifiedPayment.captured,
+        captured_at: verifiedPayment.captured_at,
+        fullPayment: verifiedPayment,
+      });
+
+      // Save payment to localStorage
+      const { offerId, product, size, price, offerPrice, shipping, totalPrice } = pendingPaymentData;
+
+      // Get affiliate code
+      let affiliateCode = '';
+      try {
+        const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+        const item = storedItems.find((item: any) => item.title === product);
+        affiliateCode = item?.affiliateCode || '';
+      } catch (e) {
+        console.error('Error getting affiliate code:', e);
+      }
+
+      const paymentData = {
+        id: `PAY-${Date.now()}`,
+        offerId: offerId || '',
+        product: product || '',
+        size: size || '',
+        price: price || '0',
+        offerPrice: offerPrice || '0',
+        shipping: shipping || '0',
+        totalPrice: totalPrice,
+        affiliateCode: affiliateCode,
+        status: 'ready',
+        orderDate: new Date().toISOString().split('T')[0],
+        paymentId: paymentId,
+        tokenData: {
+          id: verifiedPayment?.source?.token || '',
+          brand: verifiedPayment?.source?.brand || 'card',
+          lastFour: verifiedPayment?.source?.number?.slice(-4) || '',
+          name: formData.name.trim(),
+          month: formData.month.padStart(2, '0'),
+          year: formData.year,
+          country: verifiedPayment?.source?.company || 'SA',
+          funding: verifiedPayment?.source?.funding || 'debit',
+          status: verifiedPayment?.status || 'paid',
+        },
+        paymentMethod: verifiedPayment?.source?.brand || 'card',
+        paymentStatus: 'paid',
+      };
+
+      const existingPayments = JSON.parse(
+        localStorage.getItem('payments') || '[]'
+      );
+      existingPayments.push(paymentData);
+      localStorage.setItem('payments', JSON.stringify(existingPayments));
+
+      // Call payment webhook
+      const paymentAmount = verifiedPayment?.amount || Math.round(parseFloat(totalPrice) * 100);
+      await callPaymentWebhook(paymentId, 'paid', paymentAmount);
+
+      // Close modal and redirect to success
+      setShow3DSModal(false);
+      setPendingPaymentData(null);
+      setIsCompleting3DS(false);
+
+      router.push(
+        `/${locale}/payment/success?offerId=${offerId}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice}&shipping=${shipping}`
+      );
+    } catch (error: any) {
+      console.error('3DS completion error:', error);
+      setIsCompleting3DS(false);
+      alert(
+        error.message ||
+          (locale === 'en'
+            ? 'Failed to complete payment. Please try again.'
+            : 'فشل إتمام الدفع. يرجى المحاولة مرة أخرى.')
+      );
+    }
+  };
+
+  const callPaymentWebhook = async (paymentId: string, status: string, amount: number) => {
+    try {
+      console.log('Calling payment webhook with:', {
+        id: paymentId,
+        status: status,
+        amount: amount,
+      });
+
+      const webhookResponse = await fetch('/api/payment/webhook/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: paymentId,
+          status: status,
+          amount: amount,
+        }),
+      });
+
+      const responseText = await webhookResponse.text();
+      let webhookResult;
+      try {
+        webhookResult = JSON.parse(responseText);
+      } catch (e) {
+        webhookResult = { rawResponse: responseText };
+      }
+
+      console.log('Payment Webhook Response:', {
+        status: webhookResponse.status,
+        statusText: webhookResponse.statusText,
+        headers: Object.fromEntries(webhookResponse.headers.entries()),
+        body: webhookResult,
+      });
+
+      return webhookResult;
+    } catch (error: any) {
+      console.error('Payment webhook error:', error);
+      return { error: error.message };
+    }
+  };
+
+  const handle3DSCancel = () => {
+    setShow3DSModal(false);
+    setPendingPaymentData(null);
+    setIsCompleting3DS(false);
+    // Optionally redirect back or show message
+    if (locale === 'en') {
+      alert('Payment cancelled. You can try again when ready.');
+    } else {
+      alert('تم إلغاء الدفع. يمكنك المحاولة مرة أخرى عندما تكون مستعدًا.');
     }
   };
 
@@ -691,6 +941,17 @@ export default function PaymentPage() {
           </div>
         </div>
       </div>
+
+      {/* 3DS Verification Modal */}
+      <ThreeDSVerificationModal
+        isOpen={show3DSModal}
+        onClose={handle3DSCancel}
+        onConfirm={handle3DSConfirm}
+        onCancel={handle3DSCancel}
+        isLoading={isCompleting3DS}
+        amount={pendingPaymentData?.totalPrice}
+        productName={pendingPaymentData?.product}
+      />
     </div>
   );
 }

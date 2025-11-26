@@ -127,14 +127,8 @@ export default function PaymentSuccessPage() {
           {/* Action Buttons */}
           <div className='flex flex-col sm:flex-row gap-4 justify-center'>
             <Link
-              href={`/${locale}/messages`}
-              className='px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors shadow-md hover:shadow-lg cursor-pointer'
-            >
-              {locale === 'en' ? 'Back to Messages' : 'العودة إلى الرسائل'}
-            </Link>
-            <Link
               href={`/${locale}`}
-              className='px-6 py-3 bg-white border-2 border-saudi-green text-saudi-green rounded-lg font-semibold hover:bg-saudi-green/5 transition-colors cursor-pointer'
+              className='px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors shadow-md hover:shadow-lg cursor-pointer text-center'
             >
               {locale === 'en' ? 'Continue Shopping' : 'متابعة التسوق'}
             </Link>

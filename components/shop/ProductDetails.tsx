@@ -1,27 +1,131 @@
 'use client';
 
-import { featuredProducts, trendingProducts } from '@/data/products';
+import {
+  useGetProductDetailQuery,
+  useSaveProductMutation,
+} from '@/lib/api/productsApi';
+import { useCreateOfferMutation } from '@/lib/api/offersApi';
+import { useSendMessageMutation } from '@/lib/api/chatApi';
+import OfferModal from '@/components/shared/OfferModal';
+import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
+import { useAppSelector } from '@/lib/store/hooks';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { HiChevronDown, HiChevronUp, HiShieldCheck } from 'react-icons/hi2';
-import TermsModal from '@/components/shared/TermsModal';
+import { canUserPurchaseProduct } from '@/utils/productValidation';
 
 interface ProductDetailsProps {
   productId: string;
 }
 
+// Product Details Skeleton Loading Component
+const ProductDetailsSkeleton = ({ isRTL }: { isRTL: boolean }) => (
+  <div className='bg-white min-h-screen' dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4'>
+      {/* Breadcrumbs Skeleton */}
+      <nav className='mb-4'>
+        <div className='flex items-center gap-1.5'>
+          <div className='h-4 bg-rich-sand/30 rounded w-16 skeleton-shimmer' />
+          <div className='h-4 bg-rich-sand/30 rounded w-4 skeleton-shimmer' />
+          <div className='h-4 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
+          <div className='h-4 bg-rich-sand/30 rounded w-4 skeleton-shimmer' />
+          <div className='h-4 bg-rich-sand/30 rounded w-24 skeleton-shimmer' />
+          <div className='h-4 bg-rich-sand/30 rounded w-4 skeleton-shimmer' />
+          <div className='h-4 bg-rich-sand/30 rounded w-32 skeleton-shimmer' />
+        </div>
+      </nav>
+
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8'>
+        {/* Image Section Skeleton - Left Column */}
+        <div className='lg:col-span-1'>
+          <div className='sticky top-20'>
+            {/* Main Image Skeleton */}
+            <div className='relative aspect-square bg-rich-sand/20 rounded-lg overflow-hidden mb-3 skeleton-shimmer' />
+
+            {/* Thumbnail Images Skeleton */}
+            <div className='grid grid-cols-3 gap-2'>
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className='aspect-square bg-rich-sand/20 rounded-lg skeleton-shimmer'
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Product Info Section Skeleton - Middle & Right Columns */}
+        <div className='lg:col-span-2 space-y-4'>
+          {/* Top Section Skeleton */}
+          <div className='bg-white rounded-lg border border-rich-sand/20 p-5 space-y-4'>
+            {/* Title Skeleton */}
+            <div className='h-7 bg-rich-sand/30 rounded w-3/4 skeleton-shimmer' />
+
+            {/* Price Skeleton */}
+            <div className='h-8 bg-rich-sand/30 rounded w-32 skeleton-shimmer' />
+
+            {/* Attributes Skeleton */}
+            <div className='flex gap-2'>
+              <div className='h-4 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
+              <div className='h-4 bg-rich-sand/30 rounded w-4 skeleton-shimmer' />
+              <div className='h-4 bg-rich-sand/30 rounded w-24 skeleton-shimmer' />
+              <div className='h-4 bg-rich-sand/30 rounded w-4 skeleton-shimmer' />
+              <div className='h-4 bg-rich-sand/30 rounded w-16 skeleton-shimmer' />
+            </div>
+
+            {/* Action Buttons Skeleton */}
+            <div className='flex gap-2.5 pt-2'>
+              <div className='flex-1 h-10 bg-rich-sand/30 rounded-lg skeleton-shimmer' />
+              <div className='flex-1 h-10 bg-rich-sand/30 rounded-lg skeleton-shimmer' />
+            </div>
+
+            {/* Buyer Protection Skeleton */}
+            <div className='h-4 bg-rich-sand/30 rounded w-full skeleton-shimmer' />
+          </div>
+
+          {/* Seller Info Section Skeleton */}
+          <div className='bg-white rounded-lg border border-rich-sand/20 p-5'>
+            <div className='flex items-center gap-4'>
+              <div className='w-12 h-12 rounded-full bg-rich-sand/20 skeleton-shimmer' />
+              <div className='flex-1 space-y-2'>
+                <div className='h-5 bg-rich-sand/30 rounded w-32 skeleton-shimmer' />
+                <div className='h-4 bg-rich-sand/30 rounded w-24 skeleton-shimmer' />
+              </div>
+            </div>
+          </div>
+
+          {/* Details Sections Skeleton */}
+          <div className='bg-white rounded-lg border border-rich-sand/20 p-5 space-y-4'>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className='space-y-2'>
+                <div className='h-5 bg-rich-sand/30 rounded w-40 skeleton-shimmer' />
+                <div className='h-4 bg-rich-sand/30 rounded w-full skeleton-shimmer' />
+                <div className='h-4 bg-rich-sand/30 rounded w-5/6 skeleton-shimmer' />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function ProductDetails({ productId }: ProductDetailsProps) {
   const locale = useLocale();
+  const router = useRouter();
   const isRTL = locale === 'ar';
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
+  const currentUser = useAppSelector(state => state.auth.user);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [sellerImageError, setSellerImageError] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showOfferModal, setShowOfferModal] = useState(false);
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({
@@ -31,18 +135,69 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     shipping: false,
     tags: false,
   });
-  const likesCount = 92;
   const carouselIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Find product from featured or trending
-  const allProducts = [...featuredProducts, ...trendingProducts];
-  const product = allProducts.find(p => p.id === productId) || null;
+  // Fetch product from API
+  const {
+    data: product,
+    isLoading,
+    error,
+  } = useGetProductDetailQuery(productId, {
+    skip: !productId,
+  });
 
-  // Generate multiple images for carousel
-  // For demo, using the same image 3 times (in production, use actual product images array)
-  const productImages = product
-    ? [product.image, product.image, product.image]
-    : [];
+  // Save product mutation
+  const [saveProduct, { isLoading: isSaving }] = useSaveProductMutation();
+
+  // Create offer mutation
+  const [createOffer, { isLoading: isCreatingOffer }] =
+    useCreateOfferMutation();
+
+  // Send message mutation
+  const [sendMessage, { isLoading: isSendingMessage }] =
+    useSendMessageMutation();
+
+  // Get product images from API response
+  const getProductImages = (): string[] => {
+    if (!product) return [];
+    // Check for "Images" (capital I) first, then "images" (lowercase)
+    const productWithImages = product as {
+      Images?: string[];
+      images?: string[];
+    };
+    const images = productWithImages.Images || productWithImages.images || [];
+    // Filter out empty/invalid images
+    return images.filter(
+      img => img && img.trim() !== '' && img !== 'undefined' && img !== 'null'
+    );
+  };
+
+  const productImages = getProductImages();
+  const likesCount = product?.likes || 0;
+
+  // Get seller data from product (computed early to use in hooks)
+  const sellerData = {
+    username: product?.seller?.username || 'Unknown',
+    rating: product?.seller?.rating || 0,
+    reviews: 0, // Not available in API
+    sold: product?.seller?.totalSales || 0,
+    active: 'Active', // Not available in API
+    profileImage: product?.seller?.profileImage || '',
+  };
+
+  // Check if current user can purchase this product
+  const canPurchase = canUserPurchaseProduct(
+    currentUser?.id,
+    product?.seller?.id
+  );
+
+  // Reset seller image error when seller profile image changes
+  // This must be called before any early returns to maintain hooks order
+  useEffect(() => {
+    if (sellerData.profileImage) {
+      setSellerImageError(false);
+    }
+  }, [sellerData.profileImage]);
 
   // Auto carousel effect
   useEffect(() => {
@@ -82,7 +237,123 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     }));
   };
 
-  if (!product) {
+  // Handle offer submission
+  const handleOfferSubmit = async (offerAmount: number) => {
+    // Check authentication before proceeding
+    if (!isAuthenticated) {
+      toast.error(
+        locale === 'en'
+          ? 'Please login to make an offer'
+          : 'يرجى تسجيل الدخول لعمل عرض'
+      );
+      router.push(`/${locale}/login`);
+      return;
+    }
+
+    try {
+      // Create the offer
+      const offerResponse = await createOffer({
+        productId: productId,
+        offerAmount: offerAmount,
+      }).unwrap();
+
+      // Get seller ID from product
+      const sellerId = product?.seller?.id;
+      if (!sellerId) {
+        throw new Error('Seller ID not found');
+      }
+
+      // Get offer ID from response (if available)
+      const offerId = offerResponse?.offer?.id || null;
+
+      // Send chat message to seller
+      let chatMessageSent = false;
+      try {
+        await sendMessage({
+          receiverId: sellerId,
+          text:
+            locale === 'en'
+              ? `I've made an offer of ${locale === 'ar' ? 'ر.س' : 'SAR'} ${offerAmount.toFixed(2)} for "${product?.title || 'this product'}".`
+              : `لقد قدمت عرضاً بقيمة ${locale === 'ar' ? 'ر.س' : 'SAR'} ${offerAmount.toFixed(2)} على "${product?.title || 'هذا المنتج'}".`,
+          productId: productId,
+          attachments: [],
+          offerId: offerId,
+        }).unwrap();
+        chatMessageSent = true;
+      } catch (chatError: any) {
+        // Log chat error but don't fail the whole process
+        console.error('Failed to send chat message:', chatError);
+        // If it's a 401, the interceptor will handle redirect, so we should return early
+        if (chatError?.status === 401 || chatError?.response?.status === 401) {
+          return; // Let the interceptor handle the redirect
+        }
+      }
+
+      // Both APIs succeeded - show success message and redirect
+      toast.success(
+        locale === 'en'
+          ? 'Offer created successfully!'
+          : 'تم إنشاء العرض بنجاح!'
+      );
+      setShowOfferModal(false);
+
+      // Verify token still exists before redirecting (in case it was cleared)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (token) {
+        // Redirect to messages page after both APIs succeed
+        // Use window.location for a full page reload to ensure auth state is refreshed
+        window.location.href = `/${locale}/messages`;
+      } else {
+        // Token was cleared (likely expired), redirect to login
+        toast.error(
+          locale === 'en'
+            ? 'Your session has expired. Please login again.'
+            : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
+        );
+        router.push(`/${locale}/login`);
+      }
+    } catch (error: any) {
+      // Check if it's a 401 error (handled by interceptor, but we catch it here too)
+      if (error?.status === 401 || error?.response?.status === 401) {
+        toast.error(
+          locale === 'en'
+            ? 'Your session has expired. Please login again.'
+            : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
+        );
+        router.push(`/${locale}/login`);
+        return;
+      }
+
+      // Check for specific error messages from API
+      const apiError = error?.data?.error || error?.data?.message;
+      const errorMessage =
+        apiError ||
+        error?.message ||
+        (locale === 'en'
+          ? 'Failed to create offer. Please try again.'
+          : 'فشل إنشاء العرض. يرجى المحاولة مرة أخرى.');
+      
+      // Show localized error message
+      if (apiError === 'You cannot make an offer on your own product') {
+        toast.error(
+          locale === 'en'
+            ? 'You cannot make an offer on your own product'
+            : 'لا يمكنك تقديم عرض على منتجك الخاص'
+        );
+      } else {
+        toast.error(errorMessage);
+      }
+      throw error; // Re-throw to prevent modal from closing on error
+    }
+  };
+
+  // Loading state
+  if (isLoading) {
+    return <ProductDetailsSkeleton isRTL={isRTL} />;
+  }
+
+  // Error or not found state
+  if (error || !product) {
     return (
       <div
         className='min-h-screen bg-white flex items-center justify-center'
@@ -103,24 +374,34 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     );
   }
 
-  // Mock seller data
-  const sellerData = {
-    username: 'summernorton_',
-    rating: 5,
-    reviews: 5,
-    sold: 22,
-    active: 'over a week ago',
-    profileImage:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
+  // Get product details from API product
+  const getConditionLabel = (condition: string) => {
+    const conditionMap: Record<string, { en: string; ar: string }> = {
+      new: { en: 'Brand new', ar: 'جديد تماماً' },
+      'like-new': { en: 'Like new', ar: 'شبه جديد' },
+      good: { en: 'Used - Good', ar: 'مستعمل - جيد' },
+      fair: { en: 'Used - Fair', ar: 'مستعمل - عادل' },
+    };
+    return conditionMap[condition] || { en: condition, ar: condition };
   };
 
-  // Mock product details
+  const conditionLabel = getConditionLabel(product.condition || 'new');
+
   const productDetails = {
-    size: 'XS',
-    condition: 'Excellent condition',
-    brand: 'Garage',
-    color: 'Black',
-    listed: '5 months ago',
+    size: product.size || (product as any).Size || 'One Size',
+    condition: locale === 'en' ? conditionLabel.en : conditionLabel.ar,
+    brand: product.brand || 'Unknown',
+    color: product.color || (product as any).Color || 'N/A',
+    listed:
+      product.createdAt || (product as any).created_at
+        ? new Date(
+            product.createdAt || (product as any).created_at
+          ).toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : 'Recently',
   };
 
   return (
@@ -137,46 +418,54 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 {locale === 'en' ? 'Home' : 'الرئيسية'}
               </Link>
             </li>
+            {product.brand && (
+              <>
+                <li>/</li>
+                <li>
+                  <Link
+                    href={`/${locale}/browse?brand=${encodeURIComponent(
+                      product.brand
+                    )}`}
+                    className='hover:text-deep-charcoal transition-colors'
+                  >
+                    {product.brand}
+                  </Link>
+                </li>
+              </>
+            )}
+            {product.category && (
+              <>
+                <li>/</li>
+                <li>
+                  <Link
+                    href={`/${locale}/browse?category=${encodeURIComponent(
+                      product.category
+                    )}`}
+                    className='hover:text-deep-charcoal transition-colors'
+                  >
+                    {product.category.charAt(0).toUpperCase() +
+                      product.category.slice(1)}
+                  </Link>
+                </li>
+              </>
+            )}
+            {product.subcategory && (
+              <>
+                <li>/</li>
+                <li>
+                  <Link
+                    href={`/${locale}/browse?category=${encodeURIComponent(
+                      product.category || ''
+                    )}&subcategory=${encodeURIComponent(product.subcategory)}`}
+                    className='hover:text-deep-charcoal transition-colors'
+                  >
+                    {product.subcategory}
+                  </Link>
+                </li>
+              </>
+            )}
             <li>/</li>
-            <li>
-              <Link
-                href={`/${locale}/brands`}
-                className='hover:text-deep-charcoal transition-colors'
-              >
-                {locale === 'en' ? 'Brands' : 'العلامات التجارية'}
-              </Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link
-                href={`/${locale}/brands/garage`}
-                className='hover:text-deep-charcoal transition-colors'
-              >
-                Garage
-              </Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link
-                href={`/${locale}/women`}
-                className='hover:text-deep-charcoal transition-colors'
-              >
-                {locale === 'en' ? 'Women' : 'نساء'}
-              </Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link
-                href={`/${locale}/women/tops`}
-                className='hover:text-deep-charcoal transition-colors'
-              >
-                {locale === 'en' ? 'Tops' : 'قمصان'}
-              </Link>
-            </li>
-            <li>/</li>
-            <li className='text-deep-charcoal/80'>
-              {locale === 'en' ? 'Crop tops' : 'قمصان قصيرة'}
-            </li>
+            <li className='text-deep-charcoal/80'>{product.title}</li>
           </ol>
         </nav>
 
@@ -190,64 +479,76 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 onMouseEnter={handleImageHover}
                 onMouseLeave={handleImageLeave}
               >
-                {productImages.map((img, index) => (
-                  <Image
-                    key={index}
-                    src={
-                      imageError
-                        ? `https://via.placeholder.com/600/006747/FFFFFF?text=${encodeURIComponent(
-                            product.title
-                          )}`
-                        : img
-                    }
-                    alt={`${product.title} ${index + 1}`}
-                    fill
-                    className={`object-cover transition-opacity duration-500 ${
-                      selectedImage === index
-                        ? 'opacity-100'
-                        : 'opacity-0 absolute'
-                    }`}
-                    onError={() => setImageError(true)}
-                    unoptimized={img.includes('unsplash.com') || imageError}
-                  />
-                ))}
+                {productImages.length > 0 ? (
+                  productImages.map((img, index) => (
+                    <Image
+                      key={index}
+                      src={
+                        imageError
+                          ? `https://via.placeholder.com/600/006747/FFFFFF?text=${encodeURIComponent(
+                              product.title || 'Product'
+                            )}`
+                          : img
+                      }
+                      alt={`${product.title || 'Product'} ${index + 1}`}
+                      fill
+                      className={`object-cover transition-opacity duration-500 ${
+                        selectedImage === index
+                          ? 'opacity-100'
+                          : 'opacity-0 absolute'
+                      }`}
+                      onError={() => setImageError(true)}
+                      unoptimized={img.includes('unsplash.com') || imageError}
+                    />
+                  ))
+                ) : (
+                  <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
+                    <span className='text-deep-charcoal/40 text-sm text-center px-4'>
+                      {product.title || 'No Image'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Thumbnail Images */}
-              <div className='grid grid-cols-3 gap-2'>
-                {productImages.slice(0, 3).map((img, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setSelectedImage(index);
-                      // Reset carousel timer when manually selecting
-                      if (carouselIntervalRef.current) {
-                        clearInterval(carouselIntervalRef.current);
-                      }
-                      if (productImages.length > 1) {
-                        carouselIntervalRef.current = setInterval(() => {
-                          setSelectedImage(
-                            prev => (prev + 1) % productImages.length
-                          );
-                        }, 4000);
-                      }
-                    }}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                      selectedImage === index
-                        ? 'border-saudi-green shadow-md'
-                        : 'border-rich-sand/30 hover:border-saudi-green/50'
-                    }`}
-                  >
-                    <Image
-                      src={img}
-                      alt={`${product.title} thumbnail ${index + 1}`}
-                      fill
-                      className='object-cover'
-                      unoptimized={img.includes('unsplash.com')}
-                    />
-                  </button>
-                ))}
-              </div>
+              {productImages.length > 0 && (
+                <div className='grid grid-cols-3 gap-2'>
+                  {productImages.slice(0, 3).map((img, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedImage(index);
+                        // Reset carousel timer when manually selecting
+                        if (carouselIntervalRef.current) {
+                          clearInterval(carouselIntervalRef.current);
+                        }
+                        if (productImages.length > 1) {
+                          carouselIntervalRef.current = setInterval(() => {
+                            setSelectedImage(
+                              prev => (prev + 1) % productImages.length
+                            );
+                          }, 4000);
+                        }
+                      }}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        selectedImage === index
+                          ? 'border-saudi-green shadow-md'
+                          : 'border-rich-sand/30 hover:border-saudi-green/50'
+                      }`}
+                    >
+                      <Image
+                        src={img}
+                        alt={`${product.title || 'Product'} thumbnail ${
+                          index + 1
+                        }`}
+                        fill
+                        className='object-cover'
+                        unoptimized={img.includes('unsplash.com')}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -257,7 +558,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             <div className='bg-white rounded-lg border border-rich-sand/20 p-5 space-y-4'>
               {/* Product Title */}
               <h1 className='text-xl font-semibold text-deep-charcoal leading-tight'>
-                {product.title}
+                {product.title || (product as any).itemtitle}
               </h1>
 
               {/* Price */}
@@ -287,25 +588,59 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
 
               {/* Action Buttons */}
               <div className='flex gap-2.5 pt-2'>
-                <button className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'>
-                  {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
-                </button>
+                {canPurchase ? (
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast.error(
+                          locale === 'en'
+                            ? 'Please login to make an offer'
+                            : 'يرجى تسجيل الدخول لعمل عرض'
+                        );
+                        router.push(`/${locale}/login`);
+                        return;
+                      }
+                      setShowOfferModal(true);
+                    }}
+                    className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
+                  >
+                    {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
+                  </button>
+                ) : (
+                  <div className='flex-1 bg-rich-sand/20 border border-rich-sand/40 text-deep-charcoal/70 py-2.5 rounded-lg font-medium text-sm text-center px-4'>
+                    {locale === 'en'
+                      ? 'This is your own product. You cannot make offers or purchase it.'
+                      : 'هذا منتجك الخاص. لا يمكنك تقديم عروض أو شرائه.'}
+                  </div>
+                )}
                 <button
-                  onClick={() => {
-                    if (!termsAccepted) {
-                      setShowTermsModal(true);
-                      return;
+                  onClick={async () => {
+                    // Add to bag logic - call save product API
+                    try {
+                      await saveProduct(productId).unwrap();
+                      toast.success(
+                        locale === 'en'
+                          ? 'Item added to bag!'
+                          : 'تم إضافة المنتج إلى الحقيبة!'
+                      );
+                    } catch {
+                      toast.error(
+                        locale === 'en'
+                          ? 'Failed to add item to bag. Please try again.'
+                          : 'فشل إضافة المنتج إلى الحقيبة. يرجى المحاولة مرة أخرى.'
+                      );
                     }
-                    // Add to bag logic
-                    alert(
-                      locale === 'en'
-                        ? 'Item added to bag!'
-                        : 'تم إضافة المنتج إلى الحقيبة!'
-                    );
                   }}
-                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
+                  disabled={isSaving}
+                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
                 >
-                  {locale === 'en' ? 'Add to bag' : 'أضف إلى الحقيبة'}
+                  {isSaving
+                    ? locale === 'en'
+                      ? 'Adding...'
+                      : 'جاري الإضافة...'
+                    : locale === 'en'
+                    ? 'Add to bag'
+                    : 'أضف إلى الحقيبة'}
                 </button>
               </div>
 
@@ -343,22 +678,29 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             <div className='bg-white rounded-lg border border-rich-sand/20 p-5'>
               <div className='flex items-start gap-3 mb-3'>
                 <div className='relative w-10 h-10 rounded-full overflow-hidden bg-rich-sand/30 shrink-0'>
-                  <Image
-                    src={sellerData.profileImage}
-                    alt={sellerData.username}
-                    fill
-                    className='object-cover'
-                    unoptimized
-                  />
+                  {sellerData.profileImage && !sellerImageError ? (
+                    <Image
+                      key={sellerData.profileImage}
+                      src={sellerData.profileImage}
+                      alt={sellerData.username}
+                      fill
+                      className='object-cover'
+                      unoptimized
+                      onError={() => {
+                        setSellerImageError(true);
+                      }}
+                    />
+                  ) : (
+                    <div className='w-full h-full flex items-center justify-center bg-saudi-green/20 text-saudi-green font-semibold text-xs'>
+                      {sellerData.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
                 <div className='flex-1 min-w-0'>
                   <div className='flex items-center gap-2 mb-1'>
-                    <Link
-                      href={`/${locale}/seller/${sellerData.username}`}
-                      className='font-semibold text-deep-charcoal hover:text-saudi-green transition-colors text-sm'
-                    >
+                    <div className='font-semibold text-deep-charcoal  transition-colors text-sm'>
                       {sellerData.username}
-                    </Link>
+                    </div>
                   </div>
                   <div className='flex items-center gap-1.5 mb-1'>
                     {[...Array(sellerData.rating)].map((_, i) => (
@@ -373,9 +715,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                   </div>
                   <p className='text-xs text-deep-charcoal/60'>
                     {sellerData.sold} {locale === 'en' ? 'sold' : 'مباع'} •{' '}
-                    {locale === 'en'
-                      ? `Active ${sellerData.active}`
-                      : `نشط ${sellerData.active}`}
+                    {locale === 'en' ? 'Active' : 'نشط'}
                   </p>
                 </div>
               </div>
@@ -419,23 +759,32 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Category' : 'الفئة'}
                         </span>
                         <Link
-                          href={`/${locale}/women`}
+                          href={`/${locale}/${product.category || 'browse'}`}
                           className='text-deep-charcoal font-medium hover:text-saudi-green text-right'
                         >
-                          {locale === 'en' ? 'Women' : 'نساء'}
+                          {product.category
+                            ? product.category.charAt(0).toUpperCase() +
+                              product.category.slice(1)
+                            : locale === 'en'
+                            ? 'N/A'
+                            : 'غير متاح'}
                         </Link>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Subcategory' : 'الفئة الفرعية'}
-                        </span>
-                        <Link
-                          href={`/${locale}/women/tops`}
-                          className='text-deep-charcoal font-medium hover:text-saudi-green text-right'
-                        >
-                          {locale === 'en' ? 'Tops' : 'قمصان'}
-                        </Link>
-                      </div>
+                      {product.subcategory && (
+                        <div className='flex justify-between'>
+                          <span className='text-deep-charcoal/70'>
+                            {locale === 'en' ? 'Subcategory' : 'الفئة الفرعية'}
+                          </span>
+                          <Link
+                            href={`/${locale}/${
+                              product.category || 'browse'
+                            }?subcategory=${product.subcategory}`}
+                            className='text-deep-charcoal font-medium hover:text-saudi-green text-right'
+                          >
+                            {product.subcategory}
+                          </Link>
+                        </div>
+                      )}
                       <div className='flex justify-between'>
                         <span className='text-deep-charcoal/70'>
                           {locale === 'en' ? 'Condition' : 'الحالة'}
@@ -459,15 +808,19 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Quantity' : 'الكمية'}
                         </span>
                         <span className='text-deep-charcoal font-medium'>
-                          1
+                          {(product as any).Quantity || product.quantity || 1}
                         </span>
                       </div>
-                      <div className='flex justify-between col-span-2'>
-                        <span className='text-deep-charcoal/70'>SKU</span>
-                        <span className='text-deep-charcoal font-medium'>
-                          SKU-{product.id.padStart(4, '0')}
-                        </span>
-                      </div>
+                      {(product as any).Gender && (
+                        <div className='flex justify-between'>
+                          <span className='text-deep-charcoal/70'>
+                            {locale === 'en' ? 'Gender' : 'الجنس'}
+                          </span>
+                          <span className='text-deep-charcoal font-medium'>
+                            {(product as any).Gender}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -514,7 +867,20 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Created at' : 'تاريخ الإنشاء'}
                         </span>
                         <span className='text-deep-charcoal font-medium'>
-                          {locale === 'en' ? '2024-01-15' : '15-01-2024'}
+                          {product.createdAt || (product as any).created_at
+                            ? new Date(
+                                product.createdAt || (product as any).created_at
+                              ).toLocaleDateString(
+                                locale === 'en' ? 'en-US' : 'ar-SA',
+                                {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                }
+                              )
+                            : locale === 'en'
+                            ? 'N/A'
+                            : 'غير متاح'}
                         </span>
                       </div>
                       <div className='flex justify-between'>
@@ -522,9 +888,17 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Processing Time' : 'وقت المعالجة'}
                         </span>
                         <span className='text-deep-charcoal font-medium'>
-                          {locale === 'en'
-                            ? '1-2 business days'
-                            : '1-2 أيام عمل'}
+                          {product.shippingInfo?.estimatedDays ||
+                          (product as any)['Processing Time (days)']
+                            ? `${
+                                product.shippingInfo?.estimatedDays ||
+                                (product as any)['Processing Time (days)']
+                              } ${
+                                locale === 'en' ? 'business day(s)' : 'يوم عمل'
+                              }`
+                            : locale === 'en'
+                            ? 'N/A'
+                            : 'غير متاح'}
                         </span>
                       </div>
                     </div>
@@ -550,17 +924,23 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 {expandedSections.description && (
                   <div className='px-4 pb-4'>
                     <div className='space-y-2 text-sm text-deep-charcoal/80 leading-relaxed'>
-                      <p>{product.title}</p>
-                      <p>• {productDetails.color}</p>
+                      <p className='font-semibold'>
+                        {product.title || (product as any).itemtitle}
+                      </p>
+                      {productDetails.color &&
+                        productDetails.color !== 'N/A' && (
+                          <p>• {productDetails.color}</p>
+                        )}
                       <p className='text-xs text-deep-charcoal/60 uppercase tracking-wide'>
                         {locale === 'en'
                           ? `LISTED ${productDetails.listed.toUpperCase()}`
                           : `مُدرج منذ ${productDetails.listed}`}
                       </p>
-                      <p className='pt-2'>
-                        {locale === 'en'
-                          ? 'This is a beautiful, high-quality item in excellent condition. Perfect for adding to your collection or wardrobe. Authentic and carefully maintained.'
-                          : 'هذه قطعة جميلة وعالية الجودة في حالة ممتازة. مثالية لإضافتها إلى مجموعتك أو خزانة ملابسك. أصلية ومحفوظة بعناية.'}
+                      <p className='pt-2 whitespace-pre-wrap'>
+                        {product.description ||
+                          (locale === 'en'
+                            ? 'No description available.'
+                            : 'لا يوجد وصف متاح.')}
                       </p>
                     </div>
                   </div>
@@ -590,7 +970,12 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Price' : 'السعر'}
                         </span>
                         <span className='text-deep-charcoal font-medium'>
-                          {locale === 'en' ? '$5.99' : '5.99 دولار'}
+                          {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
+                          {(
+                            product.shippingInfo?.cost ||
+                            (product as any)['Shipping Cost'] ||
+                            0
+                          ).toFixed(2)}
                         </span>
                       </div>
                       <div className='flex justify-between'>
@@ -598,11 +983,34 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Processing Time' : 'وقت المعالجة'}
                         </span>
                         <span className='text-deep-charcoal font-medium'>
-                          {locale === 'en'
-                            ? '1-2 business days'
-                            : '1-2 أيام عمل'}
+                          {product.shippingInfo?.estimatedDays ||
+                          (product as any)['Processing Time (days)']
+                            ? `${
+                                product.shippingInfo?.estimatedDays ||
+                                (product as any)['Processing Time (days)']
+                              } ${locale === 'en' ? 'Business day' : 'يوم عمل'}`
+                            : locale === 'en'
+                            ? 'N/A'
+                            : 'غير متاح'}
                         </span>
                       </div>
+                      {product.shippingInfo?.locations ||
+                      (product as any)['Shipping Locations'] ? (
+                        <div className='flex justify-between'>
+                          <span className='text-deep-charcoal/70'>
+                            {locale === 'en'
+                              ? 'Shipping Locations'
+                              : 'مواقع الشحن'}
+                          </span>
+                          <span className='text-deep-charcoal font-medium'>
+                            {(
+                              product.shippingInfo?.locations ||
+                              (product as any)['Shipping Locations'] ||
+                              []
+                            ).join(', ')}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -626,8 +1034,13 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 {expandedSections.tags && (
                   <div className='px-4 pb-4'>
                     <div className='flex flex-wrap gap-2'>
-                      {['vintage', 'casual', 'black', 'crop top', 'summer'].map(
-                        tag => (
+                      {(product.tags || (product as any)['Tags/Keywords'] || [])
+                        .length > 0 ? (
+                        (
+                          product.tags ||
+                          (product as any)['Tags/Keywords'] ||
+                          []
+                        ).map((tag: string) => (
                           <Link
                             key={tag}
                             href={`/${locale}/search?q=${tag}`}
@@ -635,7 +1048,13 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           >
                             #{tag}
                           </Link>
-                        )
+                        ))
+                      ) : (
+                        <p className='text-deep-charcoal/60 text-sm'>
+                          {locale === 'en'
+                            ? 'No tags available'
+                            : 'لا توجد علامات متاحة'}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -646,22 +1065,14 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
         </div>
       </div>
 
-      {/* Terms Modal */}
-      <TermsModal
-        isOpen={showTermsModal}
-        onAccept={() => {
-          setTermsAccepted(true);
-          setShowTermsModal(false);
-          // Add to bag after accepting terms
-          alert(
-            locale === 'en'
-              ? 'Item added to bag!'
-              : 'تم إضافة المنتج إلى الحقيبة!'
-          );
-        }}
-        onClose={() => setShowTermsModal(false)}
-        title={locale === 'en' ? 'Accept Terms of Service' : 'قبول شروط الخدمة'}
-        description={locale === 'en' ? 'You must accept our Terms of Service to add items to your bag' : 'يجب عليك قبول شروط الخدمة لإضافة منتجات إلى حقيبتك'}
+      {/* Offer Modal */}
+      <OfferModal
+        isOpen={showOfferModal}
+        onClose={() => setShowOfferModal(false)}
+        productPrice={product.price}
+        productTitle={product.title || (product as any).itemtitle || 'Product'}
+        onSubmit={handleOfferSubmit}
+        isLoading={isCreatingOffer || isSendingMessage}
       />
     </div>
   );

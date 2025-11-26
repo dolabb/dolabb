@@ -8,6 +8,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
+import { useAppSelector } from '@/lib/store/hooks';
 import {
   HiClock,
   HiHome,
@@ -63,12 +64,24 @@ export default function NavigationBar() {
   const locale = useLocale();
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
+  const user = useAppSelector(state => state.auth.user);
+  const isSeller = user?.role === 'seller';
   const isRTL = locale === 'ar';
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [clickedCategory, setClickedCategory] = useState<string | null>(null);
   const [, setHoveredCategory] = useState<string | null>(null);
+  const [isAffiliate, setIsAffiliate] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check if user is affiliate
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const affiliate = localStorage.getItem('affiliate');
+      const affiliateToken = localStorage.getItem('affiliate_token');
+      setIsAffiliate(!!(affiliate && affiliateToken));
+    }
+  }, []);
 
   // Helper function to safely get translations with fallback
   const safeTranslate = (key: string, fallback: string): string => {
@@ -233,9 +246,21 @@ export default function NavigationBar() {
       key: 'buyer',
       href: `/${locale}/buyer`,
       icon: HiTag,
-      label: locale === 'en' ? 'Buyer' : 'المشتري',
+      label: isSeller 
+        ? (locale === 'en' ? 'Offers' : 'العروض')
+        : (locale === 'en' ? 'Buyer' : 'المشتري'),
     },
   ];
+
+  // If affiliate, don't show navigation bar
+  if (isAffiliate) {
+    return null;
+  }
+
+  // Don't show navigation bar on messages route
+  if (pathname?.includes('/messages')) {
+    return null;
+  }
 
   // If authenticated, show user navigation
   if (isAuthenticated) {

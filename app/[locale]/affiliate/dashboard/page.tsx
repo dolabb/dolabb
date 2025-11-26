@@ -15,7 +15,9 @@ export default function AffiliateDashboardPage() {
     // Check if affiliate is logged in
     if (typeof window !== 'undefined') {
       const storedAffiliate = localStorage.getItem('affiliate');
-      if (storedAffiliate) {
+      const storedToken = localStorage.getItem('affiliate_token');
+      
+      if (storedAffiliate && storedToken) {
         setAffiliate(JSON.parse(storedAffiliate));
       } else {
         // Redirect to login if not logged in
@@ -27,8 +29,8 @@ export default function AffiliateDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-off-white flex items-center justify-center">
-        <div className="text-deep-charcoal">Loading...</div>
+      <div className="min-h-screen bg-off-white flex items-center justify-center" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="text-deep-charcoal">{locale === 'en' ? 'Loading...' : 'جاري التحميل...'}</div>
       </div>
     );
   }

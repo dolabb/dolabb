@@ -6,7 +6,15 @@ const SECRET_KEY = 'sk_test_uCbs4YG4Ss71psXWdK3J8z8uZg1ABqSCtbPtCeS7';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tokenId, amount, description, metadata, cardDetails } = body;
+    const { tokenId, amount, description, metadata, cardDetails, orderId } = body;
+
+    console.log('Payment process request received:', {
+      orderId,
+      amount,
+      hasCardDetails: !!cardDetails,
+      hasTokenId: !!tokenId,
+      metadata,
+    });
 
     if (!amount) {
       return NextResponse.json(
@@ -16,7 +24,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert amount to halalas (smallest currency unit)
-    const amountInHalalas = Math.round(parseFloat(amount) * 100);
+    // If amount is already large (>= 1000), assume it's already in halalas
+    // Otherwise, assume it's in SAR and convert
+    const amountValue = parseFloat(amount);
+    const amountInHalalas = amountValue >= 1000 
+      ? Math.round(amountValue) 
+      : Math.round(amountValue * 100);
 
     // Determine payment source
     let source: any;
@@ -93,9 +106,19 @@ export async function POST(request: NextRequest) {
 
     const paymentData = await response.json();
 
+    // Log complete response
+    console.log('Complete Payment API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: paymentData,
+      orderId: orderId,
+    });
+
     return NextResponse.json({
       success: true,
       payment: paymentData,
+      orderId: orderId,
     });
   } catch (error: any) {
     console.error('Payment processing error:', error);

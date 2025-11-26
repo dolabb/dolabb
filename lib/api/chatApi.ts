@@ -1,0 +1,85 @@
+import { baseApi } from './baseApi';
+
+export interface Conversation {
+  id: string;
+  participants: Array<{
+    id: string;
+    username: string;
+    profileImage?: string;
+  }>;
+  lastMessage?: {
+    text: string;
+    timestamp: string;
+  };
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  attachments?: string[];
+  productId?: string;
+  offerId?: string;
+  createdAt: string;
+}
+
+export interface PaginationMeta {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+}
+
+export const chatApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    getConversations: builder.query<{ success: boolean; conversations: Conversation[] }, void>({
+      query: () => '/api/chat/conversations/',
+      providesTags: ['Conversation'],
+    }),
+
+    getMessages: builder.query<
+      { success: boolean; messages: Message[]; pagination: PaginationMeta },
+      { conversationId: string; page?: number; limit?: number }
+    >({
+      query: ({ conversationId, ...params }) => ({
+        url: `/api/chat/conversations/${conversationId}/messages/`,
+        method: 'GET',
+        params,
+        timeout: 60000, // 60 seconds timeout for messages (longer than default 30s)
+      }),
+      providesTags: (result, error, { conversationId }) => [
+        { type: 'Message', id: conversationId },
+      ],
+    }),
+
+    sendMessage: builder.mutation<{ success: boolean; message: Message }, any>({
+      query: (data) => ({
+        url: '/api/chat/send/',
+        method: 'POST',
+        data,
+      }),
+      invalidatesTags: ['Conversation', 'Message'],
+    }),
+
+    uploadChatFile: builder.mutation<{ success: boolean; fileUrl: string }, FormData>({
+      query: (formData) => ({
+        url: '/api/chat/upload/',
+        method: 'POST',
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }),
+    }),
+  }),
+});
+
+export const {
+  useGetConversationsQuery,
+  useGetMessagesQuery,
+  useSendMessageMutation,
+  useUploadChatFileMutation,
+} = chatApi;
+

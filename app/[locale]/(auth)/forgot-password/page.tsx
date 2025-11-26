@@ -4,47 +4,22 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { HiEnvelope, HiPhone, HiChevronDown } from 'react-icons/hi2';
-import { countries, defaultCountry, Country } from '@/data/countries';
+import { HiEnvelope } from 'react-icons/hi2';
+import { useForgotPasswordMutation } from '@/lib/api/authApi';
+import { toast } from '@/utils/toast';
+import { handleApiErrorWithToast } from '@/utils/errorHandler';
 
 export default function ForgotPasswordPage() {
   const locale = useLocale();
   const router = useRouter();
   const isRTL = locale === 'ar';
   
-  const [method, setMethod] = useState<'email' | 'phone'>('email');
   const [formData, setFormData] = useState({
     email: '',
-    phone: '',
   });
-  const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  const [countrySearch, setCountrySearch] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const countryDropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Filter countries based on search
-  const filteredCountries = countries.filter(country =>
-    country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-    country.dialCode.includes(countrySearch) ||
-    country.code.toLowerCase().includes(countrySearch.toLowerCase())
-  );
-  
-  // Close country dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
-        setShowCountryDropdown(false);
-      }
-    };
-    
-    if (showCountryDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showCountryDropdown]);
+  const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,18 +33,10 @@ export default function ForgotPasswordPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (method === 'email') {
       if (!formData.email.trim()) {
         newErrors.email = locale === 'en' ? 'Email is required' : 'البريد الإلكتروني مطلوب';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         newErrors.email = locale === 'en' ? 'Please enter a valid email' : 'يرجى إدخال بريد إلكتروني صحيح';
-      }
-    } else {
-      if (!formData.phone.trim()) {
-        newErrors.phone = locale === 'en' ? 'Phone number is required' : 'رقم الهاتف مطلوب';
-      } else if (!/^[0-9]{7,15}$/.test(formData.phone.replace(/\s/g, ''))) {
-        newErrors.phone = locale === 'en' ? 'Please enter a valid phone number' : 'يرجى إدخال رقم هاتف صحيح';
-      }
     }
 
     setErrors(newErrors);
@@ -83,17 +50,33 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const result = await forgotPassword({
+        email: formData.email,
+      }).unwrap();
+
+      if (result.success) {
+        // Store email for reset password page
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('reset_password_email', formData.email);
+        }
+
+        toast.success(
+          locale === 'en'
+            ? 'Password reset OTP sent to your email.'
+            : 'تم إرسال رمز إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.'
+        );
+
       setIsSubmitted(true);
-      // In a real app, you would redirect to a verification page or show OTP input
+        
+        // Redirect to reset password page after 2 seconds
       setTimeout(() => {
-        router.push(`/${locale}/reset-password?method=${method}&${method === 'email' ? `email=${formData.email}` : `phone=${selectedCountry.dialCode}${formData.phone}`}`);
+          router.push(`/${locale}/reset-password?email=${formData.email}`);
       }, 2000);
-    }, 1500);
+      }
+    } catch (error) {
+      handleApiErrorWithToast(error);
+    }
   };
 
   return (
@@ -117,41 +100,7 @@ export default function ForgotPasswordPage() {
         {/* Forgot Password Form */}
         <div className="bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30">
           {!isSubmitted ? (
-            <>
-              {/* Method Selection */}
-              <div className="flex gap-2 mb-6 p-1 bg-rich-sand/30 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMethod('email');
-                    setErrors({});
-                  }}
-                  className={`flex-1 py-2 px-4 rounded-md font-medium transition-all duration-200 ${
-                    method === 'email'
-                      ? 'bg-white text-saudi-green shadow-sm'
-                      : 'text-deep-charcoal/70 hover:text-deep-charcoal'
-                  }`}
-                >
-                  {locale === 'en' ? 'Email' : 'البريد الإلكتروني'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMethod('phone');
-                    setErrors({});
-                  }}
-                  className={`flex-1 py-2 px-4 rounded-md font-medium transition-all duration-200 ${
-                    method === 'phone'
-                      ? 'bg-white text-saudi-green shadow-sm'
-                      : 'text-deep-charcoal/70 hover:text-deep-charcoal'
-                  }`}
-                >
-                  {locale === 'en' ? 'Phone' : 'الهاتف'}
-                </button>
-              </div>
-
               <form onSubmit={handleSubmit} className="space-y-5">
-                {method === 'email' ? (
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-deep-charcoal mb-2">
                       {locale === 'en' ? 'Email Address' : 'عنوان البريد الإلكتروني'}
@@ -179,78 +128,6 @@ export default function ForgotPasswordPage() {
                       <p className="mt-1 text-sm text-coral-red">{errors.email}</p>
                     )}
                   </div>
-                ) : (
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-deep-charcoal mb-2">
-                      {locale === 'en' ? 'Phone Number' : 'رقم الهاتف'}
-                    </label>
-                    <div className="flex gap-2">
-                      <div className="relative" ref={countryDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                          className="flex items-center gap-2 px-3 py-3 border border-rich-sand rounded-lg hover:border-saudi-green transition-colors bg-white min-w-[120px]"
-                        >
-                          <span className="text-lg">{selectedCountry.flag}</span>
-                          <span className="text-sm text-deep-charcoal">{selectedCountry.dialCode}</span>
-                          <HiChevronDown className={`w-4 h-4 text-deep-charcoal/50 transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} />
-                        </button>
-                        {showCountryDropdown && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-rich-sand rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                            <div className="p-2 sticky top-0 bg-white border-b border-rich-sand">
-                              <input
-                                type="text"
-                                placeholder={locale === 'en' ? 'Search...' : 'بحث...'}
-                                value={countrySearch}
-                                onChange={(e) => setCountrySearch(e.target.value)}
-                                className="w-full px-3 py-2 border border-rich-sand rounded-md focus:outline-none focus:ring-2 focus:ring-saudi-green text-sm"
-                                dir="ltr"
-                              />
-                            </div>
-                            {filteredCountries.map((country) => (
-                              <button
-                                key={country.code}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedCountry(country);
-                                  setShowCountryDropdown(false);
-                                  setCountrySearch('');
-                                }}
-                                className="w-full flex items-center gap-3 px-3 py-2 hover:bg-rich-sand/30 transition-colors text-left"
-                              >
-                                <span className="text-lg">{country.flag}</span>
-                                <span className="flex-1 text-sm text-deep-charcoal">{country.name}</span>
-                                <span className="text-sm text-deep-charcoal/70">{country.dialCode}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="relative flex-1">
-                        <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
-                          <HiPhone className="h-5 w-5 text-deep-charcoal/40" />
-                        </div>
-                        <input
-                          type="tel"
-                          id="phone"
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handleChange}
-                          placeholder={locale === 'en' ? '1234567890' : '1234567890'}
-                          className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                            errors.phone
-                              ? 'border-coral-red'
-                              : 'border-rich-sand'
-                          }`}
-                          dir="ltr"
-                        />
-                      </div>
-                    </div>
-                    {errors.phone && (
-                      <p className="mt-1 text-sm text-coral-red">{errors.phone}</p>
-                    )}
-                  </div>
-                )}
 
                 {/* Submit Button */}
                 <button
@@ -273,13 +150,9 @@ export default function ForgotPasswordPage() {
                 {locale === 'en' ? 'Check your inbox' : 'تحقق من بريدك الوارد'}
               </h3>
               <p className="text-deep-charcoal/70 mb-6">
-                {method === 'email'
-                  ? (locale === 'en' 
-                      ? `We've sent a password reset link to ${formData.email}` 
-                      : `لقد أرسلنا رابط إعادة تعيين كلمة المرور إلى ${formData.email}`)
-                  : (locale === 'en'
-                      ? `We've sent a verification code to ${selectedCountry.dialCode}${formData.phone}`
-                      : `لقد أرسلنا رمز التحقق إلى ${selectedCountry.dialCode}${formData.phone}`)}
+                {locale === 'en' 
+                  ? `We've sent a password reset OTP to ${formData.email}` 
+                  : `لقد أرسلنا رمز إعادة تعيين كلمة المرور إلى ${formData.email}`}
               </p>
             </div>
           )}

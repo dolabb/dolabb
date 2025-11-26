@@ -1,15 +1,19 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HiEnvelope, HiEye, HiEyeSlash, HiLockClosed } from 'react-icons/hi2';
+import { useLoginMutation } from '@/lib/api/authApi';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { setCredentials } from '@/lib/store/slices/authSlice';
+import { toast } from '@/utils/toast';
+import { handleApiErrorWithToast } from '@/utils/errorHandler';
 export default function LoginPage() {
   const locale = useLocale();
   const router = useRouter();
-  const { login } = useAuth();
+  const dispatch = useAppDispatch();
   const isRTL = locale === 'ar';
 
   const [formData, setFormData] = useState({
@@ -18,8 +22,8 @@ export default function LoginPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [login, { isLoading }] = useLoginMutation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -59,22 +63,38 @@ export default function LoginPage() {
       return;
     }
 
-    setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      // Login user
-      login({
-        id: '1',
-        username: 'summernorton_',
+    try {
+      const result = await login({
         email: formData.email,
-        profileImage:
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-      });
-      // Redirect to home page
-      router.push(`/${locale}`);
-    }, 1500);
+        password: formData.password,
+      }).unwrap();
+
+      if (result.success && result.user && result.token) {
+        // Store credentials in Redux
+        dispatch(setCredentials({
+          user: result.user,
+          token: result.token,
+        }));
+
+        // Show success toast
+        toast.success(
+          locale === 'en'
+            ? `Welcome back, ${result.user.full_name}!`
+            : `مرحباً بعودتك، ${result.user.full_name}!`
+        );
+
+        // Redirect based on role
+        setTimeout(() => {
+          if (result.user.role === 'seller') {
+            router.push(`/${locale}/my-store`);
+          } else {
+            router.push(`/${locale}`);
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      handleApiErrorWithToast(error);
+    }
   };
 
   return (

@@ -4,11 +4,21 @@ import { navigationCategories } from '@/data/navigation';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { HiPlus, HiXMark } from 'react-icons/hi2';
 import TermsModal from '@/components/shared/TermsModal';
+import { useCreateProductMutation, useUpdateProductMutation } from '@/lib/api/productsApi';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { productsApi } from '@/lib/api/productsApi';
+import { authApi } from '@/lib/api/authApi';
+import { useUploadImageMutation } from '@/lib/api/authApi';
+import { toast } from '@/utils/toast';
+import type { Product } from '@/types/products';
 
 interface ListItemFormProps {
   onCancel: () => void;
+  productId?: string;
+  initialData?: Product;
 }
 
 const currencies = ['USD', 'AED', 'SAR', 'KWD', 'QAR', 'OMR', 'BHD'];
@@ -28,61 +38,177 @@ const sizes = [
 ];
 const conditions = ['New with tag', 'Like new', 'Good', 'Fair', 'Poor'];
 
-export default function ListItemForm({ onCancel }: ListItemFormProps) {
-  const locale = useLocale();
+// Map display condition values to API-expected values
+const conditionMap: Record<string, string> = {
+  'New with tag': 'new',
+  'Like new': 'like-new',
+  'Good': 'good',
+  'Fair': 'fair',
+  'Poor': 'fair', // Map Poor to fair as API doesn't have 'poor'
+};
 
+// Reverse map: API values to display values (for edit mode)
+const reverseConditionMap: Record<string, string> = {
+  'new': 'New with tag',
+  'like-new': 'Like new',
+  'good': 'Good',
+  'fair': 'Fair',
+};
+const colors = [
+  'Black',
+  'White',
+  'Navy',
+  'Gray',
+  'Beige',
+  'Red',
+  'Blue',
+  'Green',
+  'Pink',
+  'Yellow',
+  'Purple',
+  'Orange',
+  'Brown',
+  'Silver',
+  'Gold',
+];
+
+export default function ListItemForm({ onCancel, productId, initialData }: ListItemFormProps) {
+  const locale = useLocale();
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const isEditMode = !!productId && !!initialData;
+  
+  const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
+  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
+
+  // Store photo files and previews separately
+  // photos array contains: File objects for new uploads, or string URLs for existing images
+  const [photoFiles, setPhotoFiles] = useState<(File | string)[]>(
+    initialData?.images || []
+  );
+  // Initialize previews with existing URLs if in edit mode
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>(
+    initialData?.images || []
+  );
+
+  // Initialize form data from initialData if in edit mode
   const [formData, setFormData] = useState({
-    photos: [] as string[],
-    title: '',
-    description: '',
-    price: '',
-    currency: 'USD',
-    category: '',
-    gender: '',
-    subCategory: '',
-    size: '',
+    photos: [] as string[], // Will be populated with URLs after upload
+    title: initialData?.title || '',
+    description: initialData?.description || '',
+    price: initialData?.price?.toString() || '',
+    originalPrice: initialData?.originalPrice?.toString() || '',
+    currency: 'SAR', // Default to SAR
+    category: initialData?.category || '',
+    gender: 'Unisex', // Default
+    subCategory: initialData?.subcategory || '',
+    size: initialData?.size || '',
+    color: initialData?.color || '',
     customSize: '',
-    condition: '',
-    brandName: '',
-    quantity: '',
+    condition: initialData?.condition 
+      ? (reverseConditionMap[initialData.condition] || initialData.condition)
+      : '',
+    brandName: initialData?.brand || '',
+    quantity: initialData?.quantity?.toString() || '',
     hasVariants: false,
     variants: '',
     sku: '',
-    tags: '',
-    shippingCost: '',
-    processingTime: '',
-    affiliateCode: '',
+    tags: initialData?.tags?.join(', ') || '',
+    shippingCost: initialData?.shippingInfo?.cost?.toString() || '',
+    processingTime: initialData?.shippingInfo?.estimatedDays?.toString() || '',
+    affiliateCode: initialData?.affiliateCode || '',
   });
 
   const [customSizes, setCustomSizes] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(initialData?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [newSubCategoryInput, setNewSubCategoryInput] = useState('');
+  const [customSubCategories, setCustomSubCategories] = useState<string[]>([]);
+  const [shippingLocations, setShippingLocations] = useState<string[]>(
+    initialData?.shippingInfo?.locations || ['Saudi Arabia']
+  );
+  const [newShippingLocation, setNewShippingLocation] = useState('');
+
+  // Generate preview URLs for File objects
+  useEffect(() => {
+    const generatePreviews = async () => {
+      const previews: string[] = [];
+      for (const item of photoFiles) {
+        if (item instanceof File) {
+          // Create preview for File object
+          const reader = new FileReader();
+          const preview = await new Promise<string>((resolve) => {
+            reader.onload = (e) => {
+              resolve(e.target?.result as string);
+            };
+            reader.readAsDataURL(item);
+          });
+          previews.push(preview);
+        } else {
+          // Use existing URL
+          previews.push(item);
+        }
+      }
+      setPhotoPreviews(previews);
+    };
+    generatePreviews();
+  }, [photoFiles]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          if (e.target?.result) {
-            setFormData(prev => ({
-              ...prev,
-              photos: [...prev.photos, e.target!.result as string],
-            }));
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      const currentPhotoCount = photoFiles.length;
+      const filesToAdd = Array.from(files);
+      
+      // Validate file sizes (10MB limit per file)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      const oversizedFiles = filesToAdd.filter(file => file.size > maxSize);
+      
+      if (oversizedFiles.length > 0) {
+        toast.error(
+          locale === 'en'
+            ? `Some images are too large. Maximum size is 10MB per image. Please compress the images or choose smaller files.`
+            : `بعض الصور كبيرة جداً. الحد الأقصى هو 10 ميجابايت لكل صورة. يرجى ضغط الصور أو اختيار ملفات أصغر.`
+        );
+        e.target.value = '';
+        return;
+      }
+      
+      const totalAfterUpload = currentPhotoCount + filesToAdd.length;
+      
+      // Check if adding these files would exceed the limit of 5
+      if (totalAfterUpload > 5) {
+        const maxAllowed = 5 - currentPhotoCount;
+        if (maxAllowed > 0) {
+          toast.warning(
+            locale === 'en' 
+              ? `You can only upload ${maxAllowed} more image${maxAllowed > 1 ? 's' : ''}. Maximum 5 images allowed.`
+              : `يمكنك تحميل ${maxAllowed} صورة${maxAllowed > 1 ? '' : ''} فقط. الحد الأقصى 5 صور.`
+          );
+          // Only process the files that fit within the limit
+          setPhotoFiles(prev => [...prev, ...filesToAdd.slice(0, maxAllowed)]);
+        } else {
+          toast.error(
+            locale === 'en' 
+              ? 'Maximum 5 images allowed. Please remove some images before adding new ones.'
+              : 'الحد الأقصى 5 صور. يرجى إزالة بعض الصور قبل إضافة صور جديدة.'
+          );
+        }
+        // Reset the input so the same file can be selected again if needed
+        e.target.value = '';
+        return;
+      }
+      
+      // If within limit, add all files
+      setPhotoFiles(prev => [...prev, ...filesToAdd]);
     }
   };
 
   const removePhoto = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      photos: prev.photos.filter((_, i) => i !== index),
-    }));
+    setPhotoFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const addCustomSize = () => {
@@ -108,64 +234,175 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
     setTags(prev => prev.filter((_, i) => i !== index));
   };
 
+  const addCustomSubCategory = () => {
+    if (newSubCategoryInput.trim() && selectedCategory) {
+      const newSubCategory = newSubCategoryInput.trim();
+      setCustomSubCategories(prev => [...prev, newSubCategory]);
+      setFormData(prev => ({ ...prev, subCategory: `create ${newSubCategory}` }));
+      setNewSubCategoryInput('');
+    }
+  };
+
+  const addShippingLocation = () => {
+    if (newShippingLocation.trim()) {
+      setShippingLocations(prev => [...prev, newShippingLocation.trim()]);
+      setNewShippingLocation('');
+    }
+  };
+
+  const removeShippingLocation = (index: number) => {
+    setShippingLocations(prev => prev.filter((_, i) => i !== index));
+  };
+
   const selectedCategory = navigationCategories.find(
     cat => cat.key === formData.category
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Show terms modal if not accepted
-    if (!termsAccepted) {
+    // Show terms modal if not accepted (only for create mode)
+    if (!isEditMode && !termsAccepted) {
       setShowTermsModal(true);
       return;
     }
 
-    // Handle form submission
-    const submitData = {
-      ...formData,
-      tags: tags.join(', '),
-      id: `ITEM-${Date.now()}`,
-      listedAt: new Date().toISOString(),
-    };
-    
-    // Store listed item with affiliate code
-    if (typeof window !== 'undefined') {
-      const listedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
-      listedItems.push(submitData);
-      localStorage.setItem('listedItems', JSON.stringify(listedItems));
+    try {
+      // Step 1: Upload all new image files first
+      const imageUrls: string[] = [];
+      
+      for (const item of photoFiles) {
+        if (item instanceof File) {
+          // Upload new file
+          try {
+            const imageFormData = new FormData();
+            imageFormData.append('image', item, item.name);
+            
+            const uploadResult = await uploadImage(imageFormData).unwrap();
+            
+            if (uploadResult.success && uploadResult.image_url) {
+              imageUrls.push(uploadResult.image_url);
+            } else {
+              throw new Error('Image upload failed: No image URL returned');
+            }
+          } catch (uploadError: any) {
+            console.error('Image upload failed:', uploadError);
+            
+            // Check if it's a timeout error
+            const isTimeout = 
+              uploadError?.message?.toLowerCase().includes('timeout') ||
+              uploadError?.message?.toLowerCase().includes('time') ||
+              uploadError?.code === 'ECONNABORTED' ||
+              uploadError?.name === 'TimeoutError' ||
+              uploadError?.error?.data?.message?.toLowerCase().includes('timeout');
+            
+            if (isTimeout) {
+              toast.error(
+                locale === 'en'
+                  ? 'Image upload timed out. The image might be too large or the connection is slow. Please try again with smaller images or check your internet connection.'
+                  : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصور أصغر أو التحقق من اتصال الإنترنت.'
+              );
+            } else {
+              toast.error(
+                locale === 'en'
+                  ? 'Failed to upload one or more images. Please try again.'
+                  : 'فشل تحميل صورة واحدة أو أكثر. يرجى المحاولة مرة أخرى.'
+              );
+            }
+            return; // Stop the process if image upload fails
+          }
+        } else {
+          // Use existing URL (for edit mode)
+          imageUrls.push(item);
+        }
+      }
+
+      // Validate that we have at least one image
+      if (imageUrls.length === 0) {
+        toast.error(
+          locale === 'en'
+            ? 'Please add at least one image for your product.'
+            : 'يرجى إضافة صورة واحدة على الأقل لمنتجك.'
+        );
+        return;
+      }
+
+      // Step 2: Prepare API data with uploaded image URLs
+      const apiData: any = {
+        itemtitle: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        Images: imageUrls, // Use uploaded URLs instead of base64
+        category: formData.category,
+        subcategory: formData.subCategory,
+        brand: formData.brandName,
+        Size: formData.size,
+        Condition: formData.condition ? conditionMap[formData.condition] || formData.condition.toLowerCase() : 'fair',
+        'Tags/Keywords': tags.length > 0 ? tags : (formData.tags ? formData.tags.split(',').map(t => t.trim()) : []),
+        Quantity: formData.quantity ? parseInt(formData.quantity) : 1,
+        currency: formData.currency,
+        Gender: formData.gender || 'Unisex',
+        'Shipping Cost': formData.shippingCost ? parseFloat(formData.shippingCost) : 0,
+        'Processing Time (days)': formData.processingTime ? parseInt(formData.processingTime) : 3,
+        'Shipping Locations': shippingLocations.length > 0 ? shippingLocations : ['Saudi Arabia'],
+      };
+
+      // Optional fields
+      if (formData.sku) {
+        apiData['SKU/ID (Optional)'] = formData.sku;
+      }
+      
+      if (formData.color) {
+        apiData.Color = formData.color;
+      }
+      
+      if (formData.originalPrice) {
+        apiData.originalPrice = parseFloat(formData.originalPrice);
+      }
+      
+      if (formData.affiliateCode) {
+        apiData['Affiliate Code (Optional)'] = formData.affiliateCode;
+      }
+
+      if (isEditMode && productId) {
+        // Update product
+        console.log('Updating product with data:', apiData);
+        const result = await updateProduct({ productId, data: apiData }).unwrap();
+        console.log('Update result:', result);
+        toast.success(locale === 'en' ? 'Product updated successfully!' : 'تم تحديث المنتج بنجاح!');
+        // Invalidate and refetch seller products
+        dispatch(productsApi.util.invalidateTags(['Product']));
+        // Small delay to ensure cache is updated before redirect
+        setTimeout(() => {
+          router.push(`/${locale}/my-store`);
+        }, 300);
+      } else {
+        // Create product
+        console.log('Creating product with data:', apiData);
+        await createProduct(apiData).unwrap();
+        toast.success(locale === 'en' ? 'Product created successfully!' : 'تم إنشاء المنتج بنجاح!');
+        // Invalidate and refetch seller products
+        dispatch(productsApi.util.invalidateTags(['Product']));
+        // Invalidate user profile to refetch updated role (buyer -> seller)
+        dispatch(authApi.util.invalidateTags(['User']));
+        onCancel();
+      }
+    } catch (error: any) {
+      console.error('Product update/create error:', error);
+      const errorMessage = 
+        error?.data?.message || 
+        error?.data?.error || 
+        error?.message || 
+        (locale === 'en' ? 'Failed to save product. Please check the console for details.' : 'فشل حفظ المنتج. يرجى التحقق من وحدة التحكم للتفاصيل.');
+      toast.error(errorMessage);
     }
-    
-    console.log('Form submitted:', submitData);
-    alert(
-      locale === 'en' ? 'Item listed successfully!' : 'تم إضافة المنتج بنجاح!'
-    );
-    onCancel();
   };
 
-  const handleAcceptTerms = () => {
+  const handleAcceptTerms = async () => {
     setTermsAccepted(true);
     setShowTermsModal(false);
     // Automatically submit form after accepting terms
-    const submitData = {
-      ...formData,
-      tags: tags.join(', '),
-      id: `ITEM-${Date.now()}`,
-      listedAt: new Date().toISOString(),
-    };
-    
-    // Store listed item with affiliate code
-    if (typeof window !== 'undefined') {
-      const listedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
-      listedItems.push(submitData);
-      localStorage.setItem('listedItems', JSON.stringify(listedItems));
-    }
-    
-    console.log('Form submitted:', submitData);
-    alert(
-      locale === 'en' ? 'Item listed successfully!' : 'تم إضافة المنتج بنجاح!'
-    );
-    onCancel();
+    await handleSubmit(new Event('submit') as any);
   };
 
   // Custom dropdown component
@@ -250,10 +487,20 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
       {/* Header */}
       <div className='bg-gradient-to-r from-saudi-green to-emerald-600 px-6 py-4'>
         <h2 className='text-2xl font-bold text-white'>
-          {locale === 'en' ? 'List an Item' : 'إضافة منتج'}
+          {isEditMode
+            ? locale === 'en'
+              ? 'Edit Product'
+              : 'تعديل المنتج'
+            : locale === 'en'
+            ? 'List an Item'
+            : 'إضافة منتج'}
         </h2>
         <p className='text-sm text-white/90 mt-1'>
-          {locale === 'en'
+          {isEditMode
+            ? locale === 'en'
+              ? 'Update your product details'
+              : 'قم بتحديث تفاصيل منتجك'
+            : locale === 'en'
             ? 'Fill in the details to list your item for sale'
             : 'املأ التفاصيل لإدراج منتجك للبيع'}
         </p>
@@ -262,9 +509,14 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
       <form onSubmit={handleSubmit} className='p-6 space-y-4'>
         {/* Add Photos */}
         <div className='bg-rich-sand/10 rounded-lg p-4 border border-rich-sand/20'>
-          <label className='block text-xs font-semibold text-deep-charcoal mb-2 uppercase tracking-wide'>
-            {locale === 'en' ? 'Photos' : 'الصور'}
-          </label>
+          <div className='flex items-center justify-between mb-2'>
+            <label className='block text-xs font-semibold text-deep-charcoal uppercase tracking-wide'>
+              {locale === 'en' ? 'Photos' : 'الصور'}
+            </label>
+            <span className='text-xs text-deep-charcoal/60'>
+              {photoFiles.length}/5 {locale === 'en' ? 'images' : 'صور'}
+            </span>
+          </div>
           <input
             type='file'
             accept='image/*'
@@ -272,31 +524,51 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
             onChange={handlePhotoUpload}
             className='hidden'
             id='photo-upload'
+            disabled={photoFiles.length >= 5 || isUploadingImage}
           />
           <label
             htmlFor='photo-upload'
-            className='inline-flex items-center gap-2 px-4 py-2 bg-saudi-green text-white rounded-lg text-sm font-medium hover:bg-saudi-green/90 transition-colors cursor-pointer shadow-sm'
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${
+              photoFiles.length >= 5 || isUploadingImage
+                ? 'bg-gray-400 text-white cursor-not-allowed opacity-60'
+                : 'bg-saudi-green text-white hover:bg-saudi-green/90 cursor-pointer'
+            }`}
           >
             <HiPlus className='w-4 h-4' />
-            {locale === 'en' ? 'Add Photos' : 'إضافة صور'}
+            {photoFiles.length >= 5
+              ? locale === 'en'
+                ? 'Maximum 5 images reached'
+                : 'تم الوصول إلى الحد الأقصى 5 صور'
+              : locale === 'en'
+              ? 'Add Photos'
+              : 'إضافة صور'}
           </label>
-          {formData.photos.length > 0 && (
+          {photoFiles.length >= 5 && (
+            <p className='mt-2 text-xs text-amber-600'>
+              {locale === 'en'
+                ? 'You have reached the maximum of 5 images. Remove some images to add new ones.'
+                : 'لقد وصلت إلى الحد الأقصى من 5 صور. قم بإزالة بعض الصور لإضافة صور جديدة.'}
+            </p>
+          )}
+          {photoPreviews.length > 0 && (
             <div className='grid grid-cols-4 md:grid-cols-6 gap-2 mt-3'>
-              {formData.photos.map((photo, index) => (
+              {photoPreviews.map((preview, index) => (
                 <div
                   key={index}
                   className='relative aspect-square rounded-lg overflow-hidden border-2 border-rich-sand/30'
                 >
                   <Image
-                    src={photo}
+                    src={preview}
                     alt={`Preview ${index + 1}`}
                     fill
                     className='object-cover'
+                    unoptimized
                   />
                   <button
                     type='button'
                     onClick={() => removePhoto(index)}
                     className='absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md cursor-pointer'
+                    disabled={isUploadingImage}
                   >
                     <HiXMark className='w-3 h-3' />
                   </button>
@@ -353,8 +625,8 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
           />
         </div>
 
-        {/* Price, Currency, Quantity Row */}
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+        {/* Price, Original Price, Currency, Quantity Row */}
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
           <div>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
               {locale === 'en' ? 'Price' : 'السعر'}
@@ -368,6 +640,20 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
               }
               className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
               required
+            />
+          </div>
+          <div>
+            <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
+              {locale === 'en' ? 'Original Price (Optional)' : 'السعر الأصلي (اختياري)'}
+            </label>
+            <input
+              type='number'
+              step='0.01'
+              value={formData.originalPrice}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, originalPrice: e.target.value }))
+              }
+              className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
             />
           </div>
           <div>
@@ -408,13 +694,15 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
             </label>
             <CustomDropdown
               value={formData.category}
-              onChange={value =>
+              onChange={value => {
                 setFormData(prev => ({
                   ...prev,
                   category: value,
                   subCategory: '',
-                }))
-              }
+                }));
+                setCustomSubCategories([]);
+                setNewSubCategoryInput('');
+              }}
               options={[
                 {
                   value: '',
@@ -523,31 +811,106 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
                     value: sub.key,
                     label: sub.name,
                   })),
+                  ...customSubCategories.map(sub => ({
+                    value: `create ${sub}`,
+                    label: sub,
+                  })),
                 ]}
                 placeholder={
                   locale === 'en' ? 'All Sub Categories' : 'جميع الفئات الفرعية'
                 }
               />
+              {/* Add New Subcategory */}
+              <div className='flex gap-1.5 mt-1.5'>
+                <input
+                  type='text'
+                  value={newSubCategoryInput}
+                  onChange={e => setNewSubCategoryInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomSubCategory();
+                    }
+                  }}
+                  placeholder={
+                    locale === 'en'
+                      ? 'Add new subcategory'
+                      : 'إضافة فئة فرعية جديدة'
+                  }
+                  className='flex-1 px-2 py-1 text-xs border border-rich-sand/30 rounded focus:outline-none focus:ring-1 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+                />
+                <button
+                  type='button'
+                  onClick={addCustomSubCategory}
+                  className='px-2 py-1 bg-saudi-green text-white rounded hover:bg-saudi-green/90 transition-colors text-xs cursor-pointer'
+                >
+                  <HiPlus className='w-3 h-3' />
+                </button>
+              </div>
+              {customSubCategories.length > 0 && (
+                <div className='flex flex-wrap gap-1 mt-1.5'>
+                  {customSubCategories.map((sub, index) => (
+                    <span
+                      key={index}
+                      className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-saudi-green/10 text-saudi-green rounded text-xs'
+                    >
+                      {sub}
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setCustomSubCategories(prev =>
+                            prev.filter((_, i) => i !== index)
+                          );
+                          if (formData.subCategory === `create ${sub}`) {
+                            setFormData(prev => ({ ...prev, subCategory: '' }));
+                          }
+                        }}
+                        className='hover:text-red-500 cursor-pointer'
+                      >
+                        <HiXMark className='w-2.5 h-2.5' />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Condition */}
-        <div>
-          <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-            {locale === 'en' ? 'Condition' : 'الحالة'}
-          </label>
-          <CustomDropdown
-            value={formData.condition}
-            onChange={value =>
-              setFormData(prev => ({ ...prev, condition: value }))
-            }
-            options={[
-              { value: '', label: locale === 'en' ? 'Select' : 'اختر' },
-              ...conditions.map(c => ({ value: c, label: c })),
-            ]}
-            placeholder={locale === 'en' ? 'Select' : 'اختر'}
-          />
+        {/* Condition and Color Row */}
+        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+          <div>
+            <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
+              {locale === 'en' ? 'Condition' : 'الحالة'}
+            </label>
+            <CustomDropdown
+              value={formData.condition}
+              onChange={value =>
+                setFormData(prev => ({ ...prev, condition: value }))
+              }
+              options={[
+                { value: '', label: locale === 'en' ? 'Select' : 'اختر' },
+                ...conditions.map(c => ({ value: c, label: c })),
+              ]}
+              placeholder={locale === 'en' ? 'Select' : 'اختر'}
+            />
+          </div>
+          <div>
+            <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
+              {locale === 'en' ? 'Color (Optional)' : 'اللون (اختياري)'}
+            </label>
+            <CustomDropdown
+              value={formData.color}
+              onChange={value =>
+                setFormData(prev => ({ ...prev, color: value }))
+              }
+              options={[
+                { value: '', label: locale === 'en' ? 'Select Color' : 'اختر اللون' },
+                ...colors.map(c => ({ value: c, label: c })),
+              ]}
+              placeholder={locale === 'en' ? 'Select Color' : 'اختر اللون'}
+            />
+          </div>
         </div>
 
         {/* Variants, SKU, Tags Row */}
@@ -681,6 +1044,57 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
               />
             </div>
           </div>
+          {/* Shipping Locations */}
+          <div className='mt-4'>
+            <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
+              {locale === 'en' ? 'Shipping Locations' : 'مواقع الشحن'}
+            </label>
+            <div className='flex gap-1.5'>
+              <input
+                type='text'
+                value={newShippingLocation}
+                onChange={e => setNewShippingLocation(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addShippingLocation();
+                  }
+                }}
+                placeholder={
+                  locale === 'en'
+                    ? 'Add shipping location'
+                    : 'إضافة موقع الشحن'
+                }
+                className='flex-1 px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+              />
+              <button
+                type='button'
+                onClick={addShippingLocation}
+                className='px-4 py-2 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors text-sm cursor-pointer'
+              >
+                <HiPlus className='w-4 h-4' />
+              </button>
+            </div>
+            {shippingLocations.length > 0 && (
+              <div className='flex flex-wrap gap-2 mt-2'>
+                {shippingLocations.map((location, index) => (
+                  <span
+                    key={index}
+                    className='inline-flex items-center gap-1.5 px-3 py-1.5 bg-saudi-green/10 text-saudi-green rounded-full text-sm border border-saudi-green/20'
+                  >
+                    {location}
+                    <button
+                      type='button'
+                      onClick={() => removeShippingLocation(index)}
+                      className='hover:text-red-500 transition-colors cursor-pointer'
+                    >
+                      <HiXMark className='w-4 h-4' />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Affiliate Code (Optional) */}
@@ -719,9 +1133,24 @@ export default function ListItemForm({ onCancel }: ListItemFormProps) {
           </button>
           <button
             type='submit'
-            className='flex-1 px-4 py-2.5 bg-gradient-to-r from-saudi-green to-emerald-600 text-white rounded-lg font-semibold hover:from-saudi-green/90 hover:to-emerald-500 transition-all shadow-md hover:shadow-lg text-sm cursor-pointer'
+            disabled={isCreating || isUpdating || isUploadingImage}
+            className='flex-1 px-4 py-2.5 bg-gradient-to-r from-saudi-green to-emerald-600 text-white rounded-lg font-semibold hover:from-saudi-green/90 hover:to-emerald-500 transition-all shadow-md hover:shadow-lg text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
           >
-            {locale === 'en' ? 'Submit' : 'إرسال'}
+            {isCreating || isUpdating || isUploadingImage
+              ? locale === 'en'
+                ? isUploadingImage
+                  ? 'Uploading images...'
+                  : 'Saving...'
+                : isUploadingImage
+                ? 'جاري رفع الصور...'
+                : 'جاري الحفظ...'
+              : isEditMode
+              ? locale === 'en'
+                ? 'Update Product'
+                : 'تحديث المنتج'
+              : locale === 'en'
+              ? 'Submit'
+              : 'إرسال'}
           </button>
         </div>
       </form>

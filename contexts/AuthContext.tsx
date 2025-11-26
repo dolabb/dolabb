@@ -19,14 +19,34 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize from localStorage synchronously to avoid race conditions
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          return JSON.parse(storedUser);
+        }
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
+    }
+    return null;
+  });
 
   useEffect(() => {
-    // Check for stored auth on mount
+    // Sync with localStorage on mount (in case it changed)
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        } catch (e) {
+          console.error('Error parsing stored user:', e);
+        }
+      } else {
+        setUser(null);
       }
     }
   }, []);

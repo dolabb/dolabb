@@ -1,15 +1,15 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAppSelector } from '@/lib/store/hooks';
 import Hero from '@/components/home/Hero';
 import FeaturedProductsSection from '@/components/home/FeaturedProductsSection';
+import TrendingProductsSection from '@/components/home/TrendingProductsSection';
 import LoggedInHome from '@/components/home/LoggedInHome';
-import { featuredProducts } from '@/data/products';
 import { useLocale } from 'next-intl';
 
 export default function HomePage() {
   const locale = useLocale();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const isRTL = locale === 'ar';
 
   // Show different content based on authentication
@@ -20,7 +20,8 @@ export default function HomePage() {
   return (
     <div className='bg-off-white' dir={isRTL ? 'rtl' : 'ltr'}>
       <Hero />
-      <FeaturedProductsSection products={featuredProducts} />
+      <FeaturedProductsSection />
+      <TrendingProductsSection />
     </div>
   );
 }

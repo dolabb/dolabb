@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { HiLockClosed, HiEye, HiEyeSlash, HiCheckCircle } from 'react-icons/hi2';
+import { HiLockClosed, HiEye, HiEyeSlash, HiCheckCircle, HiKey } from 'react-icons/hi2';
+import { useResetPasswordMutation } from '@/lib/api/authApi';
+import { toast } from '@/utils/toast';
+import { handleApiErrorWithToast } from '@/utils/errorHandler';
 
 export default function ResetPasswordPage() {
   const locale = useLocale();
@@ -12,7 +15,9 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const isRTL = locale === 'ar';
   
-  const identifier = searchParams.get('email') || searchParams.get('phone') || '';
+  const emailFromParams = searchParams.get('email') || '';
+  const [email, setEmail] = useState(emailFromParams);
+  const [otp, setOtp] = useState(['', '', '', '']);
   
   const [formData, setFormData] = useState({
     password: '',
@@ -21,14 +26,53 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [resetPassword, { isLoading }] = useResetPasswordMutation();
 
   useEffect(() => {
-    if (!identifier) {
+    // Get email from localStorage if not in params
+    if (!email && typeof window !== 'undefined') {
+      const storedEmail = localStorage.getItem('reset_password_email');
+      if (storedEmail) {
+        setEmail(storedEmail);
+      } else {
+        // No email found, redirect to forgot password
       router.push(`/${locale}/forgot-password`);
     }
-  }, [identifier, locale, router]);
+    }
+  }, [email, locale, router]);
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) return; // Only allow single digit
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 3) {
+      const nextInput = document.getElementById(`reset-otp-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`reset-otp-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').trim();
+    if (/^\d{4}$/.test(pastedData)) {
+      const newOtp = pastedData.split('');
+      setOtp(newOtp);
+      // Focus last input
+      document.getElementById('reset-otp-3')?.focus();
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -42,14 +86,15 @@ export default function ResetPasswordPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    const otpString = otp.join('');
+    if (otpString.length !== 4) {
+      newErrors.otp = locale === 'en' ? 'Please enter 4-digit OTP' : 'يرجى إدخال رمز التحقق المكون من 4 أرقام';
+    }
+
     if (!formData.password) {
       newErrors.password = locale === 'en' ? 'Password is required' : 'كلمة المرور مطلوبة';
-    } else if (formData.password.length < 8) {
-      newErrors.password = locale === 'en' ? 'Password must be at least 8 characters' : 'يجب أن تكون كلمة المرور على الأقل 8 أحرف';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = locale === 'en' 
-        ? 'Password must contain uppercase, lowercase, and number' 
-        : 'يجب أن تحتوي كلمة المرور على حرف كبير وصغير ورقم';
+    } else if (formData.password.length < 6) {
+      newErrors.password = locale === 'en' ? 'Password must be at least 6 characters' : 'يجب أن تكون كلمة المرور على الأقل 6 أحرف';
     }
 
     if (!formData.confirmPassword) {
@@ -65,21 +110,41 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    if (!validateForm() || !email) {
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const otpString = otp.join('');
+      const result = await resetPassword({
+        email,
+        otp: otpString,
+        new_password: formData.password,
+        confirm_password: formData.confirmPassword,
+      }).unwrap();
+
+      if (result.success) {
+        // Clear stored email
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('reset_password_email');
+        }
+
+        toast.success(
+          locale === 'en'
+            ? 'Password reset successfully! Please login with your new password.'
+            : 'تم إعادة تعيين كلمة المرور بنجاح! يرجى تسجيل الدخول بكلمة المرور الجديدة.'
+        );
+
       setIsSuccess(true);
+        
       // Redirect to login after 2 seconds
       setTimeout(() => {
         router.push(`/${locale}/login`);
       }, 2000);
-    }, 1500);
+      }
+    } catch (error) {
+      handleApiErrorWithToast(error);
+    }
   };
 
   if (isSuccess) {
@@ -117,14 +182,47 @@ export default function ResetPasswordPage() {
           </h2>
           <p className="text-deep-charcoal/70">
             {locale === 'en' 
-              ? `Enter your new password for ${identifier}` 
-              : `أدخل كلمة المرور الجديدة لـ ${identifier}`}
+              ? `Enter OTP and your new password for ${email || 'your account'}` 
+              : `أدخل رمز التحقق وكلمة المرور الجديدة لـ ${email || 'حسابك'}`}
           </p>
         </div>
 
         {/* Reset Password Form */}
         <div className="bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30">
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* OTP Input */}
+            <div>
+              <label className="block text-sm font-medium text-deep-charcoal mb-2">
+                {locale === 'en' ? 'Enter OTP' : 'أدخل رمز التحقق'}
+              </label>
+              <div className="flex gap-3 justify-center">
+                {otp.map((digit, index) => (
+                  <input
+                    key={index}
+                    id={`reset-otp-${index}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={index === 0 ? handlePaste : undefined}
+                    className="w-16 h-16 text-center text-2xl font-semibold border-2 border-rich-sand rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-all"
+                    dir="ltr"
+                    autoFocus={index === 0}
+                  />
+                ))}
+              </div>
+              {errors.otp && (
+                <p className="mt-1 text-sm text-coral-red text-center">{errors.otp}</p>
+              )}
+              <p className="mt-2 text-xs text-deep-charcoal/60 text-center">
+                {locale === 'en' 
+                  ? 'Check your email for the OTP code' 
+                  : 'تحقق من بريدك الإلكتروني للحصول على رمز التحقق'}
+              </p>
+            </div>
+
             {/* New Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-deep-charcoal mb-2">
@@ -164,8 +262,8 @@ export default function ResetPasswordPage() {
               )}
               <p className="mt-1 text-xs text-deep-charcoal/60">
                 {locale === 'en' 
-                  ? 'Must be at least 8 characters with uppercase, lowercase, and number' 
-                  : 'يجب أن تكون 8 أحرف على الأقل مع حرف كبير وصغير ورقم'}
+                  ? 'Must be at least 6 characters' 
+                  : 'يجب أن تكون 6 أحرف على الأقل'}
               </p>
             </div>
 

@@ -74,6 +74,8 @@ select::-ms-expand {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
   /* Chrome, Safari and Opera */
+  width: 0;
+  height: 0;
 }
 
 /* Transparent scrollbar styling */
@@ -275,4 +277,25 @@ input[type="range"]::-moz-range-thumb:hover {
   background: #005a3a;
   transform: scale(1.1);
   box-shadow: 0 3px 6px rgba(0, 103, 71, 0.3);
+}
+
+/* Skeleton Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(232, 212, 176, 0.2) 0%,
+    rgba(232, 212, 176, 0.4) 50%,
+    rgba(232, 212, 176, 0.2) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
 }

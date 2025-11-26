@@ -1,5 +1,7 @@
 import './globals.css';
 import LocaleHtml from '@/components/LocaleHtml';
+import ReduxProvider from '@/providers/ReduxProvider';
+import AuthRestore from '@/components/shared/AuthRestore';
 
 export default function RootLayout({
   children,
@@ -9,9 +11,12 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <body>
-        <LocaleHtml>
-          {children}
-        </LocaleHtml>
+        <ReduxProvider>
+          <AuthRestore />
+          <LocaleHtml>
+            {children}
+          </LocaleHtml>
+        </ReduxProvider>
       </body>
     </html>
   );

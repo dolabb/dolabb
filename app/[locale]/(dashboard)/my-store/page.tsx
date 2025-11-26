@@ -1,15 +1,16 @@
 'use client';
 
 import { useLocale } from 'next-intl';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import MyStoreContent from '@/components/dashboard/MyStoreContent';
+import { useAppSelector } from '@/lib/store/hooks';
 
 export default function MyStorePage() {
   const locale = useLocale();
-  const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const user = useAppSelector((state) => state.auth.user);
+  const isAuthenticated = !!user;
 
   useEffect(() => {
     if (!isAuthenticated) {

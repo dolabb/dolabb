@@ -1,16 +1,17 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HiEnvelope, HiEye, HiEyeSlash, HiLockClosed } from 'react-icons/hi2';
+import { useAffiliateLoginMutation } from '@/lib/api/authApi';
+import { toast } from '@/utils/toast';
+import { handleApiErrorWithToast } from '@/utils/errorHandler';
 
 export default function AffiliateLoginPage() {
   const locale = useLocale();
   const router = useRouter();
-  const { login } = useAuth();
   const isRTL = locale === 'ar';
 
   const [formData, setFormData] = useState({
@@ -19,8 +20,8 @@ export default function AffiliateLoginPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [affiliateLogin, { isLoading }] = useAffiliateLoginMutation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -60,33 +61,42 @@ export default function AffiliateLoginPage() {
       return;
     }
 
-    setIsLoading(true);
+    try {
+      const result = await affiliateLogin({
+        email: formData.email,
+        password: formData.password,
+      }).unwrap();
 
-    // In production, this would authenticate with backend
-    // For now, check if affiliate exists in localStorage
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Simulate checking affiliate data
-      // In production, this would be an API call
-      const storedAffiliates = JSON.parse(
-        localStorage.getItem('affiliates') || '[]'
-      );
-      const affiliate = storedAffiliates.find(
-        (a: any) => a.email === formData.email
-      );
+      if (result.success && result.affiliate && result.token) {
+        // Store affiliate data and token
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('affiliate', JSON.stringify(result.affiliate));
+          localStorage.setItem('affiliate_token', result.token);
+          if (rememberMe) {
+            localStorage.setItem('affiliate_email', formData.email);
+          }
+        }
 
-      if (affiliate) {
-        // Store affiliate session
-        localStorage.setItem('affiliate', JSON.stringify(affiliate));
+        // Show success toast
+        toast.success(
+          locale === 'en'
+            ? `Welcome back, ${result.affiliate.full_name}!`
+            : `مرحباً بعودتك، ${result.affiliate.full_name}!`
+        );
+
         // Redirect to affiliate dashboard
-        router.push(`/${locale}/affiliate/dashboard`);
-      } else {
+        setTimeout(() => {
+          router.push(`/${locale}/affiliate/dashboard`);
+        }, 1000);
+      }
+    } catch (error: any) {
+      const errorMessage = handleApiErrorWithToast(error);
+      if (errorMessage.includes('Invalid email or password')) {
         setErrors({
           email: locale === 'en' ? 'Invalid credentials' : 'بيانات الدخول غير صحيحة',
         });
       }
-    }, 1500);
+    }
   };
 
   return (

@@ -1,26 +1,58 @@
 'use client';
 
 import ProductCard from '@/components/shared/ProductCard';
-import { featuredProducts, trendingProducts } from '@/data/products';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import Hero from './Hero';
+import { useGetFeaturedProductsQuery, useGetTrendingProductsQuery } from '@/lib/api/productsApi';
+
 export default function LoggedInHome() {
   const locale = useLocale();
   const isRTL = locale === 'ar';
   const [currentSlide, setCurrentSlide] = useState(0);
   const carouselIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mock data for "Items you might like" and "Daily Recommendations"
-  const itemsYouMightLike = featuredProducts.slice(0, 8);
-  const dailyRecommendations = trendingProducts.slice(0, 8);
+  // Fetch featured and trending products
+  const { data: featuredData, isLoading: featuredLoading, error: featuredError } = useGetFeaturedProductsQuery({ limit: 8, page: 1 });
+  const { data: trendingData, isLoading: trendingLoading, error: trendingError } = useGetTrendingProductsQuery({ limit: 8, page: 1 });
+
+  const itemsYouMightLike = featuredData?.products || [];
+  const dailyRecommendations = trendingData?.products || [];
+
+  // Log featured items response and errors
+  useEffect(() => {
+    if (featuredData) {
+      console.log('Featured Items Response:', featuredData);
+    }
+  }, [featuredData]);
+
+  useEffect(() => {
+    if (featuredError) {
+      console.error('Featured Items Error:', featuredError);
+    }
+  }, [featuredError]);
+
+  // Log trending products response and errors
+  useEffect(() => {
+    if (trendingData) {
+      console.log('Trending Products Response:', trendingData);
+    }
+  }, [trendingData]);
+
+  useEffect(() => {
+    if (trendingError) {
+      console.error('Trending Products Error:', trendingError);
+    }
+  }, [trendingError]);
 
   // Get carousel images from featured products
-  const carouselProducts = featuredProducts.slice(0, 5);
+  const carouselProducts = featuredData?.products?.slice(0, 5) || [];
 
   // Auto carousel effect
   useEffect(() => {
+    if (carouselProducts.length === 0) return;
+
     carouselIntervalRef.current = setInterval(() => {
       setCurrentSlide(prev => (prev + 1) % carouselProducts.length);
     }, 5000); // Change slide every 5 seconds
@@ -74,11 +106,42 @@ export default function LoggedInHome() {
               {locale === 'en' ? 'View all' : 'عرض الكل'} <span>→</span>
             </Link>
           </div>
-          <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
-            {itemsYouMightLike.map(product => (
-              <ProductCard key={product.id} {...product} locale={locale} />
-            ))}
-          </div>
+          {featuredLoading ? (
+            <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+                  <div className="relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer" />
+                  <div className="p-4">
+                    <div className="h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer" />
+                    <div className="h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer" />
+                    <div className="h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : itemsYouMightLike.length > 0 ? (
+            <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
+              {itemsYouMightLike.map(product => {
+                // Get first valid image, clean any spaces in URL
+                const firstImage = product.images?.find(img => img && img.trim() !== '') || product.images?.[0] || '';
+                // Clean image URL - remove any spaces that might be in the URL
+                const productImage = firstImage ? firstImage.replace(/\s+/g, '') : '';
+                
+                return (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    image={productImage}
+                    title={product.title || 'Untitled Product'}
+                    price={product.price || 0}
+                    seller={product.seller?.username || 'Unknown'}
+                    isLiked={product.isLiked}
+                    locale={locale}
+                  />
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -96,11 +159,42 @@ export default function LoggedInHome() {
               {locale === 'en' ? 'View all' : 'عرض الكل'} <span>→</span>
             </Link>
           </div>
-          <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
-            {dailyRecommendations.map(product => (
-              <ProductCard key={product.id} {...product} locale={locale} />
-            ))}
-          </div>
+          {trendingLoading ? (
+            <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+                  <div className="relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer" />
+                  <div className="p-4">
+                    <div className="h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer" />
+                    <div className="h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer" />
+                    <div className="h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : dailyRecommendations.length > 0 ? (
+            <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
+              {dailyRecommendations.map(product => {
+                // Get first valid image, clean any spaces in URL
+                const firstImage = product.images?.find(img => img && img.trim() !== '') || product.images?.[0] || '';
+                // Clean image URL - remove any spaces that might be in the URL
+                const productImage = firstImage ? firstImage.replace(/\s+/g, '') : '';
+                
+                return (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    image={productImage}
+                    title={product.title || 'Untitled Product'}
+                    price={product.price || 0}
+                    seller={product.seller?.username || 'Unknown'}
+                    isLiked={product.isLiked}
+                    locale={locale}
+                  />
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

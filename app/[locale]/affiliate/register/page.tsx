@@ -14,7 +14,13 @@ import {
   HiLockClosed,
   HiPhone,
   HiUser,
+  HiCamera,
+  HiXMark,
 } from 'react-icons/hi2';
+import { useAffiliateSignupMutation, useUploadImageMutation } from '@/lib/api/authApi';
+import { toast } from '@/utils/toast';
+import { handleApiErrorWithToast } from '@/utils/errorHandler';
+import Image from 'next/image';
 
 export default function AffiliateRegisterPage() {
   const locale = useLocale();
@@ -39,10 +45,13 @@ export default function AffiliateRegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
+  const [affiliateSignup, { isLoading }] = useAffiliateSignupMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
 
   // Filter countries based on search
   const filteredCountries = countries.filter(
@@ -77,6 +86,47 @@ export default function AffiliateRegisterPage() {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error(
+          locale === 'en'
+            ? 'Please select an image file'
+            : 'يرجى اختيار ملف صورة'
+        );
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(
+          locale === 'en'
+            ? 'Image size must be less than 10MB'
+            : 'يجب أن يكون حجم الصورة أقل من 10 ميجابايت'
+        );
+        return;
+      }
+
+      setProfileImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setProfileImagePreview(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImage(null);
+    setProfileImagePreview(null);
   };
 
   const validateForm = () => {
@@ -161,45 +211,99 @@ export default function AffiliateRegisterPage() {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      // Call API to register affiliate
-      const response = await fetch('/api/affiliate/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          countryCode: selectedCountry.code,
-          dialCode: selectedCountry.dialCode,
-        }),
-      });
+      // Step 1: Upload profile image first if provided
+      let profileImageUrl: string | undefined = undefined;
+      
+      if (profileImage) {
+        try {
+          // Validate file size (10MB limit)
+          const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+          if (profileImage.size > maxSize) {
+            toast.error(
+              locale === 'en'
+                ? 'Image size is too large. Maximum size is 10MB. Please compress the image or choose a smaller file.'
+                : 'حجم الصورة كبير جداً. الحد الأقصى هو 10 ميجابايت. يرجى ضغط الصورة أو اختيار ملف أصغر.'
+            );
+            return;
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Registration failed');
+          const imageFormData = new FormData();
+          // Append file with explicit filename to ensure it's sent correctly
+          imageFormData.append('image', profileImage, profileImage.name);
+          
+          const uploadResult = await uploadImage(imageFormData).unwrap();
+          
+          if (uploadResult.success && uploadResult.image_url) {
+            profileImageUrl = uploadResult.image_url;
+          } else {
+            throw new Error('Image upload failed: No image URL returned');
+          }
+        } catch (uploadError: any) {
+          console.error('Image upload failed:', uploadError);
+          
+          // Check if it's a timeout error
+          const isTimeout = 
+            uploadError?.message?.toLowerCase().includes('timeout') ||
+            uploadError?.message?.toLowerCase().includes('time') ||
+            uploadError?.code === 'ECONNABORTED' ||
+            uploadError?.name === 'TimeoutError' ||
+            uploadError?.error?.data?.message?.toLowerCase().includes('timeout');
+          
+          if (isTimeout) {
+            toast.error(
+              locale === 'en'
+                ? 'Image upload timed out. The image might be too large or the connection is slow. Please try again with a smaller image or check your internet connection.'
+                : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصورة أصغر أو التحقق من اتصال الإنترنت.'
+            );
+          } else {
+            toast.error(
+              locale === 'en'
+                ? 'Failed to upload profile image. Please try again or remove the image.'
+                : 'فشل تحميل صورة الملف الشخصي. يرجى المحاولة مرة أخرى أو إزالة الصورة.'
+            );
+          }
+          return; // Stop the process if image upload fails
+        }
       }
 
-      const data = await response.json();
+      // Step 2: Create affiliate account with the uploaded image URL
+      const result = await affiliateSignup({
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        country_code: selectedCountry.code,
+        bank_name: formData.bankName,
+        account_number: formData.accountNumber,
+        iban: formData.iban || '',
+        account_holder_name: formData.accountHolderName,
+        profile_image_url: profileImageUrl,
+      }).unwrap();
 
-      // Store affiliate data
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('affiliate', JSON.stringify(data.affiliate));
+      if (result.success && result.affiliate) {
+        // Store email for OTP verification
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('affiliate_signup_email', formData.email);
+          if (result.otp) {
+            localStorage.setItem('affiliate_otp', result.otp);
+          }
+        }
+
+        // Show success toast
+        toast.success(
+          locale === 'en'
+            ? 'Affiliate registration successful! Please check your email for OTP verification.'
+            : 'تم تسجيل الشريك بنجاح! يرجى التحقق من بريدك الإلكتروني للتحقق من رمز OTP.'
+        );
+
+        // Redirect to verify OTP page
+        setTimeout(() => {
+          router.push(`/${locale}/affiliate/verify-otp?email=${encodeURIComponent(formData.email)}`);
+        }, 1500);
       }
-
-      // Redirect to affiliate dashboard
-      router.push(`/${locale}/affiliate/dashboard`);
     } catch (error: any) {
-      alert(
-        error.message ||
-          (locale === 'en'
-            ? 'Registration failed. Please try again.'
-            : 'فشل التسجيل. يرجى المحاولة مرة أخرى.')
-      );
-    } finally {
-      setIsLoading(false);
+      handleApiErrorWithToast(error);
     }
   };
 
@@ -207,8 +311,10 @@ export default function AffiliateRegisterPage() {
     setTermsAccepted(true);
     setShowTermsModal(false);
     // Automatically submit form after accepting terms
-    setIsLoading(true);
-    handleSubmit(new Event('submit') as any);
+    const form = document.querySelector('form');
+    if (form) {
+      form.requestSubmit();
+    }
   };
 
   return (
@@ -234,6 +340,64 @@ export default function AffiliateRegisterPage() {
         {/* Registration Form */}
         <div className='bg-white rounded-2xl shadow-lg p-8 border border-rich-sand/30'>
           <form onSubmit={handleSubmit} className='space-y-5'>
+            {/* Profile Image Upload */}
+            <div className='flex flex-col items-center mb-4'>
+              <label
+                htmlFor='profile-image'
+                className='block text-sm font-medium text-deep-charcoal mb-3 text-center'
+              >
+                {locale === 'en' ? 'Profile Picture' : 'صورة الملف الشخصي'}
+              </label>
+              <div className='relative'>
+                <div className='w-24 h-24 rounded-full border-4 border-rich-sand overflow-hidden bg-rich-sand/10 flex items-center justify-center'>
+                  {profileImagePreview ? (
+                    <Image
+                      src={profileImagePreview}
+                      alt='Profile preview'
+                      width={96}
+                      height={96}
+                      className='w-full h-full object-cover'
+                    />
+                  ) : (
+                    <HiUser className='w-12 h-12 text-deep-charcoal/40' />
+                  )}
+                </div>
+                {profileImagePreview && (
+                  <button
+                    type='button'
+                    onClick={handleRemoveImage}
+                    className={`absolute -top-1 p-1.5 bg-coral-red text-white rounded-full hover:bg-coral-red/90 transition-colors shadow-md cursor-pointer ${
+                      isRTL ? '-left-1' : '-right-1'
+                    }`}
+                    aria-label={locale === 'en' ? 'Remove image' : 'إزالة الصورة'}
+                  >
+                    <HiXMark className='w-4 h-4' />
+                  </button>
+                )}
+                <label
+                  htmlFor='profile-image'
+                  className={`absolute bottom-0 p-2 bg-saudi-green text-white rounded-full hover:bg-saudi-green/90 transition-colors shadow-md cursor-pointer ${
+                    isRTL ? 'left-0' : 'right-0'
+                  }`}
+                >
+                  <HiCamera className='w-4 h-4' />
+                </label>
+                <input
+                  type='file'
+                  id='profile-image'
+                  accept='image/*'
+                  onChange={handleImageUpload}
+                  className='hidden'
+                  disabled={isUploadingImage}
+                />
+              </div>
+              {isUploadingImage && (
+                <p className='mt-2 text-sm text-deep-charcoal/70'>
+                  {locale === 'en' ? 'Uploading image...' : 'جاري رفع الصورة...'}
+                </p>
+              )}
+            </div>
+
             {/* Full Name */}
             <div>
               <label
@@ -610,12 +774,16 @@ export default function AffiliateRegisterPage() {
             {/* Submit Button */}
             <button
               type='submit'
-              disabled={isLoading}
+              disabled={isLoading || isUploadingImage}
               className='w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display cursor-pointer'
             >
-              {isLoading
+              {isLoading || isUploadingImage
                 ? locale === 'en'
-                  ? 'Creating account...'
+                  ? isUploadingImage
+                    ? 'Uploading image...'
+                    : 'Creating account...'
+                  : isUploadingImage
+                  ? 'جاري رفع الصورة...'
                   : 'جاري إنشاء الحساب...'
                 : locale === 'en'
                 ? 'Sign Up'

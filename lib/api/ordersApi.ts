@@ -1,0 +1,128 @@
+import { baseApi } from './baseApi';
+
+export interface ShippingAddress {
+  fullName: string;
+  phone: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  country: string;
+  additionalInfo?: string;
+}
+
+export interface Order {
+  id: string;
+  orderNumber: string;
+  product: {
+    id: string;
+    title: string;
+    images: string[];
+  };
+  seller: {
+    id: string;
+    username: string;
+    profileImage?: string;
+  };
+  orderDate: string;
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  totalPrice: number;
+  shippingAddress: ShippingAddress;
+  trackingNumber?: string;
+}
+
+export interface Payment extends Order {
+  buyer: {
+    id: string;
+    username: string;
+    profileImage?: string;
+  };
+  platformFee: number;
+  sellerPayout: number;
+  affiliateCode?: string;
+}
+
+export interface PaginationMeta {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+}
+
+export const ordersApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    getOrders: builder.query<
+      { orders: Order[]; pagination: PaginationMeta },
+      { status?: string; page?: number; limit?: number }
+    >({
+      query: (params) => ({
+        url: '/api/user/orders/',
+        method: 'GET',
+        params,
+      }),
+      providesTags: ['Order'],
+    }),
+
+    getPayments: builder.query<
+      { payments: Payment[]; pagination: PaginationMeta },
+      { status?: string; page?: number; limit?: number }
+    >({
+      query: (params) => ({
+        url: '/api/user/payments/',
+        method: 'GET',
+        params,
+      }),
+      providesTags: ['Order'],
+    }),
+
+    shipOrder: builder.mutation<
+      { success: boolean; payment: Payment },
+      { orderId: string; trackingNumber: string }
+    >({
+      query: ({ orderId, trackingNumber }) => ({
+        url: `/api/user/payments/${orderId}/ship/`,
+        method: 'PUT',
+        data: { trackingNumber },
+      }),
+      invalidatesTags: ['Order'],
+    }),
+
+    updateOrderStatus: builder.mutation<
+      { success: boolean; order: Payment },
+      { orderId: string; status: string; trackingNumber?: string }
+    >({
+      query: ({ orderId, status, trackingNumber }) => ({
+        url: `/api/user/payments/${orderId}/update-status/`,
+        method: 'PUT',
+        data: { status, trackingNumber },
+      }),
+      invalidatesTags: ['Order'],
+    }),
+
+    checkout: builder.mutation<{ success: boolean; orderId: string; checkoutData: any }, any>({
+      query: (data) => ({
+        url: '/api/payment/checkout/',
+        method: 'POST',
+        data,
+      }),
+      invalidatesTags: ['Order'],
+    }),
+
+    processPayment: builder.mutation<{ success: boolean; payment: any }, any>({
+      query: (data) => ({
+        url: '/api/payment/process/',
+        method: 'POST',
+        data,
+      }),
+      invalidatesTags: ['Order'],
+    }),
+  }),
+});
+
+export const {
+  useGetOrdersQuery,
+  useGetPaymentsQuery,
+  useShipOrderMutation,
+  useUpdateOrderStatusMutation,
+  useCheckoutMutation,
+  useProcessPaymentMutation,
+} = ordersApi;
+

@@ -1,12 +1,19 @@
 'use client';
 
 import { useLocale } from 'next-intl';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function Footer() {
   const locale = useLocale();
+  const pathname = usePathname();
   const isRTL = locale === 'ar';
+
+  // Don't show footer on messages route
+  if (pathname?.includes('/messages')) {
+    return null;
+  }
 
   return (
     <footer
