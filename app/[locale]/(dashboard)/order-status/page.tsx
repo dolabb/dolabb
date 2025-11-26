@@ -9,6 +9,7 @@ import {
   useUpdateOrderStatusMutation,
   type Payment,
 } from '@/lib/api/ordersApi';
+import { useGetOfferDetailQuery } from '@/lib/api/offersApi';
 import { toast } from '@/utils/toast';
 import { apiClient } from '@/lib/api/client';
 import {
@@ -33,6 +34,12 @@ export default function OrderStatusPage() {
 
   const { data: paymentsData, isLoading, error, refetch } = useGetPaymentsQuery({});
   const [updateOrderStatus, { isLoading: isUpdating }] = useUpdateOrderStatusMutation();
+  
+  // Get detailed offer information including payment status
+  const { data: offerDetailData, isLoading: isLoadingOfferDetail } = useGetOfferDetailQuery(
+    offerId || '',
+    { skip: !offerId }
+  );
 
   const [trackingNumber, setTrackingNumber] = useState('');
   const [shipmentProof, setShipmentProof] = useState<File | null>(null);
@@ -60,6 +67,10 @@ export default function OrderStatusPage() {
   // Find the order/payment by offerId (check both API and localStorage)
   const order = payments.find((payment: any) => payment.offerId === offerId) ||
     localPayments.find((payment: any) => payment.offerId === offerId);
+  
+  // Get payment status from offer detail if available
+  const offerDetail = offerDetailData?.offer;
+  const paymentStatusFromOffer = offerDetail?.paymentStatus;
 
   useEffect(() => {
     if (order) {
@@ -67,6 +78,13 @@ export default function OrderStatusPage() {
       setSelectedStatus(order.status || 'ready');
     }
   }, [order]);
+  
+  // Update status from offer detail if order is not available
+  useEffect(() => {
+    if (!order && offerDetail) {
+      setSelectedStatus('ready');
+    }
+  }, [order, offerDetail]);
 
   const handleProofUpload = (file: File | null) => {
     if (file) {
@@ -83,7 +101,14 @@ export default function OrderStatusPage() {
   };
 
   const handleUpdateStatus = async () => {
-    if (!order) return;
+    if (!order) {
+      toast.error(
+        locale === 'en'
+          ? 'Order information is required to update status'
+          : 'معلومات الطلب مطلوبة لتحديث الحالة'
+      );
+      return;
+    }
 
     const status = selectedStatus || order.status || 'shipped';
 
@@ -165,7 +190,8 @@ export default function OrderStatusPage() {
     return locale === 'en' ? label.en : label.ar;
   };
 
-  if (!order) {
+  // Show error only if we don't have order and offer detail is not loading or not available
+  if (!order && !isLoadingOfferDetail && !offerDetail) {
     return (
       <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
         <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -187,11 +213,14 @@ export default function OrderStatusPage() {
     );
   }
 
-  const isPaid = order.paymentStatus === 'paid' || order.paymentStatus === 'completed';
+  // Use payment status from offer detail API if available, otherwise fall back to order payment status
+  const paymentStatus = paymentStatusFromOffer || order?.paymentStatus;
+  const isPaid = paymentStatus === 'paid' || paymentStatus === 'completed' || 
+                 order?.paymentStatus === 'paid' || order?.paymentStatus === 'completed';
   const productInfo =
-    typeof order.product === 'object' && order.product !== null
+    order && typeof order.product === 'object' && order.product !== null
       ? order.product
-      : { id: '', title: product || '', images: [] };
+      : { id: '', title: product || offerDetail?.productTitle || '', images: [] };
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
@@ -232,10 +261,10 @@ export default function OrderStatusPage() {
                 <div className='flex items-center gap-4'>
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                      order.status
+                      order?.status || 'pending'
                     )}`}
                   >
-                    {getStatusLabel(order.status)}
+                    {getStatusLabel(order?.status || 'pending')}
                   </span>
                 </div>
               </div>
@@ -246,39 +275,55 @@ export default function OrderStatusPage() {
               <h3 className='text-lg font-semibold text-deep-charcoal mb-4'>
                 {locale === 'en' ? 'Payment Status' : 'حالة الدفع'}
               </h3>
-              <div className='flex items-center gap-3'>
-                {isPaid ? (
-                  <>
-                    <HiCheckCircle className='w-6 h-6 text-green-600' />
-                    <div>
-                      <p className='text-green-600 font-semibold'>
-                        {locale === 'en' ? 'Paid' : 'مدفوع'}
-                      </p>
-                      {order.totalPrice && (
-                        <p className='text-sm text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Amount:' : 'المبلغ:'}{' '}
-                          {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                          {order.totalPrice.toFixed(2)}
+              {isLoadingOfferDetail ? (
+                <div className='flex items-center gap-3'>
+                  <div className='animate-pulse bg-rich-sand/20 h-6 w-32 rounded'></div>
+                </div>
+              ) : (
+                <div className='flex items-center gap-3'>
+                  {isPaid ? (
+                    <>
+                      <HiCheckCircle className='w-6 h-6 text-green-600' />
+                      <div>
+                        <p className='text-green-600 font-semibold'>
+                          {locale === 'en' ? 'Paid' : 'مدفوع'}
                         </p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <HiXCircle className='w-6 h-6 text-red-600' />
-                    <div>
-                      <p className='text-red-600 font-semibold'>
-                        {locale === 'en' ? 'Pending' : 'قيد الانتظار'}
-                      </p>
-                      <p className='text-sm text-deep-charcoal/70'>
-                        {locale === 'en'
-                          ? 'Payment is pending'
-                          : 'الدفع قيد الانتظار'}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
+                        {(order?.totalPrice || offerDetail?.offerAmount) && (
+                          <p className='text-sm text-deep-charcoal/70'>
+                            {locale === 'en' ? 'Amount:' : 'المبلغ:'}{' '}
+                            {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
+                            {(order?.totalPrice || offerDetail?.offerAmount || 0).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <HiXCircle className='w-6 h-6 text-red-600' />
+                      <div>
+                        <p className='text-red-600 font-semibold'>
+                          {paymentStatus === 'failed'
+                            ? locale === 'en'
+                              ? 'Failed'
+                              : 'فشل'
+                            : locale === 'en'
+                            ? 'Pending'
+                            : 'قيد الانتظار'}
+                        </p>
+                        <p className='text-sm text-deep-charcoal/70'>
+                          {paymentStatus === 'failed'
+                            ? locale === 'en'
+                              ? 'Payment failed'
+                              : 'فشل الدفع'
+                            : locale === 'en'
+                            ? 'Payment is pending'
+                            : 'الدفع قيد الانتظار'}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Shipment Section */}
@@ -312,7 +357,7 @@ export default function OrderStatusPage() {
                   {locale === 'en' ? 'Shipment Status' : 'حالة الشحن'}
                 </label>
                 <select
-                  value={selectedStatus || order.status}
+                  value={selectedStatus || order?.status || 'ready'}
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green'
                   disabled={!isPaid || isUpdating}

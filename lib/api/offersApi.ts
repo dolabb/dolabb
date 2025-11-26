@@ -15,6 +15,10 @@ export interface Offer {
   expirationDate?: string;
   counterOfferAmount?: number;
   createdAt: string;
+  paymentStatus?: 'pending' | 'paid' | 'completed' | 'failed';
+  payment?: {
+    status?: 'pending' | 'paid' | 'completed' | 'failed';
+  };
 }
 
 export const offersApi = baseApi.injectEndpoints({
@@ -30,6 +34,11 @@ export const offersApi = baseApi.injectEndpoints({
 
     getOffers: builder.query<{ success: boolean; offers: Offer[] }, void>({
       query: () => '/api/offers/',
+      providesTags: ['Offer'],
+    }),
+
+    getOfferDetail: builder.query<{ success: boolean; offer: Offer }, string>({
+      query: (offerId) => `/api/offers/accepted/${offerId}/`,
       providesTags: ['Offer'],
     }),
 
@@ -66,6 +75,7 @@ export const offersApi = baseApi.injectEndpoints({
 export const {
   useCreateOfferMutation,
   useGetOffersQuery,
+  useGetOfferDetailQuery,
   useAcceptOfferMutation,
   useRejectOfferMutation,
   useCounterOfferMutation,

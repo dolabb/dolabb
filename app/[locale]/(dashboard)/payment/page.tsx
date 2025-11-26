@@ -5,7 +5,6 @@ import { useLocale } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
-import ThreeDSVerificationModal from '@/components/payment/ThreeDSVerificationModal';
 
 export default function PaymentPage() {
   const locale = useLocale();
@@ -15,9 +14,6 @@ export default function PaymentPage() {
   const isRTL = locale === 'ar';
   const [isProcessing, setIsProcessing] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [show3DSModal, setShow3DSModal] = useState(false);
-  const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
-  const [isCompleting3DS, setIsCompleting3DS] = useState(false);
 
   // Get offer data from URL params
   const offerId = searchParams.get('offerId');
@@ -295,9 +291,9 @@ export default function PaymentPage() {
 
       // Check if payment requires 3DS authentication
       if (paymentStatus === 'initiated' && transactionUrl) {
-        console.log('Payment requires 3DS authentication, showing modal');
+        console.log('Payment requires 3DS authentication, redirecting to transaction URL');
         
-        // Store payment info for 3DS modal
+        // Store payment info in sessionStorage for callback to retrieve
         const tempPaymentData = {
           orderId: orderId,
           paymentId: payment?.id,
@@ -308,13 +304,14 @@ export default function PaymentPage() {
           offerPrice: offerPrice || '0',
           shipping: shipping || '0',
           totalPrice: totalPrice,
-          payment: payment,
-          paymentResult: paymentResult,
         };
         
-        setPendingPaymentData(tempPaymentData);
+        sessionStorage.setItem('pendingPayment', JSON.stringify(tempPaymentData));
         setIsProcessing(false);
-        setShow3DSModal(true);
+        
+        // Redirect directly to 3DS authentication page
+        // After 3DS completion, Moyasar will redirect to our callback URL
+        window.location.href = transactionUrl;
         return; // Don't continue with success flow
       }
 
@@ -403,129 +400,6 @@ export default function PaymentPage() {
     }
   };
 
-  const handle3DSConfirm = async () => {
-    if (!pendingPaymentData) return;
-
-    setIsCompleting3DS(true);
-
-    try {
-      const paymentId = pendingPaymentData.paymentId;
-
-      // Verify payment status with Moyasar
-      const verifyResponse = await fetch(`/api/payment/verify?id=${paymentId}`);
-      const verifyResult = await verifyResponse.json();
-
-      console.log('3DS Verification Response:', {
-        status: verifyResponse.status,
-        statusText: verifyResponse.statusText,
-        headers: Object.fromEntries(verifyResponse.headers.entries()),
-        body: verifyResult,
-      });
-
-      if (!verifyResponse.ok || !verifyResult.success) {
-        throw new Error(verifyResult.error || 'Payment verification failed');
-      }
-
-      const verifiedPayment = verifyResult.payment;
-      const paymentStatus = verifiedPayment?.status;
-
-      // If payment is still initiated, we need to simulate completion
-      // In a real scenario, Moyasar would update this after 3DS completion
-      // For testing, we'll update it manually
-      if (paymentStatus === 'initiated') {
-        // Simulate successful 3DS completion
-        // In production, this would be handled by Moyasar's callback
-        console.log('Payment still initiated, simulating 3DS completion');
-        
-        // Update payment status to paid (simulating successful 3DS)
-        verifiedPayment.status = 'paid';
-        verifiedPayment.captured = verifiedPayment.amount;
-        verifiedPayment.captured_at = new Date().toISOString();
-      }
-
-      // Log complete response
-      console.log('Complete 3DS Payment Response:', {
-        paymentId: paymentId,
-        orderId: pendingPaymentData.orderId,
-        status: verifiedPayment.status,
-        amount: verifiedPayment.amount,
-        amount_format: verifiedPayment.amount_format,
-        captured: verifiedPayment.captured,
-        captured_at: verifiedPayment.captured_at,
-        fullPayment: verifiedPayment,
-      });
-
-      // Save payment to localStorage
-      const { offerId, product, size, price, offerPrice, shipping, totalPrice } = pendingPaymentData;
-
-      // Get affiliate code
-      let affiliateCode = '';
-      try {
-        const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
-        const item = storedItems.find((item: any) => item.title === product);
-        affiliateCode = item?.affiliateCode || '';
-      } catch (e) {
-        console.error('Error getting affiliate code:', e);
-      }
-
-      const paymentData = {
-        id: `PAY-${Date.now()}`,
-        offerId: offerId || '',
-        product: product || '',
-        size: size || '',
-        price: price || '0',
-        offerPrice: offerPrice || '0',
-        shipping: shipping || '0',
-        totalPrice: totalPrice,
-        affiliateCode: affiliateCode,
-        status: 'ready',
-        orderDate: new Date().toISOString().split('T')[0],
-        paymentId: paymentId,
-        tokenData: {
-          id: verifiedPayment?.source?.token || '',
-          brand: verifiedPayment?.source?.brand || 'card',
-          lastFour: verifiedPayment?.source?.number?.slice(-4) || '',
-          name: formData.name.trim(),
-          month: formData.month.padStart(2, '0'),
-          year: formData.year,
-          country: verifiedPayment?.source?.company || 'SA',
-          funding: verifiedPayment?.source?.funding || 'debit',
-          status: verifiedPayment?.status || 'paid',
-        },
-        paymentMethod: verifiedPayment?.source?.brand || 'card',
-        paymentStatus: 'paid',
-      };
-
-      const existingPayments = JSON.parse(
-        localStorage.getItem('payments') || '[]'
-      );
-      existingPayments.push(paymentData);
-      localStorage.setItem('payments', JSON.stringify(existingPayments));
-
-      // Call payment webhook
-      const paymentAmount = verifiedPayment?.amount || Math.round(parseFloat(totalPrice) * 100);
-      await callPaymentWebhook(paymentId, 'paid', paymentAmount);
-
-      // Close modal and redirect to success
-      setShow3DSModal(false);
-      setPendingPaymentData(null);
-      setIsCompleting3DS(false);
-
-      router.push(
-        `/${locale}/payment/success?offerId=${offerId}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice}&shipping=${shipping}`
-      );
-    } catch (error: any) {
-      console.error('3DS completion error:', error);
-      setIsCompleting3DS(false);
-      alert(
-        error.message ||
-          (locale === 'en'
-            ? 'Failed to complete payment. Please try again.'
-            : 'فشل إتمام الدفع. يرجى المحاولة مرة أخرى.')
-      );
-    }
-  };
-
   const callPaymentWebhook = async (paymentId: string, status: string, amount: number) => {
     try {
       console.log('Calling payment webhook with:', {
@@ -568,18 +442,6 @@ export default function PaymentPage() {
     }
   };
 
-  const handle3DSCancel = () => {
-    setShow3DSModal(false);
-    setPendingPaymentData(null);
-    setIsCompleting3DS(false);
-    // Optionally redirect back or show message
-    if (locale === 'en') {
-      alert('Payment cancelled. You can try again when ready.');
-    } else {
-      alert('تم إلغاء الدفع. يمكنك المحاولة مرة أخرى عندما تكون مستعدًا.');
-    }
-  };
-
   useEffect(() => {
     if (!isAuthenticated) {
       router.push(`/${locale}/login`);
@@ -592,6 +454,24 @@ export default function PaymentPage() {
       router.push(`/${locale}/messages`);
     }
   }, [offerId, product, offerPrice, locale, router]);
+
+  useEffect(() => {
+    // Check for error parameters from callback
+    const error = searchParams.get('error');
+    if (error === 'payment_pending') {
+      alert(
+        locale === 'en'
+          ? 'Payment is still processing. Please wait a moment and check your payment status.'
+          : 'الدفع لا يزال قيد المعالجة. يرجى الانتظار قليلاً والتحقق من حالة الدفع.'
+      );
+    } else if (error === 'payment_failed') {
+      alert(
+        locale === 'en'
+          ? 'Payment verification failed. Please try again or contact support.'
+          : 'فشل التحقق من الدفع. يرجى المحاولة مرة أخرى أو الاتصال بالدعم.'
+      );
+    }
+  }, [searchParams, locale]);
 
   if (!isAuthenticated || !offerId || !product || !offerPrice) {
     return null;
@@ -941,17 +821,6 @@ export default function PaymentPage() {
           </div>
         </div>
       </div>
-
-      {/* 3DS Verification Modal */}
-      <ThreeDSVerificationModal
-        isOpen={show3DSModal}
-        onClose={handle3DSCancel}
-        onConfirm={handle3DSConfirm}
-        onCancel={handle3DSCancel}
-        isLoading={isCompleting3DS}
-        amount={pendingPaymentData?.totalPrice}
-        productName={pendingPaymentData?.product}
-      />
     </div>
   );
 }

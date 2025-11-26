@@ -26,6 +26,10 @@ export interface OfferInfo {
   expirationDate?: string;
   expires?: string;
   size?: string;
+  payment?: {
+    status?: 'pending' | 'paid' | 'completed' | 'failed';
+  };
+  paymentStatus?: 'pending' | 'paid' | 'completed' | 'failed';
 }
 
 export interface Message {

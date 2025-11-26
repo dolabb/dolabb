@@ -137,6 +137,18 @@ export default function ProductMessageCard({
     'Product';
   const counterAmount = message.offer?.counterAmount;
   const offerStatus = message.offer?.status || message.offer?.type;
+  
+  // Helper function to get display status - show "paid" if accepted and payment is paid
+  const getDisplayStatus = (): string => {
+    const status = offerStatus || '';
+    const paymentStatus = (message.offer as any)?.payment?.status || (message.offer as any)?.paymentStatus;
+    if (status === 'accepted' && paymentStatus === 'paid') {
+      return 'paid';
+    }
+    return status;
+  };
+  
+  const displayStatus = getDisplayStatus();
   const productSize =
     message.offer?.size ||
     (typeof message.offer?.product === 'object' &&
@@ -365,27 +377,33 @@ export default function ProductMessageCard({
               </div>
             )}
 
-            {offerStatus && (
+            {displayStatus && (
               <div
                 className={`text-xs px-2 py-1 rounded-full inline-block ${
-                  offerStatus === 'accepted'
-                    ? 'bg-green-100 text-green-700'
-                    : offerStatus === 'rejected'
+                  displayStatus === 'accepted' || displayStatus === 'paid'
+                    ? displayStatus === 'paid'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-green-100 text-green-700'
+                    : displayStatus === 'rejected'
                     ? 'bg-red-100 text-red-700'
-                    : offerStatus === 'countered'
+                    : displayStatus === 'countered'
                     ? 'bg-yellow-100 text-yellow-700'
                     : 'bg-blue-100 text-blue-700'
                 }`}
               >
-                {offerStatus === 'accepted'
+                {displayStatus === 'paid'
+                  ? locale === 'en'
+                    ? 'Paid'
+                    : 'مدفوع'
+                  : displayStatus === 'accepted'
                   ? locale === 'en'
                     ? 'Accepted'
                     : 'مقبول'
-                  : offerStatus === 'rejected'
+                  : displayStatus === 'rejected'
                   ? locale === 'en'
                     ? 'Rejected'
                     : 'مرفوض'
-                  : offerStatus === 'countered'
+                  : displayStatus === 'countered'
                   ? locale === 'en'
                     ? 'Countered'
                     : 'عرض مقابل'

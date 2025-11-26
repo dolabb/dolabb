@@ -43,14 +43,60 @@ export default function PaymentCallbackPage() {
         // If we have a payment ID, verify the payment status
         if (paymentId) {
           try {
-            const verifyResponse = await fetch(`/api/payment/verify?id=${paymentId}`);
-            const verifyResult = await verifyResponse.json();
-            
-            console.log('Payment verification result:', verifyResult);
-            
-            if (verifyResult.success && verifyResult.payment?.status === 'paid') {
+            // Retry verification up to 5 times with delay (in case 3DS is still processing)
+            let verifiedPayment = null;
+            let paymentStatus = 'initiated';
+            let maxRetries = 5;
+            let retryCount = 0;
+
+            while (retryCount < maxRetries && paymentStatus === 'initiated') {
+              // Call POST verify endpoint with paymentId and orderId
+              const verifyResponse = await fetch('/api/payment/verify/', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  paymentId: paymentId,
+                  orderId: pendingPayment?.orderId || null,
+                }),
+              });
+              const verifyResult = await verifyResponse.json();
+              
+              console.log(`Payment verification attempt ${retryCount + 1}:`, verifyResult);
+              
+              if (verifyResult.success && verifyResult.payment) {
+                verifiedPayment = verifyResult.payment;
+                paymentStatus = verifiedPayment.status;
+                
+                // Log complete verification response
+                console.log('Complete Payment Verification Response:', {
+                  status: verifyResponse.status,
+                  statusText: verifyResponse.statusText,
+                  headers: Object.fromEntries(verifyResponse.headers.entries()),
+                  body: verifyResult,
+                  attempt: retryCount + 1,
+                });
+
+                // If payment is paid, break out of retry loop
+                if (paymentStatus === 'paid') {
+                  break;
+                }
+              }
+
+              // If still initiated, wait before retrying
+              if (paymentStatus === 'initiated' && retryCount < maxRetries - 1) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                retryCount++;
+              } else {
+                break;
+              }
+            }
+
+            // Only proceed if payment is actually paid (not just initiated)
+            if (paymentStatus === 'paid' && verifiedPayment) {
               // Payment is confirmed as paid
-              const paymentData = verifyResult.payment;
+              const paymentData = verifiedPayment;
               
               // Get payment info from pendingPayment or use URL params
               const finalOfferId = pendingPayment?.offerId || offerId || '';
@@ -105,10 +151,76 @@ export default function PaymentCallbackPage() {
               existingPayments.push(paymentRecord);
               localStorage.setItem('payments', JSON.stringify(existingPayments));
 
+              // Call payment webhook
+              try {
+                const webhookResponse = await fetch('/api/payment/webhook/', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    id: paymentId,
+                    status: 'paid',
+                    amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
+                  }),
+                });
+
+                const webhookText = await webhookResponse.text();
+                let webhookResult;
+                try {
+                  webhookResult = JSON.parse(webhookText);
+                } catch (e) {
+                  webhookResult = { rawResponse: webhookText };
+                }
+
+                console.log('Payment Webhook Response:', {
+                  status: webhookResponse.status,
+                  statusText: webhookResponse.statusText,
+                  headers: Object.fromEntries(webhookResponse.headers.entries()),
+                  body: webhookResult,
+                });
+              } catch (webhookError) {
+                console.error('Payment webhook error:', webhookError);
+                // Don't fail the whole process if webhook fails
+              }
+
               // Redirect to success page
               router.push(
                 `/${locale}/payment/success?offerId=${finalOfferId}&product=${encodeURIComponent(finalProduct)}&offerPrice=${finalOfferPrice}&shipping=${finalShipping}`
               );
+              return;
+            } else if (paymentStatus === 'initiated') {
+              // Payment is still initiated after retries - 3DS may not have completed
+              console.error('Payment still in initiated status after retries. 3DS may not have completed.');
+              
+              // Redirect back to payment page with error message
+              const errorParams = new URLSearchParams({
+                offerId: offerId || '',
+                product: product || '',
+                size: searchParams.get('size') || '',
+                price: searchParams.get('price') || '',
+                offerPrice: offerPrice || '',
+                shipping: shipping || '',
+                error: 'payment_pending',
+              });
+              
+              router.push(`/${locale}/payment?${errorParams.toString()}`);
+              return;
+            } else {
+              // Payment status is something else (failed, etc.)
+              console.error('Payment verification failed or payment status is:', paymentStatus);
+              
+              const errorParams = new URLSearchParams({
+                offerId: offerId || '',
+                product: product || '',
+                size: searchParams.get('size') || '',
+                price: searchParams.get('price') || '',
+                offerPrice: offerPrice || '',
+                shipping: shipping || '',
+                error: 'payment_failed',
+              });
+              
+              router.push(`/${locale}/payment?${errorParams.toString()}`);
               return;
             }
           } catch (error) {

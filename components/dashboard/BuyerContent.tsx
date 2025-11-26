@@ -67,11 +67,23 @@ function OfferItem({
 
   const productImage = getProductImage();
 
+  // Helper function to get display status - show "paid" if accepted and payment is paid
+  const getDisplayStatus = (): string => {
+    if (offer.status === 'accepted' && (offer.payment?.status === 'paid' || offer.paymentStatus === 'paid')) {
+      return 'paid';
+    }
+    return offer.status;
+  };
+
+  const displayStatus = getDisplayStatus();
+
+
   const statusColors = {
     pending: 'bg-yellow-100 text-yellow-700',
     accepted: 'bg-green-100 text-green-700',
     rejected: 'bg-red-100 text-red-700',
     countered: 'bg-blue-100 text-blue-700',
+    paid: 'bg-emerald-100 text-emerald-700',
   };
 
   const statusLabels = {
@@ -79,6 +91,7 @@ function OfferItem({
     accepted: locale === 'en' ? 'Accepted' : 'مقبول',
     rejected: locale === 'en' ? 'Rejected' : 'مرفوض',
     countered: locale === 'en' ? 'Countered' : 'مقابل',
+    paid: locale === 'en' ? 'Paid' : 'مدفوع',
   };
 
   return (
@@ -114,8 +127,8 @@ function OfferItem({
               {offer.productTitle || `Product ${offer.productId}`}
             </h3>
           </Link>
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[offer.status] || statusColors.pending}`}>
-            {statusLabels[offer.status] || statusLabels.pending}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[displayStatus as keyof typeof statusColors] || statusColors.pending}`}>
+            {statusLabels[displayStatus as keyof typeof statusLabels] || statusLabels.pending}
           </span>
         </div>
         <div className='text-sm text-deep-charcoal/70 space-y-1'>
@@ -254,6 +267,24 @@ export default function BuyerContent() {
   // Counter offer modal state
   const [isCounterModalOpen, setIsCounterModalOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
+
+  // Log offers data to console - Full API response
+  useEffect(() => {
+    if (offersData) {
+      console.log('=== OFFERS API RESPONSE ===');
+      console.log(offersData);
+      console.log('===========================');
+    }
+  }, [offersData]);
+
+  // Log offers error if any
+  useEffect(() => {
+    if (offersError) {
+      console.error('=== OFFERS ERROR ===');
+      console.error('Error:', offersError);
+      console.error('===================');
+    }
+  }, [offersError]);
 
   // Mock orders data
   const orders = [
