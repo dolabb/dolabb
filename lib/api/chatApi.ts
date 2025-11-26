@@ -43,11 +43,15 @@ export const chatApi = baseApi.injectEndpoints({
       { success: boolean; messages: Message[]; pagination: PaginationMeta },
       { conversationId: string; page?: number; limit?: number }
     >({
-      query: ({ conversationId, ...params }) => ({
+      query: ({ conversationId, page = 1, limit = 50, ...params }) => ({
         url: `/api/chat/conversations/${conversationId}/messages/`,
         method: 'GET',
-        params,
-        timeout: 60000, // 60 seconds timeout for messages (longer than default 30s)
+        params: {
+          page,
+          limit,
+          ...params,
+        },
+        timeout: 90000, // 90 seconds timeout for messages (increased for sellers with many messages)
       }),
       providesTags: (result, error, { conversationId }) => [
         { type: 'Message', id: conversationId },

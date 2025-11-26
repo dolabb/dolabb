@@ -869,6 +869,7 @@ export default function MessagesContent() {
   } = useGetConversationsQuery();
 
   // Fetch messages for selected conversation
+  // Use pagination to limit initial load (page 1, limit 50 messages)
   const {
     data: messagesData,
     refetch: refetchMessages,
@@ -876,7 +877,11 @@ export default function MessagesContent() {
     isFetching: isFetchingMessages,
     error: messagesError,
   } = useGetMessagesQuery(
-    { conversationId: conversationId || '' },
+    {
+      conversationId: conversationId || '',
+      page: 1,
+      limit: 50, // Limit to 50 messages initially to reduce load time
+    },
     { skip: !conversationId }
   );
 
@@ -920,6 +925,7 @@ export default function MessagesContent() {
               if (
                 errorData === 'timeout of 30000ms exceeded' ||
                 errorData === 'timeout of 60000ms exceeded' ||
+                errorData === 'timeout of 90000ms exceeded' ||
                 (typeof errorData === 'string' && errorData.includes('timeout'))
               ) {
                 toast.error(
@@ -1101,13 +1107,16 @@ export default function MessagesContent() {
       );
 
       setMessages(formattedMessages);
-    } else if (!messagesData && conversationId) {
+    } else if (!messagesData && conversationId && messages.length === 0) {
       // Only clear if we're switching conversations and don't have data yet
       // But don't clear if we're just waiting for the query to complete
+      // Also don't clear if we already have messages (from WebSocket)
       console.log(
-        '📥 MESSAGES EFFECT - No messagesData yet, but conversationId exists'
+        '📥 MESSAGES EFFECT - No messagesData yet, but conversationId exists. Current messages count:',
+        messages.length
       );
       // Don't clear messages here - wait for the query to complete
+      // If we have WebSocket messages, keep them
     }
 
     // Handle errors
@@ -1116,11 +1125,25 @@ export default function MessagesContent() {
         '📥 MESSAGES EFFECT - Error loading messages:',
         messagesError
       );
+      console.error(
+        '📥 MESSAGES EFFECT - Error details:',
+        JSON.stringify(messagesError, null, 2)
+      );
+      console.error('📥 MESSAGES EFFECT - User role:', user?.role);
+      console.error('📥 MESSAGES EFFECT - User ID:', user?.id);
+      console.error('📥 MESSAGES EFFECT - Conversation ID:', conversationId);
+
       // Check if it's a timeout error
       const errorData = (messagesError as any)?.data;
+      const errorStatus = (messagesError as any)?.status;
+
+      console.error('📥 MESSAGES EFFECT - Error data:', errorData);
+      console.error('📥 MESSAGES EFFECT - Error status:', errorStatus);
+
       if (
         errorData === 'timeout of 30000ms exceeded' ||
         errorData === 'timeout of 60000ms exceeded' ||
+        errorData === 'timeout of 90000ms exceeded' ||
         (typeof errorData === 'string' && errorData.includes('timeout'))
       ) {
         console.error('📥 MESSAGES EFFECT - Timeout error detected');
@@ -1129,6 +1152,31 @@ export default function MessagesContent() {
             ? 'Request timed out. The server is taking too long to respond. Please try again.'
             : 'انتهت مهلة الطلب. الخادم يستغرق وقتاً طويلاً للرد. يرجى المحاولة مرة أخرى.'
         );
+      } else if (errorStatus === 401 || errorStatus === 403) {
+        console.error(
+          '📥 MESSAGES EFFECT - Authentication/Authorization error'
+        );
+        toast.error(
+          locale === 'en'
+            ? 'Authentication error. Please refresh the page and try again.'
+            : 'خطأ في المصادقة. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+        );
+      } else if (errorStatus === 404) {
+        console.error('📥 MESSAGES EFFECT - Not found error (404)');
+        // Don't show error toast for 404, just show empty state
+      } else if (errorData || errorStatus) {
+        console.error(
+          '📥 MESSAGES EFFECT - Other error:',
+          errorData || errorStatus
+        );
+        // Only show toast if it's not a 404
+        if (errorStatus !== 404) {
+          toast.error(
+            locale === 'en'
+              ? 'Failed to load messages. Please try again.'
+              : 'فشل تحميل الرسائل. يرجى المحاولة مرة أخرى.'
+          );
+        }
       }
     }
   }, [messagesData, user, locale, conversationId, messagesError]);
@@ -2811,6 +2859,29 @@ export default function MessagesContent() {
                                 ? 'Error loading messages. Please try again.'
                                 : 'خطأ في تحميل الرسائل. يرجى المحاولة مرة أخرى.'}
                             </p>
+                            {/* Show error details in development mode */}
+                            {process.env.NODE_ENV === 'development' && (
+                              <div className='mt-2 p-2 bg-red-50 rounded text-xs text-red-700 max-w-md mx-auto'>
+                                <p>
+                                  <strong>Error:</strong>{' '}
+                                  {JSON.stringify(
+                                    (messagesError as any)?.data ||
+                                      (messagesError as any)?.status ||
+                                      'Unknown error'
+                                  )}
+                                </p>
+                                <p>
+                                  <strong>User Role:</strong> {user?.role}
+                                </p>
+                                <p>
+                                  <strong>Conversation ID:</strong>{' '}
+                                  {conversationId}
+                                </p>
+                                <p>
+                                  <strong>User ID:</strong> {user?.id}
+                                </p>
+                              </div>
+                            )}
                             {/* Show last message from conversation as fallback if available */}
                             {selectedConversation?.lastMessage && (
                               <div className='mt-4 p-3 bg-rich-sand/20 rounded-lg border border-rich-sand/30'>
@@ -2835,7 +2906,42 @@ export default function MessagesContent() {
                             <button
                               onClick={() => {
                                 if (conversationId) {
-                                  refetchMessages();
+                                  console.log(
+                                    '🔄 Manual retry clicked - Conversation ID:',
+                                    conversationId
+                                  );
+                                  console.log(
+                                    '🔄 Manual retry - User role:',
+                                    user?.role
+                                  );
+                                  console.log(
+                                    '🔄 Manual retry - User ID:',
+                                    user?.id
+                                  );
+                                  refetchMessages()
+                                    .then(result => {
+                                      console.log(
+                                        '🔄 Manual retry result:',
+                                        result
+                                      );
+                                      if (result.data) {
+                                        console.log(
+                                          '🔄 Manual retry - Success, messages count:',
+                                          result.data.messages?.length || 0
+                                        );
+                                      } else if (result.error) {
+                                        console.error(
+                                          '🔄 Manual retry - Error:',
+                                          result.error
+                                        );
+                                      }
+                                    })
+                                    .catch(error => {
+                                      console.error(
+                                        '🔄 Manual retry - Catch error:',
+                                        error
+                                      );
+                                    });
                                 }
                               }}
                               className='mt-4 px-4 py-2 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors text-sm'

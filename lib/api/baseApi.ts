@@ -40,7 +40,7 @@ const axiosBaseQuery =
         method,
         data,
         params,
-        timeout, // Pass timeout to axios
+        timeout: timeout || 60000, // Use provided timeout or default to 60 seconds
       });
       return { data: result.data };
     } catch (axiosError: any) {
