@@ -35,12 +35,15 @@ const axiosBaseQuery =
       }
 
       const finalUrl = url.startsWith('/') ? url : '/' + url;
+      // If timeout is 0, pass 0 to axios (no timeout)
+      // If timeout is provided, use it, otherwise default to 60 seconds
+      const axiosTimeout = timeout !== undefined ? timeout : 60000;
       const result = await apiClient({
         url: finalUrl,
         method,
         data,
         params,
-        timeout: timeout || 60000, // Use provided timeout or default to 60 seconds
+        timeout: axiosTimeout,
       });
       return { data: result.data };
     } catch (axiosError: any) {

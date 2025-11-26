@@ -35,7 +35,11 @@ export interface PaginationMeta {
 export const chatApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getConversations: builder.query<{ success: boolean; conversations: Conversation[] }, void>({
-      query: () => '/api/chat/conversations/',
+      query: () => ({
+        url: '/api/chat/conversations/',
+        method: 'GET',
+        timeout: 0, // No timeout for conversations API
+      }),
       providesTags: ['Conversation'],
     }),
 
