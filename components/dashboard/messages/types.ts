@@ -36,7 +36,8 @@ export interface Message {
   id: string;
   text: string;
   sender: 'me' | 'other';
-  timestamp: string;
+  timestamp: string; // Formatted timestamp for display
+  rawTimestamp?: string; // ISO timestamp string for sorting
   attachments?: string[];
   senderId?: string;
   receiverId?: string;

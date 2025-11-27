@@ -231,14 +231,13 @@ export function useWebSocket({
                   (data.message.offer.offerAmount || data.message.offer.offer))
               );
 
+              const rawTimestamp = data.message.timestamp || data.message.createdAt;
               const newMessage: Message = {
                 id: data.message.id,
                 text: isOfferMessage ? '' : data.message.text,
                 sender: isMyMessage ? 'me' : 'other',
-                timestamp: formatMessageTime(
-                  data.message.timestamp || data.message.createdAt,
-                  locale
-                ),
+                timestamp: formatMessageTime(rawTimestamp, locale),
+                rawTimestamp: rawTimestamp, // Store original timestamp for sorting
                 attachments: data.message.attachments || [],
                 senderId: data.message.senderId,
                 receiverId: data.message.receiverId,
@@ -369,7 +368,22 @@ export function useWebSocket({
                       if (process.env.NODE_ENV === 'development') {
                         console.log('✅ Adding real message (no optimistic match found):', newMessage.id);
                       }
-                      return [...cleaned, newMessage];
+                      // Add message and sort to maintain chronological order (oldest first, newest last)
+                      const updated = [...cleaned, newMessage];
+                      return updated.sort((a, b) => {
+                        try {
+                          const timeA = a.rawTimestamp 
+                            ? new Date(a.rawTimestamp).getTime()
+                            : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
+                          const timeB = b.rawTimestamp 
+                            ? new Date(b.rawTimestamp).getTime()
+                            : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
+                          if (timeA > 0 && timeB > 0) {
+                            return timeA - timeB; // Ascending order (oldest first)
+                          }
+                        } catch {}
+                        return a.id.localeCompare(b.id);
+                      });
                     }
                     if (process.env.NODE_ENV === 'development') {
                       console.log('⚠️ Real message already exists, keeping current state');
@@ -471,7 +485,22 @@ export function useWebSocket({
                           currentConversationId: conversationId,
                         });
                       }
-                      return [...prev, newMessage];
+                      // Add message and sort to maintain chronological order (oldest first, newest last)
+                      const updated = [...prev, newMessage];
+                      return updated.sort((a, b) => {
+                        try {
+                          const timeA = a.rawTimestamp 
+                            ? new Date(a.rawTimestamp).getTime()
+                            : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
+                          const timeB = b.rawTimestamp 
+                            ? new Date(b.rawTimestamp).getTime()
+                            : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
+                          if (timeA > 0 && timeB > 0) {
+                            return timeA - timeB; // Ascending order (oldest first)
+                          }
+                        } catch {}
+                        return a.id.localeCompare(b.id);
+                      });
                     } else {
                       if (process.env.NODE_ENV === 'development') {
                         console.log('⚠️ Duplicate message by content, skipping:', newMessage.id);
@@ -529,16 +558,15 @@ export function useWebSocket({
                 isMyMessage = data.message.senderId === user?.id;
               }
               
+              const offerRawTimestamp = data.message?.timestamp || data.offer.updatedAt || data.offer.createdAt;
               const offerMessage: Message = {
                 id: data.message?.id || `${data.type}_${data.offer.id}_${Date.now()}`,
                 text: data.message?.text || '',
                 sender: isMyMessage ? 'me' : 'other',
                 senderId: data.message?.senderId || (isMyMessage ? user?.id : selectedConversation?.otherUser.id),
                 receiverId: data.message?.receiverId || (isMyMessage ? selectedConversation?.otherUser.id : user?.id),
-                timestamp: formatMessageTime(
-                  data.message?.timestamp || data.offer.updatedAt || data.offer.createdAt,
-                  locale
-                ),
+                timestamp: formatMessageTime(offerRawTimestamp, locale),
+                rawTimestamp: offerRawTimestamp, // Store original timestamp for sorting
                 offerId: data.offer.id,
                 productId: data.offer.productId || data.offer.product?.id,
                 offer: {

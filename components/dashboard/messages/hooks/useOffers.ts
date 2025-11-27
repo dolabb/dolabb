@@ -89,12 +89,14 @@ export function useOffers({ wsRef, user, setMessages, selectedConversation }: Us
 
       // Add optimistic update for counter offer
       if (setMessages && originalOffer) {
+        const now = new Date().toISOString();
         const tempMessageId = `temp-counter-${Date.now()}-${Math.random()}`;
         const optimisticMessage: Message = {
           id: tempMessageId,
           text: counterText,
           sender: 'me',
-          timestamp: formatMessageTime(new Date().toISOString(), locale),
+          timestamp: formatMessageTime(now, locale),
+          rawTimestamp: now, // Store original timestamp for sorting
           senderId: user?.id,
           receiverId: receiverId,
           offerId: offerId,

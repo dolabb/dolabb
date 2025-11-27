@@ -128,12 +128,14 @@ export default function MessageInput({
     }
 
     // Create optimistic message to show immediately
+    const now = new Date().toISOString();
     const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
     const optimisticMessage: Message = {
       id: tempMessageId,
       text: text,
       sender: 'me',
-      timestamp: formatMessageTime(new Date().toISOString(), locale),
+      timestamp: formatMessageTime(now, locale),
+      rawTimestamp: now, // Store original timestamp for sorting
       attachments: attachmentUrls,
       senderId: user.id,
       receiverId: receiverId,

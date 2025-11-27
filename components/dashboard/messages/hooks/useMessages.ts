@@ -105,6 +105,7 @@ export function useMessages({
               | 'me'
               | 'other',
             timestamp: formatMessageTime(msg.createdAt, locale),
+            rawTimestamp: msg.createdAt, // Store original timestamp for sorting
             attachments: msg.attachments || [],
             senderId: msg.senderId,
             receiverId: msg.receiverId,
@@ -163,20 +164,27 @@ export function useMessages({
           return acc;
         }, [] as Message[]);
         
-        // Sort by a combination of timestamp and message order
+        // Sort by rawTimestamp (chronological order - oldest first, newest last)
         return uniqueMessages.sort((a, b) => {
-          // If both have timestamps, sort by timestamp
+          // Use rawTimestamp if available (ISO string), otherwise try to parse timestamp
           try {
-            const timeA = new Date(a.timestamp || 0).getTime();
-            const timeB = new Date(b.timestamp || 0).getTime();
-            if (timeA !== timeB && timeA > 0 && timeB > 0) {
-              return timeA - timeB;
+            const timeA = a.rawTimestamp 
+              ? new Date(a.rawTimestamp).getTime()
+              : (a.id ? parseInt(a.id.substring(0, 8), 16) * 1000 : 0); // Extract timestamp from MongoDB ObjectId
+            const timeB = b.rawTimestamp 
+              ? new Date(b.rawTimestamp).getTime()
+              : (b.id ? parseInt(b.id.substring(0, 8), 16) * 1000 : 0);
+            
+            if (timeA > 0 && timeB > 0) {
+              return timeA - timeB; // Ascending order (oldest first)
             }
-          } catch {
-            // If timestamp parsing fails, keep original order
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Error sorting messages by timestamp:', error);
+            }
           }
-          // Fallback: keep original order (WebSocket messages come after API messages)
-          return 0;
+          // Fallback: sort by message ID (MongoDB ObjectIds are sortable)
+          return a.id.localeCompare(b.id);
         });
       });
     } else if (!messagesData && conversationId && messages.length === 0) {
