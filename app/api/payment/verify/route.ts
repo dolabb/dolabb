@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { paymentId, orderId } = body;
+    const { paymentId, orderId, offerId } = body;
 
     if (!paymentId) {
       return NextResponse.json(
@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
     console.log('Verifying payment via POST:', {
       paymentId,
       orderId,
+      offerId,
     });
 
     const result = await verifyPaymentWithMoyasar(paymentId);
@@ -105,10 +106,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Include orderId in response if provided
+    // Include orderId and offerId in response if provided
     return NextResponse.json({
       ...result,
       orderId: orderId || null,
+      offerId: offerId || null,
     });
   } catch (error: any) {
     console.error('Payment verification error:', error);

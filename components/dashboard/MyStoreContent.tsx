@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { HiPlus } from 'react-icons/hi2';
 import ListedItems from './ListedItems';
 import ListItemForm from './ListItemForm';
-import PaymentsTab from './PaymentsTab';
+import ReviewsTab from './ReviewsTab';
 
 export default function MyStoreContent() {
   const locale = useLocale();
@@ -15,8 +15,8 @@ export default function MyStoreContent() {
   const isSeller = user?.role === 'seller';
   const isBuyer = user?.role === 'buyer';
 
-  // For both buyers and sellers: 'manage', and for sellers: 'payments'
-  const [activeTab, setActiveTab] = useState<'manage' | 'payments'>(
+  // For both buyers and sellers: 'manage', and for sellers: 'reviews'
+  const [activeTab, setActiveTab] = useState<'manage' | 'reviews'>(
     'manage'
   );
   const [showListForm, setShowListForm] = useState(false);
@@ -120,16 +120,16 @@ export default function MyStoreContent() {
           </button>
           <button
             onClick={() => {
-              setActiveTab('payments');
+              setActiveTab('reviews');
               setShowListForm(false);
             }}
             className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-              activeTab === 'payments'
+              activeTab === 'reviews'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
             }`}
           >
-            {locale === 'en' ? 'Payments' : 'المدفوعات'}
+            {locale === 'en' ? 'Reviews' : 'المراجعات'}
           </button>
         </div>
 
@@ -139,7 +139,7 @@ export default function MyStoreContent() {
         ) : (
           <>
             {activeTab === 'manage' && <ListedItems />}
-            {activeTab === 'payments' && <PaymentsTab />}
+            {activeTab === 'reviews' && <ReviewsTab />}
           </>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { apiClient } from '@/lib/api/client';
 
 export default function PaymentCallbackPage() {
   const locale = useLocale();
@@ -50,7 +51,7 @@ export default function PaymentCallbackPage() {
             let retryCount = 0;
 
             while (retryCount < maxRetries && paymentStatus === 'initiated') {
-              // Call POST verify endpoint with paymentId and orderId
+              // Call POST verify endpoint with paymentId, orderId, and offerId
               const verifyResponse = await fetch('/api/payment/verify/', {
                 method: 'POST',
                 headers: {
@@ -59,6 +60,7 @@ export default function PaymentCallbackPage() {
                 body: JSON.stringify({
                   paymentId: paymentId,
                   orderId: pendingPayment?.orderId || null,
+                  offerId: pendingPayment?.offerId || offerId || null,
                 }),
               });
               const verifyResult = await verifyResponse.json();
@@ -151,37 +153,36 @@ export default function PaymentCallbackPage() {
               existingPayments.push(paymentRecord);
               localStorage.setItem('payments', JSON.stringify(existingPayments));
 
-              // Call payment webhook
+              // Call Django backend payment webhook
               try {
-                const webhookResponse = await fetch('/api/payment/webhook/', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    id: paymentId,
-                    status: 'paid',
-                    amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
-                  }),
+                console.log('Calling Django backend payment webhook with:', {
+                  id: paymentId,
+                  status: 'paid',
+                  amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
+                  offerId: finalOfferId,
                 });
 
-                const webhookText = await webhookResponse.text();
-                let webhookResult;
-                try {
-                  webhookResult = JSON.parse(webhookText);
-                } catch (e) {
-                  webhookResult = { rawResponse: webhookText };
-                }
+                const webhookResponse = await apiClient.post('/api/payment/webhook/', {
+                  id: paymentId,
+                  status: 'paid',
+                  amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
+                  offerId: finalOfferId, // CRITICAL: Include offerId for backend to update offer status
+                });
 
                 console.log('Payment Webhook Response:', {
                   status: webhookResponse.status,
                   statusText: webhookResponse.statusText,
-                  headers: Object.fromEntries(webhookResponse.headers.entries()),
-                  body: webhookResult,
+                  headers: webhookResponse.headers,
+                  data: webhookResponse.data,
                 });
-              } catch (webhookError) {
+              } catch (webhookError: any) {
                 console.error('Payment webhook error:', webhookError);
                 // Don't fail the whole process if webhook fails
+                console.error('Webhook error details:', {
+                  message: webhookError.message,
+                  response: webhookError.response?.data,
+                  status: webhookError.response?.status,
+                });
               }
 
               // Redirect to success page

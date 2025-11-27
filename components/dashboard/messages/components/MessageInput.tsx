@@ -11,14 +11,15 @@ import {
   HiPaperClip,
   HiXMark,
 } from 'react-icons/hi2';
-import type { AttachedFile, ConversationUser } from '../types';
-import { formatMessageTime } from '../utils';
+import type { AttachedFile, ConversationUser, Message } from '../types';
+import { formatMessageTime, validateMessageText } from '../utils';
 
 interface MessageInputProps {
   selectedConversation: ConversationUser | null;
   user: any;
   wsRef: React.MutableRefObject<WebSocket | null>;
   onMessageSent: () => void;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
 export default function MessageInput({
@@ -26,12 +27,15 @@ export default function MessageInput({
   user,
   wsRef,
   onMessageSent,
+  setMessages,
 }: MessageInputProps) {
   const locale = useLocale();
   const [messageText, setMessageText] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sendMessageMutation] = useSendMessageMutation();
+  const [validationError, setValidationError] = useState<string>('');
+  const [isSending, setIsSending] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -60,11 +64,41 @@ export default function MessageInput({
     setAttachedFiles(prev => prev.filter(file => file.id !== id));
   };
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setMessageText(newText);
+
+    // Validate text in real-time
+    const validation = validateMessageText(newText, locale);
+    if (!validation.isValid) {
+      setValidationError(validation.message);
+    } else {
+      setValidationError('');
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim() && attachedFiles.length === 0) return;
     if (!selectedConversation || !user) return;
+    
+    // Prevent duplicate sends
+    if (isSending) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('⚠️ Message send already in progress, ignoring duplicate');
+      }
+      return;
+    }
 
+    // Validate message text before sending
+    const validation = validateMessageText(messageText.trim(), locale);
+    if (!validation.isValid) {
+      setValidationError(validation.message);
+      toast.error(validation.message);
+      return;
+    }
+
+    setIsSending(true);
     const receiverId = selectedConversation.otherUser.id;
     const text = messageText.trim();
 
@@ -93,25 +127,50 @@ export default function MessageInput({
       }
     }
 
+    // Create optimistic message to show immediately
+    const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
+    const optimisticMessage: Message = {
+      id: tempMessageId,
+      text: text,
+      sender: 'me',
+      timestamp: formatMessageTime(new Date().toISOString(), locale),
+      attachments: attachmentUrls,
+      senderId: user.id,
+      receiverId: receiverId,
+      isDelivered: false,
+      isRead: false,
+      productId: selectedConversation.productId || undefined,
+    };
+
+    // Add optimistic message immediately
+    setMessages(prev => [...prev, optimisticMessage]);
+    setMessageText('');
+    setAttachedFiles([]);
+    setValidationError('');
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {
-        const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
-        wsRef.current.send(
-          JSON.stringify({
-            type: 'chat_message',
-            senderId: user.id,
-            receiverId: receiverId,
-            text: text,
-            attachments: attachmentUrls,
-            offerId: null,
-            productId: selectedConversation.productId || null,
-          })
-        );
-        setMessageText('');
-        setAttachedFiles([]);
+        const messagePayload = {
+          type: 'chat_message',
+          senderId: user.id,
+          receiverId: receiverId,
+          text: text,
+          attachments: attachmentUrls,
+          offerId: null,
+          productId: selectedConversation.productId || null,
+        };
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📤 Sending message via WebSocket:', messagePayload);
+        }
+        wsRef.current.send(JSON.stringify(messagePayload));
         onMessageSent();
+        // Reset sending state after a short delay to allow WebSocket to process
+        setTimeout(() => setIsSending(false), 500);
       } catch (error) {
         console.error('Error sending message via WebSocket:', error);
+        setIsSending(false);
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
         toast.error(
           locale === 'en' ? 'Failed to send message' : 'فشل إرسال الرسالة'
         );
@@ -125,11 +184,13 @@ export default function MessageInput({
           offerId: null,
           productId: selectedConversation.productId || null,
         });
-        setMessageText('');
-        setAttachedFiles([]);
         onMessageSent();
+        setIsSending(false);
       } catch (error: any) {
         console.error('Error sending message:', error);
+        setIsSending(false);
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
         const errorMsg =
           error?.response?.data?.message ||
           error?.message ||
@@ -191,35 +252,50 @@ export default function MessageInput({
           <HiPaperClip className='w-5 h-5 text-deep-charcoal group-hover:text-saudi-green transition-colors duration-200' />
           <div className='absolute inset-0 rounded-xl bg-saudi-green/0 group-hover:bg-saudi-green/5 transition-colors duration-200'></div>
         </label>
-        <div className='flex-1 relative flex items-center'>
-          <textarea
-            value={messageText}
-            onChange={e => setMessageText(e.target.value)}
-            placeholder={
-              locale === 'en' ? 'Type a message...' : 'اكتب رسالة...'
-            }
-            className='w-full px-4 py-2.5 md:py-3 pr-14 border border-rich-sand/30 rounded-3xl focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green resize-none flex items-center'
-            rows={1}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage(e);
+        <div className='flex-1 relative flex flex-col'>
+          {validationError && (
+            <div className='mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700'>
+              {validationError}
+            </div>
+          )}
+          <div className='relative flex items-center'>
+            <textarea
+              value={messageText}
+              onChange={handleTextChange}
+              placeholder={
+                locale === 'en' ? 'Type a message...' : 'اكتب رسالة...'
               }
-            }}
-            style={{
-              minHeight: '44px',
-              maxHeight: '120px',
-            }}
-          />
-          <button
-            type='submit'
-            disabled={!messageText.trim() && attachedFiles.length === 0}
-            className='absolute right-2 top-1/2 -translate-y-1/2 group p-2 bg-gradient-to-br from-saudi-green to-green-600 text-white rounded-full hover:from-saudi-green/90 hover:to-green-600/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-saudi-green disabled:hover:to-green-600 cursor-pointer shadow-md hover:shadow-lg hover:scale-110 active:scale-95 disabled:hover:scale-100 disabled:hover:shadow-md'
-            aria-label={locale === 'en' ? 'Send message' : 'إرسال رسالة'}
-          >
-            <HiPaperAirplane className='w-4 h-4 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200' />
-            <div className='absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/10 transition-colors duration-200'></div>
-          </button>
+              className={`w-full px-4 py-2.5 md:py-3 pr-14 border rounded-3xl focus:outline-none focus:ring-2 resize-none flex items-center ${
+                validationError
+                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                  : 'border-rich-sand/30 focus:ring-saudi-green focus:border-saudi-green'
+              }`}
+              rows={1}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
+              style={{
+                minHeight: '44px',
+                maxHeight: '120px',
+              }}
+            />
+            <button
+              type='submit'
+              disabled={
+                (!messageText.trim() && attachedFiles.length === 0) ||
+                !!validationError ||
+                isSending
+              }
+              className='absolute right-2 top-1/2 -translate-y-1/2 group p-2 bg-gradient-to-br from-saudi-green to-green-600 text-white rounded-full hover:from-saudi-green/90 hover:to-green-600/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-saudi-green disabled:hover:to-green-600 cursor-pointer shadow-md hover:shadow-lg hover:scale-110 active:scale-95 disabled:hover:scale-100 disabled:hover:shadow-md'
+              aria-label={locale === 'en' ? 'Send message' : 'إرسال رسالة'}
+            >
+              <HiPaperAirplane className='w-4 h-4 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200' />
+              <div className='absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/10 transition-colors duration-200'></div>
+            </button>
+          </div>
         </div>
       </form>
     </div>

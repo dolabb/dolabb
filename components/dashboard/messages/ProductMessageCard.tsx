@@ -31,7 +31,8 @@ interface ProductMessageCardProps {
     offerId: string,
     counterAmount: number,
     receiverId: string,
-    text?: string
+    text?: string,
+    originalOffer?: any
   ) => Promise<void>;
   onRejectOffer: (
     offerId: string,
@@ -198,7 +199,8 @@ export default function ProductMessageCard({
       message.offerId,
       counterAmount,
       selectedConversation.otherUser.id,
-      message.text
+      message.text,
+      message.offer
     );
     setShowCounterModal(false);
   };

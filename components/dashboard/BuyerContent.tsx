@@ -4,15 +4,25 @@ import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import Image from 'next/image';
-import { HiPencil, HiShoppingCart, HiBanknotes } from 'react-icons/hi2';
+import { HiPencil, HiShoppingCart, HiBanknotes, HiTruck } from 'react-icons/hi2';
 import { useRouter } from 'next/navigation';
 import Pagination from '@/components/shared/Pagination';
 import { useGetOffersQuery, useAcceptOfferMutation, useRejectOfferMutation, useCounterOfferMutation, type Offer } from '@/lib/api/offersApi';
 import { useGetProductDetailQuery } from '@/lib/api/productsApi';
+import { 
+  useGetBuyerOrdersQuery, 
+  useCreateReviewMutation, 
+  useGetProductReviewsQuery,
+  useGetSellerRatingQuery,
+  useCreateDisputeMutation 
+} from '@/lib/api/buyerApi';
+import { useSendMessageMutation } from '@/lib/api/chatApi';
 import { toast } from '@/utils/toast';
 import { useAppSelector } from '@/lib/store/hooks';
 import PaymentsTab from './PaymentsTab';
 import CounterOfferModal from '@/components/shared/CounterOfferModal';
+import ReviewModal from '@/components/shared/ReviewModal';
+import DisputeModal from '@/components/shared/DisputeModal';
 import { canUserPurchaseProduct } from '@/utils/productValidation';
 
 // Separate component for offer item to use hooks properly
@@ -24,7 +34,8 @@ function OfferItem({
   isRejecting,
   onAccept,
   onCounter,
-  onReject
+  onReject,
+  onViewShipment
 }: { 
   offer: Offer;
   locale: string;
@@ -34,6 +45,7 @@ function OfferItem({
   onAccept: () => void;
   onCounter: () => void;
   onReject: () => void;
+  onViewShipment?: () => void;
 }) {
   const router = useRouter();
   const [imageError, setImageError] = useState(false);
@@ -193,7 +205,7 @@ function OfferItem({
           </div>
         )}
         {/* View Checkout/Status Button - Show when offer is accepted */}
-        {offer.status === 'accepted' && (
+        {offer.status === 'accepted' && displayStatus !== 'paid' && (
           <div className='flex gap-2 mt-4'>
             {canPurchase ? (
               // Show checkout button for buyers
@@ -232,6 +244,18 @@ function OfferItem({
             )}
           </div>
         )}
+        {/* Shipment Actions - Show when offer is paid (for sellers only) */}
+        {displayStatus === 'paid' && !canPurchase && onViewShipment && (
+          <div className='flex gap-2 mt-4'>
+            <button
+              onClick={onViewShipment}
+              className='flex-1 px-4 py-2.5 bg-saudi-green text-white rounded-lg font-medium hover:bg-saudi-green/90 transition-colors cursor-pointer text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg'
+            >
+              <HiTruck className='w-4 h-4' />
+              {locale === 'en' ? 'View Details & Shipment' : 'عرض التفاصيل والشحن'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -239,24 +263,16 @@ function OfferItem({
 
 export default function BuyerContent() {
   const locale = useLocale();
+  const router = useRouter();
   const isRTL = locale === 'ar';
   const user = useAppSelector(state => state.auth.user);
   const isSeller = user?.role === 'seller';
-  // For sellers, default to 'offers' tab; for buyers, default to 'orders'
-  // Use lazy initializer to avoid hook order issues when user state changes
-  const [activeTab, setActiveTab] = useState<'orders' | 'offers' | 'shipping'>(() => {
-    // This function only runs once on mount, so we use a default
-    return 'orders';
+  // For sellers, only show offers tab; for buyers, show orders and offers tabs
+  const [activeTab, setActiveTab] = useState<'orders' | 'offers'>(() => {
+    return isSeller ? 'offers' : 'orders';
   });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
-
-  // Update activeTab when user role is determined (only once when user loads)
-  useEffect(() => {
-    if (isSeller) {
-      setActiveTab('offers');
-    }
-  }, [isSeller]);
 
   // Fetch offers from API
   const { data: offersData, isLoading: isLoadingOffers, error: offersError, refetch: refetchOffers } = useGetOffersQuery();
@@ -264,9 +280,29 @@ export default function BuyerContent() {
   const [rejectOffer, { isLoading: isRejecting }] = useRejectOfferMutation();
   const [counterOffer, { isLoading: isCountering }] = useCounterOfferMutation();
 
+  // Fetch buyer orders from API
+  const { data: ordersData, isLoading: isLoadingOrders, error: ordersError, refetch: refetchOrders } = useGetBuyerOrdersQuery({}, {
+    skip: isSeller, // Only fetch for buyers
+  });
+  
+  // Buyer review and dispute mutations
+  const [createReview, { isLoading: isSubmittingReview }] = useCreateReviewMutation();
+  const [createDispute, { isLoading: isSubmittingDispute }] = useCreateDisputeMutation();
+  
+  // Chat message mutation for sending counter offer notification
+  const [sendMessage] = useSendMessageMutation();
+
   // Counter offer modal state
   const [isCounterModalOpen, setIsCounterModalOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
+  
+  // Review modal state
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState<any>(null);
+  
+  // Dispute modal state
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const [selectedOrderForDispute, setSelectedOrderForDispute] = useState<any>(null);
 
   // Log offers data to console - Full API response
   useEffect(() => {
@@ -286,45 +322,15 @@ export default function BuyerContent() {
     }
   }, [offersError]);
 
-  // Mock orders data
-  const orders = [
-    {
-      id: 'ORD-001',
-      product: {
-        id: '1',
-        title: 'Vintage Denim Jacket',
-        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&h=500&fit=crop&auto=format',
-        price: 45.99,
-      },
-      orderDate: '2024-01-15',
-      status: 'active',
-    },
-    {
-      id: 'ORD-002',
-      product: {
-        id: '2',
-        title: 'Designer Leather Bag',
-        image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&h=500&fit=crop&auto=format',
-        price: 89.50,
-      },
-      orderDate: '2024-01-14',
-      status: 'active',
-    },
-    {
-      id: 'ORD-003',
-      product: {
-        id: '3',
-        title: 'Y2K Platform Sneakers',
-        image: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=500&h=500&fit=crop&auto=format',
-        price: 65.00,
-      },
-      orderDate: '2024-01-13',
-      status: 'sold',
-    },
-  ];
+  // Get orders from API response
+  const orders = ordersData?.orders || [];
 
   // Get offers from API response
   const offers = offersData?.offers || [];
+
+  // Note: We don't need a WebSocket connection here
+  // The backend API should handle sending WebSocket messages to both parties
+  // when the counter offer is created
 
   // Handle counter offer submission from modal
   const handleCounterOfferSubmit = async (counterAmount: number) => {
@@ -332,20 +338,57 @@ export default function BuyerContent() {
     
     try {
       // Call the counter offer API: /api/offers/{offer_id}/counter/
-      await counterOffer({
+      const response = await counterOffer({
         offerId: selectedOffer.id,
         counterAmount: counterAmount,
       }).unwrap();
+
+      // The backend API should automatically send WebSocket messages to both parties
+      // when the counter offer is created. We don't need to send it manually here.
+      // However, we can send a chat message as a backup notification
+      const buyerId = selectedOffer.buyerId || selectedOffer.buyer?.id;
+      const productId = selectedOffer.productId || selectedOffer.product?.id;
+      
+      // Send a chat message as backup notification (backend should handle WebSocket)
+      if (buyerId) {
+        try {
+          await sendMessage({
+            receiverId: buyerId,
+            text:
+              locale === 'en'
+                ? `Counter offer: ${counterAmount} SAR`
+                : `عرض مقابل: ${counterAmount} ريال`,
+            offerId: selectedOffer.id,
+            productId: productId,
+          }).unwrap();
+        } catch (chatError) {
+          console.error('Error sending chat message:', chatError);
+          // Don't fail the whole operation if chat message fails
+        }
+      }
+
+      // Store offer ID before closing modal
+      const offerIdToRedirect = selectedOffer.id;
+      
       toast.success(
         locale === 'en' 
           ? 'Counter offer sent successfully!' 
           : 'تم إرسال العرض المقابل بنجاح!'
       );
-      // Refetch offers to get the latest data
-      await refetchOffers();
-      // Close the modal after successful submission
+      
+      // Close the modal first
       setIsCounterModalOpen(false);
       setSelectedOffer(null);
+      
+      // Wait a bit for backend to process, then refetch offers and redirect to chat
+      setTimeout(async () => {
+        await refetchOffers();
+        
+        // Redirect to messages page with buyer ID to auto-select conversation
+        if (buyerId) {
+          router.push(`/${locale}/messages?buyerId=${buyerId}&offerId=${offerIdToRedirect}`);
+        }
+      }, 500);
     } catch (error: any) {
       toast.error(
         error?.data?.message || 
@@ -355,11 +398,72 @@ export default function BuyerContent() {
     }
   };
 
+  // Handle review submission
+  const handleSubmitReview = async (orderId: string, rating: number, comment?: string) => {
+    try {
+      await createReview({
+        orderId,
+        rating,
+        comment: comment || undefined,
+      }).unwrap();
+      toast.success(
+        locale === 'en' 
+          ? 'Review submitted successfully!' 
+          : 'تم إرسال التقييم بنجاح!'
+      );
+      await refetchOrders();
+      setIsReviewModalOpen(false);
+      setSelectedOrderForReview(null);
+    } catch (error: any) {
+      toast.error(
+        error?.data?.message || 
+        (locale === 'en' ? 'Failed to submit review' : 'فشل إرسال التقييم')
+      );
+    }
+  };
+
+  // Handle dispute/report submission
+  const handleSubmitDispute = async (orderId: string, disputeType: 'product_quality' | 'delivery_issue' | 'payment_dispute', description: string) => {
+    try {
+      await createDispute({
+        orderId,
+        disputeType,
+        description,
+      }).unwrap();
+      toast.success(
+        locale === 'en' 
+          ? 'Report submitted successfully! Admin will review it.' 
+          : 'تم إرسال البلاغ بنجاح! سيقوم المدير بمراجعته.'
+      );
+      await refetchOrders();
+      setIsDisputeModalOpen(false);
+      setSelectedOrderForDispute(null);
+    } catch (error: any) {
+      toast.error(
+        error?.data?.message || 
+        (locale === 'en' ? 'Failed to submit report' : 'فشل إرسال البلاغ')
+      );
+    }
+  };
+
   const paginatedOrders = orders.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
   const totalPages = Math.ceil(orders.length / itemsPerPage);
+
+  // Status badge colors and labels
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { color: string; label: { en: string; ar: string } }> = {
+      pending: { color: 'bg-yellow-100 text-yellow-700', label: { en: 'Pending', ar: 'قيد الانتظار' } },
+      packed: { color: 'bg-blue-100 text-blue-700', label: { en: 'Packed', ar: 'معبأ' } },
+      ready: { color: 'bg-purple-100 text-purple-700', label: { en: 'Ready', ar: 'جاهز' } },
+      shipped: { color: 'bg-indigo-100 text-indigo-700', label: { en: 'Shipped', ar: 'شُحن' } },
+      delivered: { color: 'bg-green-100 text-green-700', label: { en: 'Delivered', ar: 'تم التسليم' } },
+      cancelled: { color: 'bg-red-100 text-red-700', label: { en: 'Cancelled', ar: 'ملغي' } },
+    };
+    return statusMap[status] || { color: 'bg-gray-100 text-gray-700', label: { en: status, ar: status } };
+  };
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
@@ -371,6 +475,7 @@ export default function BuyerContent() {
             : (locale === 'en' ? 'Buyer Dashboard' : 'لوحة المشتري')}
         </h1>
         {/* Tabs */}
+        {!isSeller && (
         <div className='flex gap-4 mb-6 border-b border-rich-sand/30'>
           <button
             onClick={() => setActiveTab('orders')}
@@ -380,9 +485,7 @@ export default function BuyerContent() {
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
             }`}
           >
-            {isSeller 
-              ? (locale === 'en' ? 'Orders to Ship' : 'الطلبات للشحن')
-              : (locale === 'en' ? 'Orders' : 'الطلبات')}
+            {locale === 'en' ? 'Orders' : 'الطلبات'}
           </button>
           <button
             onClick={() => setActiveTab('offers')}
@@ -392,119 +495,168 @@ export default function BuyerContent() {
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
             }`}
           >
-            {isSeller 
-              ? (locale === 'en' ? 'Received Offers' : 'العروض المستلمة')
-              : (locale === 'en' ? 'Offers' : 'العروض')}
+            {locale === 'en' ? 'Offers' : 'العروض'}
           </button>
-          {isSeller && (
-            <button
-              onClick={() => setActiveTab('shipping')}
-              className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-                activeTab === 'shipping'
-                  ? 'border-saudi-green text-saudi-green'
-                  : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-              }`}
-            >
-              {locale === 'en' ? 'Shipping' : 'الشحن'}
-            </button>
-          )}
         </div>
+        )}
 
-        {/* Orders Tab */}
-        {activeTab === 'orders' && (
+        {/* Orders Tab - Only for buyers */}
+        {!isSeller && activeTab === 'orders' && (
           <div>
-            {isSeller ? (
-              // For sellers: Show PaymentsTab UI (Orders to Ship)
-              <PaymentsTab />
+            {isLoadingOrders ? (
+              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
+                <p className='text-deep-charcoal/70'>
+                  {locale === 'en' ? 'Loading orders...' : 'جاري تحميل الطلبات...'}
+                </p>
+              </div>
+            ) : ordersError ? (
+              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
+                <p className='text-red-600'>
+                  {locale === 'en' 
+                    ? 'Failed to load orders. Please try again.' 
+                    : 'فشل تحميل الطلبات. يرجى المحاولة مرة أخرى.'}
+                </p>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
+                <p className='text-deep-charcoal/70'>
+                  {locale === 'en' ? 'No orders found.' : 'لا توجد طلبات.'}
+                </p>
+              </div>
             ) : (
-              // For buyers: Show existing orders UI
               <>
-                <div className='space-y-4 mb-6'>
-                  {paginatedOrders.map(order => (
-                    <div
-                      key={order.id}
-                      className='bg-white rounded-lg border border-rich-sand/30 p-4 flex flex-col sm:flex-row gap-4'
+            <div className='space-y-4 mb-6'>
+                  {paginatedOrders.map(order => {
+                    const statusBadge = getStatusBadge(order.status);
+                    const firstImage = order.product?.images?.[0] || '';
+                    
+                    return (
+                <div
+                  key={order.id}
+                  className='bg-white rounded-lg border border-rich-sand/30 p-4 flex flex-col sm:flex-row gap-4'
+                >
+                  <Link
+                    href={`/${locale}/product/${order.product.id}`}
+                    className='relative w-full sm:w-24 h-24 bg-rich-sand/20 rounded-lg overflow-hidden flex-shrink-0'
+                  >
+                          {firstImage ? (
+                    <Image
+                              src={firstImage}
+                      alt={order.product.title}
+                      fill
+                      className='object-cover'
+                      unoptimized
+                    />
+                          ) : (
+                            <div className='w-full h-full flex items-center justify-center text-deep-charcoal/30'>
+                              {locale === 'en' ? 'Product' : 'المنتج'}
+                            </div>
+                          )}
+                  </Link>
+                  <div className='flex-1'>
+                    <Link
+                      href={`/${locale}/product/${order.product.id}`}
+                      className='block'
                     >
-                      <Link
-                        href={`/${locale}/product/${order.product.id}`}
-                        className='relative w-full sm:w-24 h-24 bg-rich-sand/20 rounded-lg overflow-hidden flex-shrink-0'
-                      >
-                        <Image
-                          src={order.product.image}
-                          alt={order.product.title}
-                          fill
-                          className='object-cover'
-                          unoptimized
-                        />
-                      </Link>
-                      <div className='flex-1'>
-                        <Link
-                          href={`/${locale}/product/${order.product.id}`}
-                          className='block'
-                        >
-                          <h3 className='font-semibold text-deep-charcoal mb-2 hover:text-saudi-green transition-colors'>
-                            {order.product.title}
-                          </h3>
-                        </Link>
-                        <div className='text-sm text-deep-charcoal/70 space-y-1'>
-                          <p>
-                            {locale === 'en' ? 'Order ID' : 'رقم الطلب'}: {order.id}
-                          </p>
-                          <p>
-                            {locale === 'en' ? 'Order Date' : 'تاريخ الطلب'}: {order.orderDate}
-                          </p>
-                          <p className='text-lg font-bold text-saudi-green'>
-                            {locale === 'ar' ? 'ر.س' : 'SAR'} {order.product.price.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className='flex flex-col gap-2 sm:w-32'>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium text-center ${
-                            order.status === 'sold'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          {order.status === 'sold'
-                            ? locale === 'en'
-                              ? 'Sold'
-                              : 'مباع'
-                            : locale === 'en'
-                              ? 'Active'
-                              : 'نشط'}
-                        </span>
-                        <Link
-                          href={`/${locale}/my-store/item/${order.product.id}`}
-                          className='flex items-center justify-center gap-2 px-4 py-2 bg-saudi-green text-white rounded-lg text-sm font-medium hover:bg-saudi-green/90 transition-colors'
-                        >
-                          <HiPencil className='w-4 h-4' />
-                          {locale === 'en' ? 'Edit listing' : 'تعديل القائمة'}
-                        </Link>
-                      </div>
+                      <h3 className='font-semibold text-deep-charcoal mb-2 hover:text-saudi-green transition-colors'>
+                        {order.product.title}
+                      </h3>
+                    </Link>
+                    <div className='text-sm text-deep-charcoal/70 space-y-1'>
+                      <p>
+                              {locale === 'en' ? 'Order ID' : 'رقم الطلب'}: {order.orderNumber || order.id}
+                      </p>
+                      <p>
+                              {locale === 'en' ? 'Order Date' : 'تاريخ الطلب'}: {new Date(order.orderDate).toLocaleDateString()}
+                            </p>
+                            {order.trackingNumber && (
+                              <p>
+                                {locale === 'en' ? 'Tracking' : 'رقم التتبع'}: {order.trackingNumber}
+                              </p>
+                            )}
+                      <p className='text-lg font-bold text-saudi-green'>
+                              {locale === 'ar' ? 'ر.س' : 'SAR'} {order.totalPrice?.toFixed(2) || '0.00'}
+                      </p>
                     </div>
-                  ))}
-                </div>
-                {totalPages > 1 && (
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
+                  </div>
+                        <div className='flex flex-col gap-2 sm:w-40'>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium text-center ${statusBadge.color}`}>
+                            {statusBadge.label[locale as 'en' | 'ar'] || statusBadge.label.en}
+                          </span>
+                          
+                          {/* Review button - Show for delivered orders that haven't been reviewed */}
+                          {order.status === 'delivered' && !order.reviewSubmitted && (
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForReview(order);
+                                setIsReviewModalOpen(true);
+                              }}
+                              className='flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors cursor-pointer'
+                            >
+                              {locale === 'en' ? 'Review' : 'تقييم'}
+                            </button>
+                          )}
+                          
+                          {/* Report/Dispute button - Show for delivered orders */}
+                          {order.status === 'delivered' && (
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForDispute(order);
+                                setIsDisputeModalOpen(true);
+                              }}
+                              className='flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer'
+                            >
+                              {locale === 'en' ? 'Report Issue' : 'الإبلاغ عن مشكلة'}
+                            </button>
+                          )}
+                        </div>
+                  </div>
+                    );
+                  })}
+            </div>
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
                 )}
               </>
             )}
           </div>
         )}
 
-        {/* Offers Tab */}
-        {activeTab === 'offers' && (
+        {/* Offers Tab - Show for sellers directly, or when activeTab is 'offers' for buyers */}
+        {(isSeller || activeTab === 'offers') && (
           <div className='space-y-4'>
             {isLoadingOffers ? (
-              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-                <p className='text-deep-charcoal/70'>
-                  {locale === 'en' ? 'Loading offers...' : 'جاري تحميل العروض...'}
-                </p>
+              <div className='space-y-4'>
+                {[...Array(3)].map((_, index) => (
+                  <div
+                    key={index}
+                    className='bg-white rounded-lg border border-rich-sand/30 p-4 flex flex-col sm:flex-row gap-4'
+                  >
+                    <div className='relative w-full sm:w-24 h-24 bg-rich-sand/20 rounded-lg skeleton-shimmer' />
+                    <div className='flex-1 space-y-3'>
+                      <div className='flex items-start justify-between'>
+                        <div className='h-6 bg-rich-sand/30 rounded w-3/4 skeleton-shimmer' />
+                        <div className='h-6 bg-rich-sand/30 rounded w-24 skeleton-shimmer' />
+                      </div>
+                      <div className='space-y-2'>
+                        <div className='h-4 bg-rich-sand/30 rounded w-1/2 skeleton-shimmer' />
+                        <div className='h-4 bg-rich-sand/30 rounded w-1/3 skeleton-shimmer' />
+                      </div>
+                      <div className='flex items-center gap-2'>
+                        <div className='h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
+                        <div className='h-6 bg-rich-sand/30 rounded w-24 skeleton-shimmer' />
+                      </div>
+                      <div className='flex gap-2 mt-4'>
+                        <div className='h-10 bg-rich-sand/30 rounded flex-1 skeleton-shimmer' />
+                        <div className='h-10 bg-rich-sand/30 rounded flex-1 skeleton-shimmer' />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : offersError ? (
               <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
@@ -545,18 +697,18 @@ export default function BuyerContent() {
                   try {
                     // Call the reject offer API: /api/offers/{offer_id}/reject/
                     await rejectOffer(offer.id).unwrap();
-                    toast.success(
-                      locale === 'en' 
+                      toast.success(
+                        locale === 'en' 
                         ? 'Offer rejected successfully!' 
                         : 'تم رفض العرض بنجاح!'
-                    );
+                      );
                     // Refetch offers to get the latest data
                     await refetchOffers();
-                  } catch (error: any) {
-                    toast.error(
-                      error?.data?.message || 
+                    } catch (error: any) {
+                      toast.error(
+                        error?.data?.message || 
                       (locale === 'en' ? 'Failed to reject offer' : 'فشل رفض العرض')
-                    );
+                      );
                   }
                 };
 
@@ -564,6 +716,11 @@ export default function BuyerContent() {
                   // Open counter offer modal
                   setSelectedOffer(offer);
                   setIsCounterModalOpen(true);
+                };
+
+                const handleViewShipment = () => {
+                  // Navigate to shipment page
+                  router.push(`/${locale}/seller/offer/${offer.id}`);
                 };
 
                 return (
@@ -577,6 +734,7 @@ export default function BuyerContent() {
                     onAccept={handleAccept}
                     onCounter={handleCounter}
                     onReject={handleReject}
+                    onViewShipment={isSeller ? handleViewShipment : undefined}
                   />
                 );
               })
@@ -597,6 +755,40 @@ export default function BuyerContent() {
         onSubmit={handleCounterOfferSubmit}
         isLoading={isCountering}
       />
+
+      {/* Review Modal */}
+      {selectedOrderForReview && (
+        <ReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => {
+            setIsReviewModalOpen(false);
+            setSelectedOrderForReview(null);
+          }}
+          orderId={selectedOrderForReview.id}
+          productTitle={selectedOrderForReview.product?.title || 'Product'}
+          onSubmit={async (rating, comment) => {
+            await handleSubmitReview(selectedOrderForReview.id, rating, comment);
+          }}
+          isLoading={isSubmittingReview}
+        />
+      )}
+
+      {/* Dispute Modal */}
+      {selectedOrderForDispute && (
+        <DisputeModal
+          isOpen={isDisputeModalOpen}
+          onClose={() => {
+            setIsDisputeModalOpen(false);
+            setSelectedOrderForDispute(null);
+          }}
+          orderId={selectedOrderForDispute.id}
+          productTitle={selectedOrderForDispute.product?.title || 'Product'}
+          onSubmit={async (disputeType, description) => {
+            await handleSubmitDispute(selectedOrderForDispute.id, disputeType, description);
+          }}
+          isLoading={isSubmittingDispute}
+        />
+      )}
     </div>
   );
 }

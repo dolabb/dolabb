@@ -39,6 +39,7 @@ export interface Payment extends Order {
   platformFee: number;
   sellerPayout: number;
   affiliateCode?: string;
+  shipmentProof?: string; // NEW: Shipment proof URL
 }
 
 export interface PaginationMeta {
@@ -74,15 +75,26 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     shipOrder: builder.mutation<
-      { success: boolean; payment: Payment },
-      { orderId: string; trackingNumber: string }
+      { success: boolean; payment: Payment; message?: string },
+      { orderId: string; trackingNumber: string; shipmentProof?: File; shipmentProofUrl?: string }
     >({
-      query: ({ orderId, trackingNumber }) => ({
-        url: `/api/user/payments/${orderId}/ship/`,
-        method: 'PUT',
-        data: { trackingNumber },
-      }),
-      invalidatesTags: ['Order'],
+      query: ({ orderId, trackingNumber, shipmentProof, shipmentProofUrl }) => {
+        const formData = new FormData();
+        formData.append('trackingNumber', trackingNumber);
+        
+        if (shipmentProof) {
+          formData.append('shipmentProof', shipmentProof);
+        } else if (shipmentProofUrl) {
+          formData.append('shipmentProofUrl', shipmentProofUrl);
+        }
+
+        return {
+          url: `/api/user/payments/${orderId}/ship/`,
+          method: 'PUT',
+          data: formData,
+        };
+      },
+      invalidatesTags: ['Order', 'Seller'],
     }),
 
     updateOrderStatus: builder.mutation<

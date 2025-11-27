@@ -104,12 +104,12 @@ export default function CartPage() {
             : 'لا يمكنك تقديم عرض على منتجك الخاص'
         );
       } else {
-        toast.error(
+      toast.error(
           apiError ||
-            (locale === 'en'
-              ? 'Failed to create offer'
-              : 'فشل إنشاء العرض')
-        );
+          (locale === 'en'
+            ? 'Failed to create offer'
+            : 'فشل إنشاء العرض')
+      );
       }
     }
   };

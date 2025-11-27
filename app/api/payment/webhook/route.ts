@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, amount } = body;
+    const { id, status, amount, offerId } = body;
 
     console.log('Payment webhook received:', {
       id,
       status,
       amount,
+      offerId,
       timestamp: new Date().toISOString(),
     });
 
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
       status: status,
       amount: amount,
       amountInSAR: (amount / 100).toFixed(2),
+      offerId: offerId || null,
       receivedAt: new Date().toISOString(),
       fullBody: body,
     });
@@ -58,6 +60,7 @@ export async function POST(request: NextRequest) {
         id,
         status,
         amount,
+        offerId: offerId || null,
         processedAt: new Date().toISOString(),
       },
     });

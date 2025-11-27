@@ -5,6 +5,8 @@ import { useLocale } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HiMapPin, HiPhone, HiUser } from 'react-icons/hi2';
+import { apiClient } from '@/lib/api/client';
+import { toast } from '@/utils/toast';
 
 export default function CheckoutPage() {
   const locale = useLocale();
@@ -32,6 +34,7 @@ export default function CheckoutPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -97,27 +100,86 @@ export default function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    // Save delivery address and proceed to payment
-    // In a real app, you would save this to your backend
-    console.log('Delivery address saved:', formData);
+    if (!offerId) {
+      toast.error(
+        locale === 'en'
+          ? 'Offer ID is required'
+          : 'معرف العرض مطلوب'
+      );
+      return;
+    }
 
-    // Redirect to payment page with offer data
-    const params = new URLSearchParams({
-      offerId: offerId || '',
-      product: product || '',
-      size: size || '',
-      price: price || '',
-      offerPrice: offerPrice || '',
-      shipping: shipping || '',
-    });
-    router.push(`/${locale}/payment?${params.toString()}`);
+    setIsCreatingOrder(true);
+
+    try {
+      // Get affiliate code if available
+      let affiliateCode = '';
+      try {
+        const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+        const item = storedItems.find((item: any) => item.title === product);
+        affiliateCode = item?.affiliateCode || '';
+      } catch (e) {
+        console.error('Error getting affiliate code:', e);
+      }
+
+      // Call Django backend checkout API to create order
+      console.log('Creating order with Django backend...');
+      const checkoutResponse = await apiClient.post('/api/payment/checkout/', {
+        offerId: offerId,
+        deliveryAddress: {
+          fullName: formData.fullName.trim(),
+          phone: formData.phone.trim(),
+          address: formData.address.trim(),
+          city: formData.city.trim(),
+          postalCode: formData.postalCode.trim(),
+          country: formData.country,
+          additionalInfo: formData.additionalInfo.trim(),
+        },
+        affiliateCode: affiliateCode || undefined,
+      });
+
+      const checkoutData = checkoutResponse.data;
+      console.log('Checkout API response:', checkoutData);
+
+      if (checkoutData.success && checkoutData.orderId) {
+        // Store real orderId in sessionStorage for payment page
+        sessionStorage.setItem('orderId', checkoutData.orderId);
+        
+        // Redirect to payment page with offer data and orderId
+        const params = new URLSearchParams({
+          offerId: offerId || '',
+          product: product || '',
+          size: size || '',
+          price: price || '',
+          offerPrice: offerPrice || '',
+          shipping: shipping || '',
+          orderId: checkoutData.orderId, // Include real orderId
+        });
+        
+        router.push(`/${locale}/payment?${params.toString()}`);
+      } else {
+        throw new Error(checkoutData.error || 'Failed to create order');
+      }
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      setIsCreatingOrder(false);
+      
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          (locale === 'en'
+                            ? 'Failed to create order. Please try again.'
+                            : 'فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
+      
+      toast.error(errorMessage);
+    }
   };
 
   const totalPrice =
@@ -346,9 +408,12 @@ export default function CheckoutPage() {
 
                 <button
                   type='submit'
-                  className='w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 shadow-lg hover:shadow-xl font-display cursor-pointer'
+                  disabled={isCreatingOrder}
+                  className='w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 shadow-lg hover:shadow-xl font-display cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
                 >
-                  {locale === 'en' ? 'Continue to Payment' : 'المتابعة إلى الدفع'}
+                  {isCreatingOrder
+                    ? (locale === 'en' ? 'Creating Order...' : 'جاري إنشاء الطلب...')
+                    : (locale === 'en' ? 'Continue to Payment' : 'المتابعة إلى الدفع')}
                 </button>
               </form>
             </div>

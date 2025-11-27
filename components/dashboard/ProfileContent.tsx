@@ -15,6 +15,9 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { HiPencilSquare, HiUser, HiXMark } from 'react-icons/hi2';
+import SaleHistoryTab from './SaleHistoryTab';
+import PayoutTab from './PayoutTab';
+import PayoutRequestsTab from './PayoutRequestsTab';
 
 // Skeleton Loading Component
 const ProfileSkeleton = ({ isRTL }: { isRTL: boolean }) => (
@@ -369,9 +372,10 @@ export default function ProfileContent() {
   const user = useAppSelector(state => state.auth.user);
   const isRTL = locale === 'ar';
   const isBuyer = user?.role === 'buyer';
+  const isSeller = user?.role === 'seller';
   const [activeTab, setActiveTab] = useState<
-    'reviews' | 'profileDetails'
-  >('profileDetails');
+    'reviews' | 'profileDetails' | 'saleHistory' | 'overview' | 'payoutRequests'
+  >(isSeller ? 'overview' : 'profileDetails');
   const [imageError, setImageError] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
@@ -423,11 +427,13 @@ export default function ProfileContent() {
   }, [profileUser?.profile_image]);
 
   // Mock user data
+  // Get rating from profile data or rating API
+  const profileRating = profileUser?.rating;
   const userStats = {
     followers: 1234,
     following: 567,
-    rating: 4.8,
-    reviews: 42,
+    rating: profileRating?.averageRating || 0,
+    reviews: profileRating?.totalReviews || 0,
   };
 
   // Mock shop products
@@ -740,13 +746,13 @@ export default function ProfileContent() {
                       : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصورة أصغر أو التحقق من اتصال الإنترنت.'
                   );
                 } else {
-                  toast.error(
-                    err?.data?.message ||
-                      err?.data?.error ||
-                      (locale === 'en'
-                        ? 'Failed to upload image'
-                        : 'فشل رفع الصورة')
-                  );
+                toast.error(
+                  err?.data?.message ||
+                    err?.data?.error ||
+                    (locale === 'en'
+                      ? 'Failed to upload image'
+                      : 'فشل رفع الصورة')
+                );
                 }
                 throw error;
               }
@@ -802,24 +808,73 @@ export default function ProfileContent() {
               <p className='text-deep-charcoal/70 mb-2'>
                 @{profileUser?.username || 'username'}
               </p>
-              <div className='flex flex-wrap items-center gap-4 text-sm text-deep-charcoal/70'>
-                <div className='flex items-center gap-1'>
-                  <FaStar className='w-4 h-4 text-yellow-400 fill-yellow-400' />
-                  <strong className='text-deep-charcoal'>
-                    {userStats.rating}
-                  </strong>
-                  <span className='text-deep-charcoal/60'>
-                    ({userStats.reviews}{' '}
-                    {locale === 'en' ? 'reviews' : 'مراجعة'})
-                  </span>
+              {isSeller && (
+                <div className='flex flex-wrap items-center gap-4 text-sm text-deep-charcoal/70'>
+                  <div className='flex items-center gap-1'>
+                    <FaStar className='w-4 h-4 text-yellow-400 fill-yellow-400' />
+                    <strong className='text-deep-charcoal'>
+                      {userStats.rating > 0 ? userStats.rating.toFixed(1) : '0.0'}
+                    </strong>
+                    {userStats.reviews > 0 && (
+                      <span className='text-deep-charcoal/60'>
+                        ({userStats.reviews}{' '}
+                        {locale === 'en' ? 'reviews' : 'مراجعة'})
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div className='flex gap-4 mb-6 border-b border-rich-sand/30'>
+          {isSeller ? (
+            <>
+              <button
+                onClick={() => setActiveTab('saleHistory')}
+                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                  activeTab === 'saleHistory'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'Sale History' : 'سجل المبيعات'}
+              </button>
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                  activeTab === 'overview'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'Overview' : 'نظرة عامة'}
+              </button>
+              <button
+                onClick={() => setActiveTab('payoutRequests')}
+                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                  activeTab === 'payoutRequests'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'All Payout Requests' : 'جميع طلبات الدفع'}
+              </button>
+              <button
+                onClick={() => setActiveTab('profileDetails')}
+                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                  activeTab === 'profileDetails'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
+              </button>
+            </>
+          ) : (
+            <>
           <button
             onClick={() => setActiveTab('reviews')}
             className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
@@ -840,6 +895,8 @@ export default function ProfileContent() {
           >
             {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
           </button>
+            </>
+          )}
         </div>
 
         {/* Content */}
@@ -960,7 +1017,19 @@ export default function ProfileContent() {
           </div>
         )}
 
-        {activeTab === 'reviews' && (
+        {isSeller && activeTab === 'saleHistory' && (
+          <SaleHistoryTab />
+        )}
+
+        {isSeller && activeTab === 'overview' && (
+          <PayoutTab />
+        )}
+
+        {isSeller && activeTab === 'payoutRequests' && (
+          <PayoutRequestsTab />
+        )}
+
+        {!isSeller && activeTab === 'reviews' && (
           <div className='space-y-4'>
             {reviews.map(review => (
               <div
@@ -1075,13 +1144,13 @@ export default function ProfileContent() {
                       : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصورة أصغر أو التحقق من اتصال الإنترنت.'
                   );
                 } else {
-                  toast.error(
-                    err?.data?.message ||
-                      err?.data?.error ||
-                      (locale === 'en'
-                        ? 'Failed to upload image'
-                        : 'فشل رفع الصورة')
-                  );
+                toast.error(
+                  err?.data?.message ||
+                    err?.data?.error ||
+                    (locale === 'en'
+                      ? 'Failed to upload image'
+                      : 'فشل رفع الصورة')
+                );
                 }
                 throw error;
               }

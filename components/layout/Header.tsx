@@ -213,7 +213,7 @@ export default function Header() {
       // Check for specific error messages from API
       const errorData = error && typeof error === 'object' && 'data' in error
         ? (error as { data?: { error?: string; message?: string } })?.data
-        : undefined;
+          : undefined;
       const apiError = errorData?.error || errorData?.message;
       
       if (apiError === 'You cannot make an offer on your own product') {
@@ -223,10 +223,10 @@ export default function Header() {
             : 'لا يمكنك تقديم عرض على منتجك الخاص'
         );
       } else {
-        toast.error(
+      toast.error(
           apiError ||
-            (locale === 'en' ? 'Failed to create offer' : 'فشل إنشاء العرض')
-        );
+          (locale === 'en' ? 'Failed to create offer' : 'فشل إنشاء العرض')
+      );
       }
     }
   };

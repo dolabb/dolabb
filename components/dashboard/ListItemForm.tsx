@@ -196,7 +196,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               ? 'Maximum 5 images allowed. Please remove some images before adding new ones.'
               : 'الحد الأقصى 5 صور. يرجى إزالة بعض الصور قبل إضافة صور جديدة.'
           );
-        }
+          }
         // Reset the input so the same file can be selected again if needed
         e.target.value = '';
         return;
@@ -511,8 +511,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         <div className='bg-rich-sand/10 rounded-lg p-4 border border-rich-sand/20'>
           <div className='flex items-center justify-between mb-2'>
             <label className='block text-xs font-semibold text-deep-charcoal uppercase tracking-wide'>
-              {locale === 'en' ? 'Photos' : 'الصور'}
-            </label>
+            {locale === 'en' ? 'Photos' : 'الصور'}
+          </label>
             <span className='text-xs text-deep-charcoal/60'>
               {photoFiles.length}/5 {locale === 'en' ? 'images' : 'صور'}
             </span>
@@ -1115,11 +1115,6 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
             style={{ textTransform: 'uppercase' }}
           />
-          <p className='mt-1 text-xs text-deep-charcoal/60'>
-            {locale === 'en'
-              ? 'Enter an affiliate code if you want to share commission with an affiliate'
-              : 'أدخل رمز الشريك إذا كنت تريد مشاركة العمولة مع شريك'}
-          </p>
         </div>
 
         {/* Form Actions */}

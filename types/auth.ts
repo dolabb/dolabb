@@ -1,3 +1,15 @@
+export interface SellerRating {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: {
+    '1': number;
+    '2': number;
+    '3': number;
+    '4': number;
+    '5': number;
+  };
+}
+
 export interface User {
   id: string;
   username: string;
@@ -20,6 +32,7 @@ export interface User {
   shipping_address?: string;
   zip_code?: string;
   house_number?: string;
+  rating?: SellerRating; // Only for sellers
 }
 
 export interface SignupRequest {

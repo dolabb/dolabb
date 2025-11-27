@@ -341,7 +341,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             : 'لا يمكنك تقديم عرض على منتجك الخاص'
         );
       } else {
-        toast.error(errorMessage);
+      toast.error(errorMessage);
       }
       throw error; // Re-throw to prevent modal from closing on error
     }
@@ -589,23 +589,23 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               {/* Action Buttons */}
               <div className='flex gap-2.5 pt-2'>
                 {canPurchase ? (
-                  <button
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        toast.error(
-                          locale === 'en'
-                            ? 'Please login to make an offer'
-                            : 'يرجى تسجيل الدخول لعمل عرض'
-                        );
-                        router.push(`/${locale}/login`);
-                        return;
-                      }
-                      setShowOfferModal(true);
-                    }}
-                    className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
-                  >
-                    {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
-                  </button>
+                <button
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      toast.error(
+                        locale === 'en'
+                          ? 'Please login to make an offer'
+                          : 'يرجى تسجيل الدخول لعمل عرض'
+                      );
+                      router.push(`/${locale}/login`);
+                      return;
+                    }
+                    setShowOfferModal(true);
+                  }}
+                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
+                >
+                  {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
+                </button>
                 ) : (
                   <div className='flex-1 bg-rich-sand/20 border border-rich-sand/40 text-deep-charcoal/70 py-2.5 rounded-lg font-medium text-sm text-center px-4'>
                     {locale === 'en'

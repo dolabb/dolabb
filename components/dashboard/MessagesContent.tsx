@@ -4,6 +4,7 @@ import { useGetConversationsQuery } from '@/lib/api/chatApi';
 import { useAppSelector } from '@/lib/store/hooks';
 import { useLocale } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import ChatArea from './messages/components/ChatArea';
 import ChatHeader from './messages/components/ChatHeader';
 import MessageInput from './messages/components/MessageInput';
@@ -17,6 +18,8 @@ export default function MessagesContent() {
   const locale = useLocale();
   const isRTL = locale === 'ar';
   const user = useAppSelector(state => state.auth.user);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationUser | null>(null);
@@ -25,13 +28,18 @@ export default function MessagesContent() {
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const hasAutoSelectedRef = useRef<boolean>(false);
+  const hasSelectedFromQueryRef = useRef<boolean>(false);
 
   // Fetch conversations
   const {
     data: conversationsData,
     refetch: refetchConversations,
     isLoading: isLoadingConversations,
+    isFetching: isFetchingConversations,
   } = useGetConversationsQuery();
+  
+  // Track if query has been initialized (not loading and not fetching means it's ready)
+  const isQueryInitialized = !isLoadingConversations && !isFetchingConversations;
 
   // Use messages hook
   const {
@@ -61,12 +69,15 @@ export default function MessagesContent() {
     refetchConversations,
     user,
     setConversationId,
+    isQueryInitialized,
   });
 
   // Use offers hook
   const { sendOffer, counterOffer, acceptOffer, rejectOffer } = useOffers({
     wsRef,
     user,
+    setMessages,
+    selectedConversation,
   });
 
   // Convert API conversations to local format
@@ -122,8 +133,8 @@ export default function MessagesContent() {
 
     if (!isSameConversation) {
       if (wsRef.current && selectedConversation?.id !== conversation.id) {
-        wsRef.current.close(1000, 'Switching conversation');
-        wsRef.current = null;
+          wsRef.current.close(1000, 'Switching conversation');
+          wsRef.current = null;
       }
 
       if (conversation.otherUser.id) {
@@ -132,12 +143,39 @@ export default function MessagesContent() {
     }
   };
 
-  // Auto-select first conversation when conversations are loaded
+  // Auto-select conversation from query params (e.g., when redirected from counter offer)
   useEffect(() => {
+    const buyerId = searchParams.get('buyerId');
     if (
+      buyerId &&
+      conversations.length > 0 &&
+      !selectedConversation &&
+      !hasSelectedFromQueryRef.current &&
+      conversationsData
+    ) {
+      const conversation = conversations.find(
+        (conv) => conv.otherUser.id === buyerId
+      );
+      if (conversation) {
+        hasSelectedFromQueryRef.current = true;
+        hasAutoSelectedRef.current = true; // Prevent auto-selecting first conversation
+        handleUserSelect(conversation);
+        // Remove query params from URL
+        router.replace(`/${locale}/messages`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationsData, conversations.length, searchParams]);
+
+  // Auto-select first conversation when conversations are loaded (if no query params)
+  useEffect(() => {
+    const buyerId = searchParams.get('buyerId');
+    if (
+      !buyerId &&
       conversations.length > 0 &&
       !selectedConversation &&
       !hasAutoSelectedRef.current &&
+      !hasSelectedFromQueryRef.current &&
       conversationsData
     ) {
       const firstConversation = conversations[0];
@@ -145,7 +183,7 @@ export default function MessagesContent() {
       handleUserSelect(firstConversation);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationsData, conversations.length]);
+  }, [conversationsData, conversations.length, searchParams]);
 
   const handleBackToUsers = () => {
     setShowChat(false);
@@ -200,15 +238,15 @@ export default function MessagesContent() {
 
                 <ChatArea
                   messages={messages}
-                  selectedConversation={selectedConversation}
+                            selectedConversation={selectedConversation}
                   isLoading={isLoadingMessages}
                   isFetching={isFetchingMessages}
                   error={messagesError}
                   user={user}
-                  onAcceptOffer={acceptOffer}
-                  onCounterOffer={counterOffer}
-                  onRejectOffer={rejectOffer}
-                  sendOffer={sendOffer}
+                            onAcceptOffer={acceptOffer}
+                            onCounterOffer={counterOffer}
+                            onRejectOffer={rejectOffer}
+                            sendOffer={sendOffer}
                   onRetry={() => refetchMessages()}
                   conversationId={conversationId}
                 />
@@ -218,6 +256,7 @@ export default function MessagesContent() {
                   user={user}
                   wsRef={wsRef}
                   onMessageSent={handleMessageSent}
+                  setMessages={setMessages}
                 />
               </>
             ) : (

@@ -243,7 +243,7 @@ export default function NavigationBar() {
       label: locale === 'en' ? 'Profile' : 'الملف الشخصي',
     },
     {
-      key: 'buyer',
+      key: isSeller ? 'seller' : 'buyer',
       href: `/${locale}/buyer`,
       icon: HiTag,
       label: isSeller 

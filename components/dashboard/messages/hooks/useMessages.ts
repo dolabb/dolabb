@@ -77,7 +77,15 @@ export function useMessages({
       const messagesArray = messagesData.messages || [];
 
       if (messagesArray.length === 0) {
-        setMessages([]);
+        // Don't clear messages if there are optimistic messages
+        setMessages(prev => {
+          const hasOptimisticMessages = prev.some(msg => msg.id.startsWith('temp-'));
+          if (hasOptimisticMessages) {
+            // Keep optimistic messages, just return current state
+            return prev;
+          }
+          return [];
+        });
         return;
       }
 
@@ -115,7 +123,62 @@ export function useMessages({
         }
       );
 
-      setMessages(formattedMessages);
+      // Merge with existing messages instead of replacing
+      setMessages(prev => {
+        // Get optimistic messages (temp IDs) that aren't in the API response yet
+        const optimisticMessages = prev.filter(msg => 
+          msg.id.startsWith('temp-') && 
+          !formattedMessages.some(apiMsg => {
+            // Check if optimistic message matches any API message by text and sender
+            const tempText = (msg.text || '').trim();
+            const apiText = (apiMsg.text || '').trim();
+            return tempText === apiText && 
+                   msg.senderId === apiMsg.senderId &&
+                   msg.sender === apiMsg.sender;
+          })
+        );
+        
+        // Get WebSocket messages (real IDs) that aren't in the API response yet
+        // These are messages received via WebSocket that haven't been persisted to DB yet
+        // We keep them to ensure real-time messages don't disappear
+        const websocketMessages = prev.filter(msg => 
+          !msg.id.startsWith('temp-') && // Not an optimistic message
+          !formattedMessages.some(apiMsg => apiMsg.id === msg.id) && // Not in API response
+          msg.id && // Has a real ID (from WebSocket)
+          true // Keep all WebSocket messages - they'll be deduplicated by ID
+        );
+        
+        if (process.env.NODE_ENV === 'development' && websocketMessages.length > 0) {
+          console.log('📨 Preserving WebSocket messages not in API response:', websocketMessages.length);
+        }
+        
+        // Combine API messages with remaining optimistic and WebSocket messages
+        const allMessages = [...formattedMessages, ...optimisticMessages, ...websocketMessages];
+        
+        // Remove duplicates by ID
+        const uniqueMessages = allMessages.reduce((acc, msg) => {
+          if (!acc.some(m => m.id === msg.id)) {
+            acc.push(msg);
+          }
+          return acc;
+        }, [] as Message[]);
+        
+        // Sort by a combination of timestamp and message order
+        return uniqueMessages.sort((a, b) => {
+          // If both have timestamps, sort by timestamp
+          try {
+            const timeA = new Date(a.timestamp || 0).getTime();
+            const timeB = new Date(b.timestamp || 0).getTime();
+            if (timeA !== timeB && timeA > 0 && timeB > 0) {
+              return timeA - timeB;
+            }
+          } catch {
+            // If timestamp parsing fails, keep original order
+          }
+          // Fallback: keep original order (WebSocket messages come after API messages)
+          return 0;
+        });
+      });
     } else if (!messagesData && conversationId && messages.length === 0) {
       // Don't clear messages here - wait for the query to complete
     }

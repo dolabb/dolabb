@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
+import { apiClient } from '@/lib/api/client';
 
 export default function PaymentPage() {
   const locale = useLocale();
@@ -22,6 +23,7 @@ export default function PaymentPage() {
   const price = searchParams.get('price');
   const offerPrice = searchParams.get('offerPrice');
   const shipping = searchParams.get('shipping');
+  const orderIdFromUrl = searchParams.get('orderId');
 
   // Moyasar keys
   // IMPORTANT: Use test keys for testing, live keys for production
@@ -212,8 +214,14 @@ export default function PaymentPage() {
       // This avoids the callback_url requirement and token validation issues
       console.log('Creating payment directly with card details');
 
-      // Generate orderId
-      const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Use real orderId from checkout (stored in sessionStorage or URL)
+      const orderId = orderIdFromUrl || 
+                      (typeof window !== 'undefined' ? sessionStorage.getItem('orderId') : null) ||
+                      `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      if (!orderIdFromUrl && !sessionStorage.getItem('orderId')) {
+        console.warn('No orderId found from checkout. Using temporary orderId.');
+      }
 
       // Process payment directly using card details
       const paymentResponse = await fetch('/api/payment/process/', {
@@ -370,9 +378,9 @@ export default function PaymentPage() {
         // Save back to localStorage
         localStorage.setItem('payments', JSON.stringify(existingPayments));
 
-        // Call payment webhook
+        // Call payment webhook (Django backend)
         const paymentAmount = payment?.amount || Math.round(parseFloat(totalPrice) * 100);
-        await callPaymentWebhook(payment?.id || '', 'paid', paymentAmount);
+        await callPaymentWebhook(payment?.id || '', 'paid', paymentAmount, offerId || '');
 
         // Redirect to success page
         router.push(
@@ -400,45 +408,35 @@ export default function PaymentPage() {
     }
   };
 
-  const callPaymentWebhook = async (paymentId: string, status: string, amount: number) => {
+  const callPaymentWebhook = async (paymentId: string, status: string, amount: number, offerId: string) => {
     try {
-      console.log('Calling payment webhook with:', {
+      console.log('Calling Django backend payment webhook with:', {
         id: paymentId,
         status: status,
         amount: amount,
+        offerId: offerId,
       });
 
-      const webhookResponse = await fetch('/api/payment/webhook/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: paymentId,
-          status: status,
-          amount: amount,
-        }),
+      // Call Django backend webhook directly
+      const webhookResponse = await apiClient.post('/api/payment/webhook/', {
+        id: paymentId,
+        status: status,
+        amount: amount,
+        offerId: offerId, // CRITICAL: Include offerId for backend to update offer status
       });
-
-      const responseText = await webhookResponse.text();
-      let webhookResult;
-      try {
-        webhookResult = JSON.parse(responseText);
-      } catch (e) {
-        webhookResult = { rawResponse: responseText };
-      }
 
       console.log('Payment Webhook Response:', {
         status: webhookResponse.status,
         statusText: webhookResponse.statusText,
-        headers: Object.fromEntries(webhookResponse.headers.entries()),
-        body: webhookResult,
+        headers: webhookResponse.headers,
+        data: webhookResponse.data,
       });
 
-      return webhookResult;
+      return webhookResponse.data;
     } catch (error: any) {
       console.error('Payment webhook error:', error);
-      return { error: error.message };
+      // Don't fail the payment flow if webhook fails
+      return { error: error.response?.data?.error || error.message };
     }
   };
 

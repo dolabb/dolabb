@@ -23,7 +23,8 @@ interface ChatAreaProps {
     offerId: string,
     counterAmount: number,
     receiverId: string,
-    text?: string
+    text?: string,
+    originalOffer?: any
   ) => Promise<void>;
   onRejectOffer: (
     offerId: string,
