@@ -185,10 +185,17 @@ export default function PaymentCallbackPage() {
                 });
               }
 
-              // Redirect to success page
-              router.push(
-                `/${locale}/payment/success?offerId=${finalOfferId}&product=${encodeURIComponent(finalProduct)}&offerPrice=${finalOfferPrice}&shipping=${finalShipping}`
-              );
+              // Redirect to success page with payment IDs
+              const successParams = new URLSearchParams({
+                offerId: finalOfferId,
+                product: finalProduct,
+                offerPrice: finalOfferPrice,
+                shipping: finalShipping,
+                orderId: pendingPayment?.orderId || '',
+                paymentId: paymentRecord.id || '',
+                moyasarPaymentId: paymentId || paymentData?.id || '',
+              });
+              router.push(`/${locale}/payment/success?${successParams.toString()}`);
               return;
             } else if (paymentStatus === 'initiated') {
               // Payment is still initiated after retries - 3DS may not have completed
@@ -231,10 +238,17 @@ export default function PaymentCallbackPage() {
 
         // Fallback: use status from callback URL
         if (status === 'paid') {
-          // Payment successful - redirect to success page
-          router.push(
-            `/${locale}/payment/success?offerId=${offerId}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice}&shipping=${shipping}`
-          );
+          // Payment successful - redirect to success page with payment IDs
+          const successParams = new URLSearchParams({
+            offerId: offerId || '',
+            product: product || '',
+            offerPrice: offerPrice || '',
+            shipping: shipping || '',
+            orderId: pendingPayment?.orderId || '',
+            paymentId: pendingPayment?.paymentId || '',
+            moyasarPaymentId: paymentId || '',
+          });
+          router.push(`/${locale}/payment/success?${successParams.toString()}`);
         } else {
           // Payment failed or cancelled - redirect back to payment page
           router.push(

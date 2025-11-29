@@ -141,7 +141,9 @@ export default function MessageInput({
       receiverId: receiverId,
       isDelivered: false,
       isRead: false,
-      productId: selectedConversation.productId || undefined,
+      // Do not include productId or offerId for regular text messages
+      productId: undefined,
+      offerId: undefined,
     };
 
     // Add optimistic message immediately
@@ -158,8 +160,10 @@ export default function MessageInput({
           receiverId: receiverId,
           text: text,
           attachments: attachmentUrls,
+          // Explicitly set to null/undefined to ensure no offer association
           offerId: null,
-          productId: selectedConversation.productId || null,
+          productId: null,
+          messageType: 'text', // Explicitly mark as text message
         };
         if (process.env.NODE_ENV === 'development') {
           console.log('📤 Sending message via WebSocket:', messagePayload);
@@ -183,8 +187,10 @@ export default function MessageInput({
           receiverId: receiverId,
           text: text,
           attachments: attachmentUrls,
+          // Explicitly set to null/undefined to ensure no offer association
           offerId: null,
-          productId: selectedConversation.productId || null,
+          productId: null,
+          messageType: 'text', // Explicitly mark as text message
         });
         onMessageSent();
         setIsSending(false);

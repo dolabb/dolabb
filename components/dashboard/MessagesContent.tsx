@@ -47,6 +47,9 @@ export default function MessagesContent() {
     isFetchingMessages,
     messagesError,
     refetchMessages,
+    loadMoreMessages,
+    hasMoreMessages,
+    isLoadingMore,
   } = useMessages({
     conversationId,
     user,
@@ -237,6 +240,9 @@ export default function MessagesContent() {
                 />
 
                 <ChatArea
+                  loadMoreMessages={loadMoreMessages}
+                  hasMoreMessages={hasMoreMessages}
+                  isLoadingMore={isLoadingMore}
                   messages={messages}
                             selectedConversation={selectedConversation}
                   isLoading={isLoadingMessages}

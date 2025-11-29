@@ -203,53 +203,80 @@ export function useWebSocket({
                 setConversationId(data.conversationId);
               }
               
-              // Determine if this message is from the current user
-              // Check multiple fields to ensure correct detection
+              // Use backend's isSender and sender fields if available (most reliable)
+              // Fallback to checking senderId if backend fields not available
               const isMyMessage =
                 data.message.isSender !== undefined
                   ? data.message.isSender
                   : data.message.sender === 'me' ||
-                    (data.message.senderId && data.message.senderId === user?.id) ||
-                    (data.message.senderId === user?.id);
+                    (data.message.senderId && data.message.senderId === user?.id);
 
               if (process.env.NODE_ENV === 'development') {
                 console.log('💬 Processing chat_message:', {
                   messageId: data.message.id,
                   isMyMessage,
+                  isSender: data.message.isSender,
+                  sender: data.message.sender,
                   senderId: data.message.senderId,
                   userId: user?.id,
+                  messageType: data.message.messageType,
+                  offerId: data.message.offerId,
                   text: data.message.text?.substring(0, 50),
                   conversationId: data.conversationId,
                   currentConversationId: conversationId,
                 });
               }
 
-              const isOfferMessage = !!(
-                (data.message.offerId && data.message.offer) ||
-                (data.message.messageType === 'offer' && data.message.offer) ||
-                (data.message.offer &&
-                  (data.message.offer.offerAmount || data.message.offer.offer))
-              );
+              // Check if this is an offer message using backend's messageType field
+              // Backend sets messageType to "offer" for offer-related messages
+              // Explicitly check that messageType is NOT 'text' to avoid false positives
+              const isOfferMessage = 
+                (data.message.messageType === 'offer' || !!data.message.offerId) &&
+                data.message.messageType !== 'text';
+
+              // Use offer object from top level (data.offer) if available, otherwise from message
+              // Only include offer object if this is actually an offer message
+              const offerObject = isOfferMessage ? (data.offer || data.message.offer) : undefined;
 
               const rawTimestamp = data.message.timestamp || data.message.createdAt;
               const newMessage: Message = {
                 id: data.message.id,
-                text: isOfferMessage ? '' : data.message.text,
-                sender: isMyMessage ? 'me' : 'other',
+                text: isOfferMessage ? '' : (data.message.text || ''),
+                sender: data.message.sender || (isMyMessage ? 'me' : 'other'),
                 timestamp: formatMessageTime(rawTimestamp, locale),
                 rawTimestamp: rawTimestamp, // Store original timestamp for sorting
                 attachments: data.message.attachments || [],
                 senderId: data.message.senderId,
                 receiverId: data.message.receiverId,
-                offerId:
-                  data.message.offerId || data.message.offer?.id || undefined,
-                productId:
-                  data.message.productId ||
-                  data.message.offer?.productId ||
-                  data.message.offer?.product?.id ||
-                  undefined,
-                offer: data.message.offer || undefined,
-                messageType: data.message.messageType,
+                // Only include offerId and productId if this is actually an offer message
+                offerId: isOfferMessage ? (data.message.offerId || offerObject?.id || undefined) : undefined,
+                productId: isOfferMessage
+                  ? (data.message.productId ||
+                      offerObject?.productId ||
+                      offerObject?.product?.id ||
+                      undefined)
+                  : undefined,
+                offer: offerObject && isOfferMessage ? {
+                  id: offerObject.id,
+                  offerAmount: offerObject.offerAmount,
+                  counterAmount: offerObject.counterAmount,
+                  originalPrice: offerObject.originalPrice,
+                  status: offerObject.status,
+                  productId: offerObject.productId,
+                  shippingCost: offerObject.shippingCost || offerObject.shipping,
+                  product: offerObject.product ? {
+                    id: offerObject.product.id || offerObject.productId,
+                    title: offerObject.product.title,
+                    image: offerObject.product.image,
+                    images: offerObject.product.images,
+                    price: offerObject.product.price,
+                    originalPrice: offerObject.product.originalPrice,
+                    currency: offerObject.product.currency,
+                    size: offerObject.product.size,
+                    condition: offerObject.product.condition,
+                  } : undefined,
+                } : undefined,
+                messageType: data.message.messageType || (isOfferMessage ? 'offer' : 'text'),
                 isDelivered: isMyMessage
                   ? data.message.isDelivered !== undefined
                     ? data.message.isDelivered
@@ -536,35 +563,86 @@ export function useWebSocket({
           case 'offer_accepted':
           case 'offer_rejected':
             if (data.offer) {
-              // Determine sender: for counter offers, check who sent it (buyer or seller)
-              // For counter offers, if counterAmount exists and status is 'countered', 
-              // the seller is the one who countered (since buyer made original offer)
+              // Update conversationId if we received it in the WebSocket message and it's currently null
+              if (data.conversationId && !conversationId && setConversationId) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('🔧 Setting conversationId from offer message:', data.conversationId);
+                }
+                setConversationId(data.conversationId);
+              }
+
+              // Use backend's isSender and sender fields from message if available (most reliable)
+              // Otherwise determine from offer data
               let isMyMessage = false;
-              if (data.type === 'offer_countered') {
-                // For counter offers: if sellerId matches current user, seller countered (me)
-                // If buyerId matches current user, buyer made original offer (other)
-                isMyMessage = data.offer.sellerId === user?.id;
-              } else if (data.type === 'offer_sent') {
-                // For initial offers: if buyerId matches current user, buyer sent it (me)
-                isMyMessage = data.offer.buyerId === user?.id;
+              if (data.message) {
+                // Backend provides isSender and sender in message object
+                isMyMessage = data.message.isSender !== undefined
+                  ? data.message.isSender
+                  : data.message.sender === 'me' ||
+                    (data.message.senderId && data.message.senderId === user?.id);
               } else {
-                // For accept/reject: check based on who initiated the action
-                // If sellerId matches, seller accepted/rejected (me for seller, other for buyer)
-                isMyMessage = data.offer.sellerId === user?.id;
+                // Fallback: determine from offer data
+                if (data.type === 'offer_countered') {
+                  isMyMessage = data.offer.sellerId === user?.id;
+                } else if (data.type === 'offer_sent') {
+                  isMyMessage = data.offer.buyerId === user?.id;
+                } else {
+                  // For accept/reject: check based on who initiated the action
+                  isMyMessage = data.offer.sellerId === user?.id;
+                }
+              }
+
+              if (process.env.NODE_ENV === 'development') {
+                console.log('💼 Processing offer message:', {
+                  type: data.type,
+                  messageId: data.message?.id,
+                  isMyMessage,
+                  isSender: data.message?.isSender,
+                  sender: data.message?.sender,
+                  senderId: data.message?.senderId || data.offer.sellerId || data.offer.buyerId,
+                  offerId: data.offer.id,
+                  status: data.offer.status,
+                  conversationId: data.conversationId,
+                });
               }
               
-              // Also check message sender if available (this takes precedence)
-              if (data.message?.senderId) {
-                isMyMessage = data.message.senderId === user?.id;
+              // Use senderId and receiverId from message if available, otherwise from offer
+              const messageSenderId = data.message?.senderId;
+              const messageReceiverId = data.message?.receiverId;
+              
+              // Determine from offer data if not in message
+              let offerSenderId: string | undefined;
+              let offerReceiverId: string | undefined;
+              if (!messageSenderId || !messageReceiverId) {
+                if (data.type === 'offer_countered') {
+                  // Seller countered buyer's offer: seller is sender, buyer is receiver
+                  offerSenderId = data.offer.sellerId;
+                  offerReceiverId = data.offer.buyerId;
+                } else if (data.type === 'offer_sent') {
+                  // Buyer sent initial offer: buyer is sender, seller is receiver
+                  offerSenderId = data.offer.buyerId;
+                  offerReceiverId = data.offer.sellerId;
+                } else if (data.type === 'offer_accepted' || data.type === 'offer_rejected') {
+                  // For accept/reject: sender is the one who accepted/rejected
+                  // This could be seller (accepting buyer's offer) or buyer (accepting counter)
+                  // Use the offer's current state to determine
+                  offerSenderId = data.offer.sellerId; // Usually seller accepts/rejects
+                  offerReceiverId = data.offer.buyerId;
+                }
               }
               
-              const offerRawTimestamp = data.message?.timestamp || data.offer.updatedAt || data.offer.createdAt;
+              const offerRawTimestamp = data.message?.timestamp || 
+                                       data.message?.createdAt || 
+                                       data.offer.updatedAt || 
+                                       data.offer.createdAt;
+              
+              // Build complete offer object matching backend structure
               const offerMessage: Message = {
                 id: data.message?.id || `${data.type}_${data.offer.id}_${Date.now()}`,
                 text: data.message?.text || '',
-                sender: isMyMessage ? 'me' : 'other',
-                senderId: data.message?.senderId || (isMyMessage ? user?.id : selectedConversation?.otherUser.id),
-                receiverId: data.message?.receiverId || (isMyMessage ? selectedConversation?.otherUser.id : user?.id),
+                sender: data.message?.sender || (isMyMessage ? 'me' : 'other'),
+                senderId: messageSenderId || offerSenderId || (isMyMessage ? user?.id : selectedConversation?.otherUser.id),
+                receiverId: messageReceiverId || offerReceiverId || (isMyMessage ? selectedConversation?.otherUser.id : user?.id),
                 timestamp: formatMessageTime(offerRawTimestamp, locale),
                 rawTimestamp: offerRawTimestamp, // Store original timestamp for sorting
                 offerId: data.offer.id,
@@ -576,6 +654,7 @@ export function useWebSocket({
                   originalPrice: data.offer.originalPrice,
                   status: data.offer.status || (data.type === 'offer_accepted' ? 'accepted' : data.type === 'offer_rejected' ? 'rejected' : data.type === 'offer_countered' ? 'countered' : 'pending'),
                   productId: data.offer.productId,
+                  shippingCost: data.offer.shippingCost || data.offer.shipping,
                   product: data.offer.product
                     ? {
                         id: data.offer.product.id || data.offer.productId,
@@ -584,15 +663,19 @@ export function useWebSocket({
                         images: data.offer.product.images,
                         price: data.offer.product.price,
                         originalPrice: data.offer.product.originalPrice,
-                        currency: data.offer.product.currency,
+                        currency: data.offer.product.currency || 'SAR',
                         size: data.offer.product.size,
                         condition: data.offer.product.condition,
                       }
                     : undefined,
                 },
                 messageType: 'offer',
-                isDelivered: isMyMessage ? true : undefined,
-                isRead: isMyMessage ? false : undefined,
+                isDelivered: isMyMessage
+                  ? (data.message?.isDelivered !== undefined ? data.message.isDelivered : true)
+                  : undefined,
+                isRead: isMyMessage
+                  ? (data.message?.isRead !== undefined ? data.message.isRead : false)
+                  : undefined,
               };
 
               // Always add the offer message if it matches the current conversation
@@ -654,13 +737,83 @@ export function useWebSocket({
                   shouldAdd = (isFromOtherUser && isToCurrentUser) || (isFromCurrentUser && isToOtherUser);
                 } else {
                   // Fallback: if productId matches or if sender/receiver matches, add it
+                  // Also check if the offer belongs to current user (buyerId or sellerId matches)
+                  const offerBelongsToUser = data.offer.buyerId === user?.id || data.offer.sellerId === user?.id;
                   shouldAdd = offerMessage.productId === selectedConversation.productId || 
                               offerMessage.senderId === selectedConversation.otherUser.id ||
-                              offerMessage.senderId === user?.id;
+                              offerMessage.senderId === user?.id ||
+                              offerMessage.receiverId === user?.id ||
+                              offerBelongsToUser;
                 }
                 
                 if (shouldAdd) {
-                  return [...prev, offerMessage];
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('✅ Adding offer message:', {
+                      type: data.type,
+                      offerId: offerMessage.offerId,
+                      senderId: offerMessage.senderId,
+                      receiverId: offerMessage.receiverId,
+                      isMyMessage,
+                      shouldAdd,
+                      offerStatus: offerMessage.offer?.status,
+                      hasOffer: !!offerMessage.offer,
+                    });
+                  }
+                  // Add message and sort to maintain chronological order
+                  const updated = [...prev, offerMessage];
+                  return updated.sort((a, b) => {
+                    try {
+                      const timeA = a.rawTimestamp 
+                        ? new Date(a.rawTimestamp).getTime()
+                        : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
+                      const timeB = b.rawTimestamp 
+                        ? new Date(b.rawTimestamp).getTime()
+                        : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
+                      if (timeA > 0 && timeB > 0) {
+                        return timeA - timeB; // Ascending order (oldest first)
+                      }
+                    } catch {}
+                    return a.id.localeCompare(b.id);
+                  });
+                } else {
+                  // If conversation matching failed but offer belongs to current user, still add it
+                  const offerBelongsToUser = data.offer.buyerId === user?.id || data.offer.sellerId === user?.id;
+                  if (offerBelongsToUser) {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('✅ Adding offer message (fallback - belongs to user):', {
+                        type: data.type,
+                        offerId: offerMessage.offerId,
+                      });
+                    }
+                    const updated = [...prev, offerMessage];
+                    return updated.sort((a, b) => {
+                      try {
+                        const timeA = a.rawTimestamp 
+                          ? new Date(a.rawTimestamp).getTime()
+                          : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
+                        const timeB = b.rawTimestamp 
+                          ? new Date(b.rawTimestamp).getTime()
+                          : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
+                        if (timeA > 0 && timeB > 0) {
+                          return timeA - timeB;
+                        }
+                      } catch {}
+                      return a.id.localeCompare(b.id);
+                    });
+                  }
+                  
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('❌ Offer message not added - shouldAdd is false:', {
+                      type: data.type,
+                      offerId: offerMessage.offerId,
+                      senderId: offerMessage.senderId,
+                      receiverId: offerMessage.receiverId,
+                      userId: user?.id,
+                      hasSelectedConversation: !!selectedConversation,
+                      otherUserId: selectedConversation?.otherUser.id,
+                      offerBelongsToUser,
+                    });
+                  }
                 }
                 
                 return prev;

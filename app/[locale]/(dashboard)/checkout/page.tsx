@@ -35,6 +35,8 @@ export default function CheckoutPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [orderSummary, setOrderSummary] = useState<any>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -48,6 +50,28 @@ export default function CheckoutPage() {
       router.push(`/${locale}/messages`);
     }
   }, [offerId, product, offerPrice, locale, router]);
+
+  // Fetch order summary from API
+  useEffect(() => {
+    const fetchOrderSummary = async () => {
+      if (!offerId) return;
+
+      setIsLoadingSummary(true);
+      try {
+        const response = await apiClient.get(`/api/offers/${offerId}/order-summary/`);
+        if (response.data.success && response.data.orderSummary) {
+          setOrderSummary(response.data.orderSummary);
+        }
+      } catch (error: any) {
+        console.error('Error fetching order summary:', error);
+        // Don't show error toast, just use fallback data from URL params
+      } finally {
+        setIsLoadingSummary(false);
+      }
+    };
+
+    fetchOrderSummary();
+  }, [offerId]);
 
   if (!isAuthenticated || !offerId || !product || !offerPrice) {
     return null;
@@ -182,7 +206,14 @@ export default function CheckoutPage() {
     }
   };
 
-  const totalPrice =
+  // Use API data if available, otherwise fall back to URL params
+  const displayProduct = orderSummary?.productTitle || product;
+  const displayOriginalPrice = orderSummary?.originalPrice?.toFixed(2) || price;
+  const displayOfferPrice = orderSummary?.offerPrice?.toFixed(2) || offerPrice;
+  const displayShipping = orderSummary?.shippingPrice?.toFixed(2) || shipping;
+  const displayPlatformFee = orderSummary?.platformFee?.toFixed(2) || '0.00';
+  const displayTax = orderSummary?.platformTax?.amount?.toFixed(2) || '0.00';
+  const displayTotal = orderSummary?.finalTotal?.toFixed(2) || 
     (parseFloat(offerPrice || '0') + parseFloat(shipping || '0')).toFixed(2);
 
   return (
@@ -426,57 +457,96 @@ export default function CheckoutPage() {
                 {locale === 'en' ? 'Order Summary' : 'ملخص الطلب'}
               </h2>
 
-              <div className='space-y-4 mb-6'>
-                <div>
-                  <p className='text-sm text-deep-charcoal/70 mb-1'>
-                    {locale === 'en' ? 'Product' : 'المنتج'}
+              {isLoadingSummary ? (
+                <div className='text-center py-8'>
+                  <p className='text-deep-charcoal/60'>
+                    {locale === 'en' ? 'Loading...' : 'جاري التحميل...'}
                   </p>
-                  <p className='font-semibold text-deep-charcoal'>{product}</p>
-                  {size && (
-                    <p className='text-sm text-deep-charcoal/60'>
-                      {locale === 'en' ? 'Size' : 'المقاس'}: {size}
+                </div>
+              ) : (
+                <div className='space-y-4 mb-6'>
+                  {/* Product Info */}
+                  <div>
+                    {orderSummary?.productImage && (
+                      <img
+                        src={orderSummary.productImage}
+                        alt={displayProduct}
+                        className='w-full h-48 object-cover rounded-lg mb-3'
+                      />
+                    )}
+                    <p className='text-sm text-deep-charcoal/70 mb-1'>
+                      {locale === 'en' ? 'Product' : 'المنتج'}
                     </p>
-                  )}
-                </div>
+                    <p className='font-semibold text-deep-charcoal'>{displayProduct}</p>
+                    {size && (
+                      <p className='text-sm text-deep-charcoal/60'>
+                        {locale === 'en' ? 'Size' : 'المقاس'}: {size}
+                      </p>
+                    )}
+                  </div>
 
-                <div className='border-t border-rich-sand/30 pt-4 space-y-2'>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-deep-charcoal/70'>
-                      {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
-                    </span>
-                    <span className='text-deep-charcoal line-through'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {price}
-                    </span>
+                  {/* Price Breakdown */}
+                  <div className='border-t border-rich-sand/30 pt-4 space-y-2'>
+                    <div className='flex justify-between text-sm'>
+                      <span className='text-deep-charcoal/70'>
+                        {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
+                      </span>
+                      <span className='text-deep-charcoal line-through'>
+                        {locale === 'ar' ? 'ر.س' : 'SAR'} {displayOriginalPrice}
+                      </span>
+                    </div>
+                    <div className='flex justify-between text-sm'>
+                      <span className='text-deep-charcoal/70'>
+                        {locale === 'en' ? 'Offer Price' : 'سعر العرض'}
+                      </span>
+                      <span className='font-semibold text-saudi-green'>
+                        {locale === 'ar' ? 'ر.س' : 'SAR'} {displayOfferPrice}
+                      </span>
+                    </div>
+                    <div className='flex justify-between text-sm'>
+                      <span className='text-deep-charcoal/70'>
+                        {locale === 'en' ? 'Shipping' : 'الشحن'}
+                      </span>
+                      <span className='text-deep-charcoal'>
+                        +{locale === 'ar' ? 'ر.س' : 'SAR'} {displayShipping}
+                      </span>
+                    </div>
+                    {parseFloat(displayPlatformFee) > 0 && (
+                      <div className='flex justify-between text-sm'>
+                        <span className='text-deep-charcoal/70'>
+                          {locale === 'en' ? 'Platform Fee' : 'رسوم المنصة'}
+                        </span>
+                        <span className='text-deep-charcoal'>
+                          +{locale === 'ar' ? 'ر.س' : 'SAR'} {displayPlatformFee}
+                        </span>
+                      </div>
+                    )}
+                    {parseFloat(displayTax) > 0 && (
+                      <div className='flex justify-between text-sm'>
+                        <span className='text-deep-charcoal/70'>
+                          {orderSummary?.platformTax?.label || 
+                           (locale === 'en' ? 'Tax (VAT 15%)' : 'الضريبة (ضريبة القيمة المضافة 15%)')}
+                        </span>
+                        <span className='text-deep-charcoal'>
+                          +{locale === 'ar' ? 'ر.س' : 'SAR'} {displayTax}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-deep-charcoal/70'>
-                      {locale === 'en' ? 'Offer Price' : 'سعر العرض'}
-                    </span>
-                    <span className='font-semibold text-saudi-green'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {offerPrice}
-                    </span>
-                  </div>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-deep-charcoal/70'>
-                      {locale === 'en' ? 'Shipping' : 'الشحن'}
-                    </span>
-                    <span className='text-deep-charcoal'>
-                      +{locale === 'ar' ? 'ر.س' : 'SAR'} {shipping}
-                    </span>
-                  </div>
-                </div>
 
-                <div className='border-t border-rich-sand/30 pt-4'>
-                  <div className='flex justify-between items-center'>
-                    <span className='text-lg font-semibold text-deep-charcoal'>
-                      {locale === 'en' ? 'Total' : 'الإجمالي'}
-                    </span>
-                    <span className='text-xl font-bold text-saudi-green'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {totalPrice}
-                    </span>
+                  {/* Total */}
+                  <div className='border-t border-rich-sand/30 pt-4'>
+                    <div className='flex justify-between items-center'>
+                      <span className='text-lg font-semibold text-deep-charcoal'>
+                        {locale === 'en' ? 'Total' : 'الإجمالي'}
+                      </span>
+                      <span className='text-xl font-bold text-saudi-green'>
+                        {locale === 'ar' ? 'ر.س' : 'SAR'} {displayTotal}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

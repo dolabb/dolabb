@@ -4,7 +4,7 @@ import {
 } from '@/lib/api/chatApi';
 import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Message } from '../types';
 import { formatMessageTime } from '../utils';
 
@@ -22,6 +22,10 @@ export function useMessages({
   messages,
 }: UseMessagesProps) {
   const locale = useLocale();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const MESSAGES_PER_PAGE = 4;
 
   const {
     data: messagesData,
@@ -32,52 +36,51 @@ export function useMessages({
   } = useGetMessagesQuery(
     {
       conversationId: conversationId || '',
-      page: 1,
-      limit: 50,
+      page: currentPage,
+      limit: MESSAGES_PER_PAGE,
     },
     { skip: !conversationId }
   );
 
+  // Reset pagination when conversation changes
   useEffect(() => {
     if (conversationId) {
-      const timeoutId = setTimeout(() => {
-        refetchMessages()
-          .then(result => {
-            if (result.error) {
-              const errorData = (result.error as any)?.data;
-              if (
-                errorData === 'timeout of 30000ms exceeded' ||
-                errorData === 'timeout of 60000ms exceeded' ||
-                errorData === 'timeout of 90000ms exceeded' ||
-                (typeof errorData === 'string' && errorData.includes('timeout'))
-              ) {
-                toast.error(
-                  locale === 'en'
-                    ? 'Request timed out. The server is taking too long to respond. Please try again.'
-                    : 'انتهت مهلة الطلب. الخادم يستغرق وقتاً طويلاً للرد. يرجى المحاولة مرة أخرى.'
-                );
-              }
-            }
-          })
-          .catch(error => {
-            console.error('Refetch error:', error);
-            toast.error(
-              locale === 'en'
-                ? 'Failed to load messages. Please try again.'
-                : 'فشل تحميل الرسائل. يرجى المحاولة مرة أخرى.'
-            );
-          });
-      }, 100);
-      return () => clearTimeout(timeoutId);
+      setCurrentPage(1);
+      setHasMoreMessages(true);
+      setIsLoadingMore(false);
     }
-  }, [conversationId, refetchMessages, locale]);
+  }, [conversationId]);
+
+  // Function to load more messages (previous messages)
+  const loadMoreMessages = useCallback(() => {
+    if (!conversationId || isLoadingMore || !hasMoreMessages || isLoadingMessages) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    // Increment page - this will trigger the query to refetch with new page number
+    setCurrentPage(prev => prev + 1);
+    // Note: isLoadingMore will be set to false when messagesData updates in the useEffect
+  }, [conversationId, isLoadingMore, hasMoreMessages, isLoadingMessages]);
 
   useEffect(() => {
     if (messagesData && user) {
       const messagesArray = messagesData.messages || [];
+      const pagination = messagesData.pagination;
 
-      if (messagesArray.length === 0) {
-        // Don't clear messages if there are optimistic messages
+      // Update hasMoreMessages based on pagination
+      if (pagination) {
+        setHasMoreMessages(currentPage < pagination.totalPages);
+      } else {
+        // If no pagination info, check if we got fewer messages than requested
+        setHasMoreMessages(messagesArray.length === MESSAGES_PER_PAGE);
+      }
+
+      // Reset loading state when data arrives
+      setIsLoadingMore(false);
+
+      if (messagesArray.length === 0 && currentPage === 1) {
+        // Only clear messages on first page load if there are no messages
         setMessages(prev => {
           const hasOptimisticMessages = prev.some(msg => msg.id.startsWith('temp-'));
           if (hasOptimisticMessages) {
@@ -91,12 +94,10 @@ export function useMessages({
 
       const formattedMessages: Message[] = messagesArray.map(
         (msg: ApiMessage) => {
-          const isOfferMessage = !!(
-            (msg.offerId && (msg as any).offer) ||
-            ((msg as any).messageType === 'offer' && (msg as any).offer) ||
-            ((msg as any).offer &&
-              ((msg as any).offer.offerAmount || (msg as any).offer.offer))
-          );
+          // Check if message is an offer message using messageType from backend
+          // Backend sets messageType to "offer" for all offer-related messages
+          const apiMessage = msg as any;
+          const isOfferMessage = apiMessage.messageType === 'offer' || !!msg.offerId;
 
           const formattedMessage: Message = {
             id: msg.id,
@@ -109,13 +110,33 @@ export function useMessages({
             attachments: msg.attachments || [],
             senderId: msg.senderId,
             receiverId: msg.receiverId,
-            offerId: msg.offerId || (msg as any).offer?.id || undefined,
+            offerId: msg.offerId || apiMessage.offer?.id || undefined,
             productId:
               msg.productId ||
-              (msg as any).offer?.productId ||
-              (msg as any).offer?.product?.id ||
+              apiMessage.offer?.productId ||
+              apiMessage.offer?.product?.id ||
               undefined,
-            offer: (msg as any).offer || undefined,
+            offer: apiMessage.offer ? {
+              id: apiMessage.offer.id,
+              offerAmount: apiMessage.offer.offerAmount,
+              counterAmount: apiMessage.offer.counterAmount,
+              originalPrice: apiMessage.offer.originalPrice,
+              status: apiMessage.offer.status,
+              productId: apiMessage.offer.productId,
+              shippingCost: apiMessage.offer.shippingCost || apiMessage.offer.shipping,
+              product: apiMessage.offer.product ? {
+                id: apiMessage.offer.product.id || apiMessage.offer.productId,
+                title: apiMessage.offer.product.title,
+                image: apiMessage.offer.product.image,
+                images: apiMessage.offer.product.images,
+                price: apiMessage.offer.product.price,
+                originalPrice: apiMessage.offer.product.originalPrice,
+                currency: apiMessage.offer.product.currency || 'SAR',
+                size: apiMessage.offer.product.size,
+                condition: apiMessage.offer.product.condition,
+              } : undefined,
+            } : undefined,
+            messageType: apiMessage.messageType || (isOfferMessage ? 'offer' : undefined),
             isDelivered: msg.senderId === user.id ? true : undefined,
             isRead: msg.senderId === user.id ? false : undefined,
           };
@@ -126,69 +147,156 @@ export function useMessages({
 
       // Merge with existing messages instead of replacing
       setMessages(prev => {
-        // Get optimistic messages (temp IDs) that aren't in the API response yet
-        const optimisticMessages = prev.filter(msg => 
-          msg.id.startsWith('temp-') && 
-          !formattedMessages.some(apiMsg => {
-            // Check if optimistic message matches any API message by text and sender
-            const tempText = (msg.text || '').trim();
-            const apiText = (apiMsg.text || '').trim();
-            return tempText === apiText && 
-                   msg.senderId === apiMsg.senderId &&
-                   msg.sender === apiMsg.sender;
-          })
-        );
-        
-        // Get WebSocket messages (real IDs) that aren't in the API response yet
-        // These are messages received via WebSocket that haven't been persisted to DB yet
-        // We keep them to ensure real-time messages don't disappear
-        const websocketMessages = prev.filter(msg => 
-          !msg.id.startsWith('temp-') && // Not an optimistic message
-          !formattedMessages.some(apiMsg => apiMsg.id === msg.id) && // Not in API response
-          msg.id && // Has a real ID (from WebSocket)
-          true // Keep all WebSocket messages - they'll be deduplicated by ID
-        );
-        
-        if (process.env.NODE_ENV === 'development' && websocketMessages.length > 0) {
-          console.log('📨 Preserving WebSocket messages not in API response:', websocketMessages.length);
+        // On first page load (page 1), replace messages but preserve optimistic and WebSocket messages
+        // On subsequent pages, prepend older messages
+        if (currentPage === 1) {
+          // Get optimistic messages (temp IDs) that aren't in the API response yet
+          const optimisticMessages = prev.filter(msg => 
+            msg.id.startsWith('temp-') && 
+            !formattedMessages.some(apiMsg => {
+              // Check if optimistic message matches any API message by text and sender
+              const tempText = (msg.text || '').trim();
+              const apiText = (apiMsg.text || '').trim();
+              return tempText === apiText && 
+                     msg.senderId === apiMsg.senderId &&
+                     msg.sender === apiMsg.sender;
+            })
+          );
+          
+          // Get WebSocket messages (real IDs) that aren't in the API response yet
+          // These are messages received via WebSocket that haven't been persisted to DB yet
+          const websocketMessages = prev.filter(msg => 
+            !msg.id.startsWith('temp-') && // Not an optimistic message
+            !formattedMessages.some(apiMsg => apiMsg.id === msg.id) && // Not in API response
+            msg.id && // Has a real ID (from WebSocket)
+            true
+          );
+          
+          // For page 1, we need to be careful:
+          // - API returns the 4 newest messages
+          // - We might already have more messages displayed (from WebSocket, optimistic, or previous loads)
+          // - We should only add NEW messages from API, not re-add existing ones
+          
+          // Get existing message IDs (excluding temp messages that might be replaced)
+          const existingRealMessageIds = new Set(
+            prev
+              .filter(m => !m.id.startsWith('temp-'))
+              .map(m => m.id)
+          );
+          
+          // Filter API messages to only include new ones or ones that replace temp messages
+          const newApiMessages = formattedMessages.filter(apiMsg => {
+            // If this message ID already exists (and it's not a temp message), skip it
+            if (existingRealMessageIds.has(apiMsg.id)) {
+              return false; // Already displayed, skip
+            }
+            return true; // New message or will replace a temp message
+          });
+          
+          // Combine new API messages with optimistic and WebSocket messages
+          const allMessages = [...newApiMessages, ...optimisticMessages, ...websocketMessages];
+          
+          // Remove duplicates by ID
+          const uniqueMessages = allMessages.reduce((acc, msg) => {
+            if (!acc.some(m => m.id === msg.id)) {
+              acc.push(msg);
+            }
+            return acc;
+          }, [] as Message[]);
+          
+          // Merge with existing messages:
+          // 1. Keep existing real messages that aren't in the new API response
+          // 2. Replace temp messages if they match new API messages
+          // 3. Add new messages from API
+          const finalMessages = [
+            ...prev.filter(m => {
+              // Remove temp messages that are being replaced
+              if (m.id.startsWith('temp-')) {
+                const isBeingReplaced = newApiMessages.some(apiMsg => {
+                  const tempText = (m.text || '').trim().toLowerCase();
+                  const apiText = (apiMsg.text || '').trim().toLowerCase();
+                  return tempText === apiText && 
+                         m.senderId === apiMsg.senderId &&
+                         m.sender === apiMsg.sender;
+                });
+                return !isBeingReplaced; // Keep if not being replaced
+              }
+              // Keep real messages that aren't in the new API response
+              // (they might be newer messages not yet in page 1, or older messages from previous loads)
+              return !newApiMessages.some(apiMsg => apiMsg.id === m.id);
+            }),
+            ...uniqueMessages
+          ];
+          
+          // Sort by rawTimestamp (chronological order - oldest first, newest last)
+          return uniqueMessages.sort((a, b) => {
+            try {
+              const timeA = a.rawTimestamp 
+                ? new Date(a.rawTimestamp).getTime()
+                : (a.id ? parseInt(a.id.substring(0, 8), 16) * 1000 : 0);
+              const timeB = b.rawTimestamp 
+                ? new Date(b.rawTimestamp).getTime()
+                : (b.id ? parseInt(b.id.substring(0, 8), 16) * 1000 : 0);
+              
+              if (timeA > 0 && timeB > 0) {
+                return timeA - timeB; // Ascending order (oldest first)
+              }
+            } catch (error) {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('Error sorting messages by timestamp:', error);
+              }
+            }
+            return a.id.localeCompare(b.id);
+          });
+        } else {
+          // Loading more (older) messages - prepend them
+          // Backend returns messages in DESC order (newest first), so we need to reverse
+          // to get oldest first before prepending
+          const reversedFormattedMessages = [...formattedMessages].reverse();
+          
+          // Get existing messages that aren't in the new API response
+          const existingMessages = prev.filter(msg => 
+            !formattedMessages.some(apiMsg => apiMsg.id === msg.id)
+          );
+          
+          // Prepend older messages (reversed) to existing ones
+          // This ensures chronological order: oldest -> newest
+          const allMessages = [...reversedFormattedMessages, ...existingMessages];
+          
+          // Remove duplicates by ID
+          const uniqueMessages = allMessages.reduce((acc, msg) => {
+            if (!acc.some(m => m.id === msg.id)) {
+              acc.push(msg);
+            }
+            return acc;
+          }, [] as Message[]);
+          
+          // Sort by rawTimestamp (chronological order - oldest first, newest last)
+          // This ensures correct order even if timestamps are slightly off
+          return uniqueMessages.sort((a, b) => {
+            try {
+              const timeA = a.rawTimestamp 
+                ? new Date(a.rawTimestamp).getTime()
+                : (a.id ? parseInt(a.id.substring(0, 8), 16) * 1000 : 0);
+              const timeB = b.rawTimestamp 
+                ? new Date(b.rawTimestamp).getTime()
+                : (b.id ? parseInt(b.id.substring(0, 8), 16) * 1000 : 0);
+              
+              if (timeA > 0 && timeB > 0) {
+                return timeA - timeB; // Ascending order (oldest first)
+              }
+            } catch (error) {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('Error sorting messages by timestamp:', error);
+              }
+            }
+            return a.id.localeCompare(b.id);
+          });
         }
-        
-        // Combine API messages with remaining optimistic and WebSocket messages
-        const allMessages = [...formattedMessages, ...optimisticMessages, ...websocketMessages];
-        
-        // Remove duplicates by ID
-        const uniqueMessages = allMessages.reduce((acc, msg) => {
-          if (!acc.some(m => m.id === msg.id)) {
-            acc.push(msg);
-          }
-          return acc;
-        }, [] as Message[]);
-        
-        // Sort by rawTimestamp (chronological order - oldest first, newest last)
-        return uniqueMessages.sort((a, b) => {
-          // Use rawTimestamp if available (ISO string), otherwise try to parse timestamp
-          try {
-            const timeA = a.rawTimestamp 
-              ? new Date(a.rawTimestamp).getTime()
-              : (a.id ? parseInt(a.id.substring(0, 8), 16) * 1000 : 0); // Extract timestamp from MongoDB ObjectId
-            const timeB = b.rawTimestamp 
-              ? new Date(b.rawTimestamp).getTime()
-              : (b.id ? parseInt(b.id.substring(0, 8), 16) * 1000 : 0);
-            
-            if (timeA > 0 && timeB > 0) {
-              return timeA - timeB; // Ascending order (oldest first)
-            }
-          } catch (error) {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('Error sorting messages by timestamp:', error);
-            }
-          }
-          // Fallback: sort by message ID (MongoDB ObjectIds are sortable)
-          return a.id.localeCompare(b.id);
-        });
       });
-    } else if (!messagesData && conversationId && messages.length === 0) {
+    } else if (!messagesData && conversationId && currentPage === 1) {
       // Don't clear messages here - wait for the query to complete
+      // Only clear if we have no data and no messages exist (handled by the empty check above)
     }
 
     if (messagesError) {
@@ -220,13 +328,16 @@ export function useMessages({
         );
       }
     }
-  }, [messagesData, user, locale, conversationId, messagesError, messages.length, setMessages]);
+  }, [messagesData, user, locale, conversationId, messagesError, setMessages, currentPage]);
 
   return {
     isLoadingMessages,
     isFetchingMessages,
     messagesError,
     refetchMessages,
+    loadMoreMessages,
+    hasMoreMessages,
+    isLoadingMore,
   };
 }
 

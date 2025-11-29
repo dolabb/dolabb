@@ -52,7 +52,8 @@ export const formatDate = (
   }
 };
 
-// Helper function to format message timestamp (always shows actual local time)
+// Helper function to format message timestamp
+// Shows "Just now" if under 1 minute, time if under 24 hours, date if over 24 hours
 export const formatMessageTime = (
   dateString: string | undefined | null,
   locale: string
@@ -66,7 +67,27 @@ export const formatMessageTime = (
       return '';
     }
 
-    // Always show actual local time in 12-hour format
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // Show "Just now" if under 1 minute
+    if (diffMins < 1) {
+      return locale === 'en' ? 'Just now' : 'الآن';
+    }
+    
+    // Show date if over 24 hours
+    if (diffDays >= 1) {
+      return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: diffDays >= 365 ? 'numeric' : undefined,
+      });
+    }
+
+    // Show time (hour:minute) for messages between 1 minute and 24 hours
     return date.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', {
       hour: '2-digit',
       minute: '2-digit',

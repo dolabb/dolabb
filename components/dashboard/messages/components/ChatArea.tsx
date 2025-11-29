@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRef, useEffect } from 'react';
 import { HiCheck } from 'react-icons/hi2';
 import ProductMessageCard from '../ProductMessageCard';
+import { formatMessageTime } from '../utils';
 import type { ConversationUser, Message } from '../types';
 
 interface ChatAreaProps {
@@ -39,6 +40,9 @@ interface ChatAreaProps {
   ) => Promise<void>;
   onRetry: () => void;
   conversationId: string | null;
+  loadMoreMessages?: () => void;
+  hasMoreMessages?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export default function ChatArea({
@@ -54,33 +58,97 @@ export default function ChatArea({
   sendOffer,
   onRetry,
   conversationId,
+  loadMoreMessages,
+  hasMoreMessages = false,
+  isLoadingMore = false,
 }: ChatAreaProps) {
   const locale = useLocale();
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesStartRef = useRef<HTMLDivElement>(null);
+  const previousScrollHeight = useRef<number>(0);
+  const shouldScrollToBottom = useRef<boolean>(true);
+  const previousMessagesLength = useRef<number>(0);
 
+  // Scroll to bottom when new messages arrive (sent or received)
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const currentMessagesLength = messages.length;
+    const hasNewMessage = currentMessagesLength > previousMessagesLength.current;
+    
+    // Only auto-scroll if there's a new message and we're not loading older messages
+    if (hasNewMessage && messagesEndRef.current && !isLoadingMore) {
+      const chatArea = chatAreaRef.current;
+      if (chatArea) {
+        const { scrollTop, scrollHeight, clientHeight } = chatArea;
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        const isNearBottom = distanceFromBottom < 500; // 500px threshold
+        
+        // Always scroll if:
+        // 1. User is near bottom (within 500px), OR
+        // 2. It's a new message from current user (they just sent it)
+        const lastMessage = messages[messages.length - 1];
+        const isMyNewMessage = lastMessage && lastMessage.sender === 'me';
+        
+        if (isNearBottom || isMyNewMessage) {
+          // Use setTimeout to ensure DOM has updated with new message
+          setTimeout(() => {
+            if (messagesEndRef.current) {
+              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 50);
+        }
+      } else {
+        // If chatArea not available yet, scroll anyway
+        setTimeout(() => {
+          if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 50);
+      }
     }
-  }, [messages]);
+    
+    previousMessagesLength.current = currentMessagesLength;
+  }, [messages, isLoadingMore]);
 
-  const formatMessageTime = (
-    dateString: string | undefined | null
-  ): string => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '';
-      return date.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } catch {
-      return '';
+  // Handle scroll to load more messages
+  useEffect(() => {
+    const chatArea = chatAreaRef.current;
+    if (!chatArea || !loadMoreMessages || !hasMoreMessages || isLoadingMore) {
+      return;
     }
-  };
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = chatArea;
+      
+      // Check if user scrolled to top (within 100px of top)
+      if (scrollTop < 100 && hasMoreMessages && !isLoadingMore) {
+        // Store current scroll position
+        previousScrollHeight.current = scrollHeight;
+        isUserScrollingUp.current = true; // Mark that user is viewing old messages
+        loadMoreMessages();
+      }
+      
+      // Check if user is near bottom (within 500px)
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 500;
+      shouldScrollToBottom.current = isNearBottom;
+    };
+
+    chatArea.addEventListener('scroll', handleScroll);
+    return () => {
+      chatArea.removeEventListener('scroll', handleScroll);
+    };
+  }, [loadMoreMessages, hasMoreMessages, isLoadingMore]);
+
+  // Maintain scroll position when loading more messages
+  useEffect(() => {
+    if (!isLoadingMore && chatAreaRef.current && previousScrollHeight.current > 0) {
+      const chatArea = chatAreaRef.current;
+      const newScrollHeight = chatArea.scrollHeight;
+      const scrollDifference = newScrollHeight - previousScrollHeight.current;
+      chatArea.scrollTop = scrollDifference;
+      previousScrollHeight.current = 0;
+    }
+  }, [isLoadingMore, messages]);
 
   const formatDate = (dateString: string | undefined | null): string => {
     if (!dateString) return '';
@@ -231,16 +299,45 @@ export default function ChatArea({
           </div>
         </div>
       ) : (
-        messages.map(message => {
+        <>
+          {hasMoreMessages && (
+            <div className='flex justify-center py-2' ref={messagesStartRef}>
+              <button
+                onClick={loadMoreMessages}
+                disabled={isLoadingMore}
+                className='px-4 py-2 text-sm text-deep-charcoal/60 hover:text-deep-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+              >
+                {isLoadingMore ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-deep-charcoal/30 border-t-deep-charcoal/60 rounded-full animate-spin'></div>
+                    {locale === 'en' ? 'Loading...' : 'جاري التحميل...'}
+                  </>
+                ) : (
+                  <>
+                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 15l7-7 7 7' />
+                    </svg>
+                    {locale === 'en' ? 'Load previous messages' : 'تحميل الرسائل السابقة'}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {messages.map(message => {
+          // Check if message is an offer message using messageType from backend
+          // Backend sets messageType to "offer" for all offer-related messages
+          const isOfferMessage = message.messageType === 'offer' || !!message.offerId;
+          
           const hasActualOffer =
             message.offer &&
             (message.offer.offerAmount ||
               message.offer.offer ||
               message.offer.counterAmount ||
-              message.offer.status ||
-              message.messageType === 'offer');
+              message.offer.status);
 
-          if (hasActualOffer || (message.offerId && message.offer)) {
+          // Show as offer message if: messageType is "offer" OR has offer object OR has offerId
+          // Also show if offerId exists (even without full offer object initially)
+          if (isOfferMessage || hasActualOffer || (message.offerId && message.offer) || message.offerId) {
             return (
               <ProductMessageCard
                 key={message.id}
@@ -313,7 +410,9 @@ export default function ChatArea({
                         : 'text-deep-charcoal/60'
                     }`}
                   >
-                    {message.timestamp || (locale === 'en' ? 'Just now' : 'الآن')}
+                    {message.rawTimestamp 
+                      ? formatMessageTime(message.rawTimestamp, locale)
+                      : (message.timestamp || (locale === 'en' ? 'Just now' : 'الآن'))}
                   </p>
                   {message.sender === 'me' && (
                     <div className='flex items-center ml-0.5'>
@@ -336,7 +435,8 @@ export default function ChatArea({
               </div>
             </div>
           );
-        })
+        })}
+        </>
       )}
       <div ref={messagesEndRef} />
     </div>

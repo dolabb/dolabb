@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useLocale } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
 import { apiClient } from '@/lib/api/client';
+import { useLocale } from 'next-intl';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
 
 export default function PaymentPage() {
   const locale = useLocale();
@@ -46,18 +46,20 @@ export default function PaymentPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+
     // Format card number (add spaces every 4 digits)
     if (name === 'number') {
-      const formatted = value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
+      const formatted = value
+        .replace(/\s/g, '')
+        .replace(/(.{4})/g, '$1 ')
+        .trim();
       setFormData(prev => ({ ...prev, [name]: formatted }));
     }
     // Format month and year (only numbers, limit length)
     else if (name === 'month') {
       const formatted = value.replace(/\D/g, '').slice(0, 2);
       setFormData(prev => ({ ...prev, [name]: formatted }));
-    }
-    else if (name === 'year') {
+    } else if (name === 'year') {
       const formatted = value.replace(/\D/g, '').slice(0, 4);
       setFormData(prev => ({ ...prev, [name]: formatted }));
     }
@@ -65,8 +67,7 @@ export default function PaymentPage() {
     else if (name === 'cvc') {
       const formatted = value.replace(/\D/g, '').slice(0, 4);
       setFormData(prev => ({ ...prev, [name]: formatted }));
-    }
-    else {
+    } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
 
@@ -86,7 +87,10 @@ export default function PaymentPage() {
           ? 'Cardholder name is required'
           : 'اسم حامل البطاقة مطلوب';
     } else {
-      const nameWords = formData.name.trim().split(/\s+/).filter(word => word.length > 0);
+      const nameWords = formData.name
+        .trim()
+        .split(/\s+/)
+        .filter(word => word.length > 0);
       if (nameWords.length < 2) {
         newErrors.name =
           locale === 'en'
@@ -109,9 +113,7 @@ export default function PaymentPage() {
     // Validate Year - must be a future year
     if (!formData.year) {
       newErrors.year =
-        locale === 'en'
-          ? 'Expiry year is required'
-          : 'سنة الانتهاء مطلوبة';
+        locale === 'en' ? 'Expiry year is required' : 'سنة الانتهاء مطلوبة';
     } else if (formData.year.length < 4) {
       newErrors.year =
         locale === 'en'
@@ -122,18 +124,14 @@ export default function PaymentPage() {
       const expiryYear = parseInt(formData.year);
       if (isNaN(expiryYear) || expiryYear < currentYear) {
         newErrors.year =
-          locale === 'en'
-            ? 'Any future year'
-            : 'أي سنة مستقبلية';
+          locale === 'en' ? 'Any future year' : 'أي سنة مستقبلية';
       }
     }
 
     // Validate Month - must be a future month relative to the expiry year
     if (!formData.month) {
       newErrors.month =
-        locale === 'en'
-          ? 'Expiry month is required'
-          : 'شهر الانتهاء مطلوب';
+        locale === 'en' ? 'Expiry month is required' : 'شهر الانتهاء مطلوب';
     } else {
       const month = parseInt(formData.month);
       if (isNaN(month) || month < 1 || month > 12) {
@@ -162,12 +160,11 @@ export default function PaymentPage() {
 
     // Validate CVC - 3 digits (or 4 for Amex)
     if (!formData.cvc) {
-      newErrors.cvc =
-        locale === 'en' ? 'CVC is required' : 'رمز CVC مطلوب';
+      newErrors.cvc = locale === 'en' ? 'CVC is required' : 'رمز CVC مطلوب';
     } else {
       const cvcLength = formData.cvc.length;
       const isNumeric = /^\d+$/.test(formData.cvc);
-      
+
       if (!isNumeric) {
         newErrors.cvc =
           locale === 'en'
@@ -176,8 +173,9 @@ export default function PaymentPage() {
       } else {
         // Check if it's Amex (starts with 34 or 37) - needs 4 digits
         const cardNumber = formData.number.replace(/\s/g, '');
-        const isAmex = cardNumber.startsWith('34') || cardNumber.startsWith('37');
-        
+        const isAmex =
+          cardNumber.startsWith('34') || cardNumber.startsWith('37');
+
         if (isAmex) {
           if (cvcLength !== 4) {
             newErrors.cvc =
@@ -215,12 +213,17 @@ export default function PaymentPage() {
       console.log('Creating payment directly with card details');
 
       // Use real orderId from checkout (stored in sessionStorage or URL)
-      const orderId = orderIdFromUrl || 
-                      (typeof window !== 'undefined' ? sessionStorage.getItem('orderId') : null) ||
-                      `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+      const orderId =
+        orderIdFromUrl ||
+        (typeof window !== 'undefined'
+          ? sessionStorage.getItem('orderId')
+          : null) ||
+        `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
       if (!orderIdFromUrl && !sessionStorage.getItem('orderId')) {
-        console.warn('No orderId found from checkout. Using temporary orderId.');
+        console.warn(
+          'No orderId found from checkout. Using temporary orderId.'
+        );
       }
 
       // Process payment directly using card details
@@ -239,7 +242,9 @@ export default function PaymentPage() {
             cvc: formData.cvc,
           },
           amount: Math.round(parseFloat(totalPrice) * 100), // Convert to halalas
-          description: `${product} - ${locale === 'en' ? 'Offer Accepted' : 'عرض مقبول'}`,
+          description: `${product} - ${
+            locale === 'en' ? 'Offer Accepted' : 'عرض مقبول'
+          }`,
           metadata: {
             locale: locale,
             product: product || 'Product Name',
@@ -270,23 +275,28 @@ export default function PaymentPage() {
 
       if (!paymentResponse.ok) {
         console.error('Payment API Error:', paymentResult);
-        
+
         // Check for specific error messages from API
-        const apiError = paymentResult.error || paymentResult.details?.message || paymentResult.details?.type;
-        
+        const apiError =
+          paymentResult.error ||
+          paymentResult.details?.message ||
+          paymentResult.details?.type;
+
         // Provide more detailed error message
         let errorMessage;
         if (apiError === 'You cannot purchase your own product') {
-          errorMessage = locale === 'en'
-            ? 'You cannot purchase your own product'
-            : 'لا يمكنك شراء منتجك الخاص';
+          errorMessage =
+            locale === 'en'
+              ? 'You cannot purchase your own product'
+              : 'لا يمكنك شراء منتجك الخاص';
         } else {
-          errorMessage = apiError ||
+          errorMessage =
+            apiError ||
             (locale === 'en'
               ? 'Payment processing failed. Please try again.'
               : 'فشل معالجة الدفع. يرجى المحاولة مرة أخرى.');
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -299,8 +309,10 @@ export default function PaymentPage() {
 
       // Check if payment requires 3DS authentication
       if (paymentStatus === 'initiated' && transactionUrl) {
-        console.log('Payment requires 3DS authentication, redirecting to transaction URL');
-        
+        console.log(
+          'Payment requires 3DS authentication, redirecting to transaction URL'
+        );
+
         // Store payment info in sessionStorage for callback to retrieve
         const tempPaymentData = {
           orderId: orderId,
@@ -313,10 +325,13 @@ export default function PaymentPage() {
           shipping: shipping || '0',
           totalPrice: totalPrice,
         };
-        
-        sessionStorage.setItem('pendingPayment', JSON.stringify(tempPaymentData));
+
+        sessionStorage.setItem(
+          'pendingPayment',
+          JSON.stringify(tempPaymentData)
+        );
         setIsProcessing(false);
-        
+
         // Redirect directly to 3DS authentication page
         // After 3DS completion, Moyasar will redirect to our callback URL
         window.location.href = transactionUrl;
@@ -331,7 +346,9 @@ export default function PaymentPage() {
         let affiliateCode = '';
         try {
           // Check if there's stored item data with affiliate code
-          const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+          const storedItems = JSON.parse(
+            localStorage.getItem('listedItems') || '[]'
+          );
           const item = storedItems.find((item: any) => item.title === product);
           affiliateCode = item?.affiliateCode || '';
         } catch (e) {
@@ -371,21 +388,34 @@ export default function PaymentPage() {
         const existingPayments = JSON.parse(
           localStorage.getItem('payments') || '[]'
         );
-        
+
         // Add new payment
         existingPayments.push(paymentData);
-        
+
         // Save back to localStorage
         localStorage.setItem('payments', JSON.stringify(existingPayments));
 
         // Call payment webhook (Django backend)
-        const paymentAmount = payment?.amount || Math.round(parseFloat(totalPrice) * 100);
-        await callPaymentWebhook(payment?.id || '', 'paid', paymentAmount, offerId || '');
-
-        // Redirect to success page
-        router.push(
-          `/${locale}/payment/success?offerId=${offerId}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice}&shipping=${shipping}`
+        const paymentAmount =
+          payment?.amount || Math.round(parseFloat(totalPrice) * 100);
+        await callPaymentWebhook(
+          payment?.id || '',
+          'paid',
+          paymentAmount,
+          offerId || ''
         );
+
+        // Redirect to success page with payment IDs
+        const successParams = new URLSearchParams({
+          offerId: offerId || '',
+          product: product || '',
+          offerPrice: offerPrice || '',
+          shipping: shipping || '',
+          orderId: orderId || '',
+          paymentId: paymentData.id || '',
+          moyasarPaymentId: payment?.id || '',
+        });
+        router.push(`/${locale}/payment/success?${successParams.toString()}`);
       } else {
         // Payment status is neither 'paid' nor 'initiated' - unexpected state
         console.warn('Unexpected payment status:', paymentStatus);
@@ -408,7 +438,12 @@ export default function PaymentPage() {
     }
   };
 
-  const callPaymentWebhook = async (paymentId: string, status: string, amount: number, offerId: string) => {
+  const callPaymentWebhook = async (
+    paymentId: string,
+    status: string,
+    amount: number,
+    offerId: string
+  ) => {
     try {
       console.log('Calling Django backend payment webhook with:', {
         id: paymentId,
@@ -475,351 +510,220 @@ export default function PaymentPage() {
     return null;
   }
 
-  const totalPrice = (
-    parseFloat(offerPrice || '0') + parseFloat(shipping || '0')
-  ).toFixed(2);
+  // Calculate subtotal (offer price + shipping)
+  const subtotal = parseFloat(offerPrice || '0') + parseFloat(shipping || '0');
+  // Calculate tax (15% VAT in Saudi Arabia)
+  const tax = subtotal * 0.15;
+  // Calculate total including tax
+  const totalPrice = (subtotal + tax).toFixed(2);
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
-
       <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'>
         <h1 className='text-3xl font-bold text-deep-charcoal mb-8'>
           {locale === 'en' ? 'Payment' : 'الدفع'}
         </h1>
 
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+        <div className='max-w-2xl mx-auto'>
           {/* Payment Form */}
-          <div className='lg:col-span-2'>
-            <div className='bg-white rounded-lg border border-rich-sand/30 p-6 mb-6'>
-              <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
-                {locale === 'en' ? 'Complete Payment' : 'إتمام الدفع'}
-              </h2>
+          <div className='bg-white rounded-lg border border-rich-sand/30 p-6 mb-6'>
+            <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
+              {locale === 'en' ? 'Complete Payment' : 'إتمام الدفع'}
+            </h2>
 
-              {/* Order Summary */}
-              <div className='bg-rich-sand/10 rounded-lg p-4 mb-6'>
-                <h3 className='font-semibold text-deep-charcoal mb-2'>
-                  {locale === 'en' ? 'Order Details' : 'تفاصيل الطلب'}
-                </h3>
-                <div className='space-y-1 text-sm text-deep-charcoal/70'>
-                  <p>
-                    <span className='font-medium'>
-                      {locale === 'en' ? 'Product:' : 'المنتج:'}
-                    </span>{' '}
-                    {product}
-                  </p>
-                  {size && (
-                    <p>
-                      <span className='font-medium'>
-                        {locale === 'en' ? 'Size:' : 'المقاس:'}
-                      </span>{' '}
-                      {size}
-                    </p>
-                  )}
-                  <p>
-                    <span className='font-medium'>
-                      {locale === 'en' ? 'Total:' : 'الإجمالي:'}
-                    </span>{' '}
-                    <span className='text-saudi-green font-bold'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {totalPrice}
-                    </span>
-                  </p>
-                </div>
-              </div>
+            {/* Moyasar Payment Form */}
+            <form
+              id='moyasar-token-form'
+              acceptCharset='UTF-8'
+              action='https://api.moyasar.com/v1/tokens'
+              method='POST'
+              onSubmit={handleSubmit}
+              className='space-y-5'
+            >
+              <input
+                type='hidden'
+                name='publishable_api_key'
+                value={publishableKey}
+              />
+              <input type='hidden' name='save_only' value='true' />
 
-              {/* Moyasar Payment Form */}
-              <form
-                id='moyasar-token-form'
-                acceptCharset='UTF-8'
-                action='https://api.moyasar.com/v1/tokens'
-                method='POST'
-                onSubmit={handleSubmit}
-                className='space-y-5'
-              >
-                <input
-                  type='hidden'
-                  name='publishable_api_key'
-                  value={publishableKey}
-                />
-                <input type='hidden' name='save_only' value='true' />
-
-                {/* Cardholder Name */}
-                <div>
-                  <label
-                    htmlFor='name'
-                    className='block text-sm font-medium text-deep-charcoal mb-2'
-                  >
-                    {locale === 'en' ? 'Cardholder Name' : 'اسم حامل البطاقة'}
-                  </label>
-                  <div className='relative'>
-                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                      <HiCreditCard className='h-5 w-5 text-deep-charcoal/40' />
-                    </div>
-                    <input
-                      type='text'
-                      id='name'
-                      name='name'
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder={
-                        locale === 'en'
-                          ? 'John Doe'
-                          : 'محمد أحمد'
-                      }
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                        formErrors.name
-                          ? 'border-coral-red'
-                          : 'border-rich-sand'
-                      }`}
-                    />
-                  </div>
-                  {formErrors.name && (
-                    <p className='mt-1 text-sm text-coral-red'>
-                      {formErrors.name}
-                    </p>
-                  )}
-                </div>
-
-                {/* Card Number */}
-                <div>
-                  <label
-                    htmlFor='number'
-                    className='block text-sm font-medium text-deep-charcoal mb-2'
-                  >
-                    {locale === 'en' ? 'Card Number' : 'رقم البطاقة'}
-                  </label>
-                  <div className='relative'>
-                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                      <HiCreditCard className='h-5 w-5 text-deep-charcoal/40' />
-                    </div>
-                    <input
-                      type='text'
-                      id='number'
-                      name='number'
-                      value={formData.number}
-                      onChange={handleChange}
-                      placeholder='1234 5678 9012 3456'
-                      maxLength={19}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                        formErrors.number
-                          ? 'border-coral-red'
-                          : 'border-rich-sand'
-                      }`}
-                      dir='ltr'
-                    />
-                  </div>
-                  {formErrors.number && (
-                    <p className='mt-1 text-sm text-coral-red'>
-                      {formErrors.number}
-                    </p>
-                  )}
-                </div>
-
-                {/* Expiry Date and CVC */}
-                <div className='grid grid-cols-2 gap-4'>
-                  {/* Expiry Month */}
-                  <div>
-                    <label
-                      htmlFor='month'
-                      className='block text-sm font-medium text-deep-charcoal mb-2'
-                    >
-                      {locale === 'en' ? 'Month' : 'الشهر'}
-                    </label>
-                    <input
-                      type='text'
-                      id='month'
-                      name='month'
-                      value={formData.month}
-                      onChange={handleChange}
-                      placeholder='MM'
-                      maxLength={2}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                        formErrors.month
-                          ? 'border-coral-red'
-                          : 'border-rich-sand'
-                      }`}
-                      dir='ltr'
-                    />
-                    {formErrors.month && (
-                      <p className='mt-1 text-sm text-coral-red'>
-                        {formErrors.month}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Expiry Year */}
-                  <div>
-                    <label
-                      htmlFor='year'
-                      className='block text-sm font-medium text-deep-charcoal mb-2'
-                    >
-                      {locale === 'en' ? 'Year' : 'السنة'}
-                    </label>
-                    <input
-                      type='text'
-                      id='year'
-                      name='year'
-                      value={formData.year}
-                      onChange={handleChange}
-                      placeholder='YYYY'
-                      maxLength={4}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                        formErrors.year
-                          ? 'border-coral-red'
-                          : 'border-rich-sand'
-                      }`}
-                      dir='ltr'
-                    />
-                    {formErrors.year && (
-                      <p className='mt-1 text-sm text-coral-red'>
-                        {formErrors.year}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* CVC */}
-                <div>
-                  <label
-                    htmlFor='cvc'
-                    className='block text-sm font-medium text-deep-charcoal mb-2'
-                  >
-                    {locale === 'en' ? 'CVC' : 'رمز CVC'}
-                  </label>
-                  <div className='relative'>
-                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                      <HiLockClosed className='h-5 w-5 text-deep-charcoal/40' />
-                    </div>
-                    <input
-                      type='text'
-                      id='cvc'
-                      name='cvc'
-                      value={formData.cvc}
-                      onChange={handleChange}
-                      placeholder='123'
-                      maxLength={4}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                        formErrors.cvc
-                          ? 'border-coral-red'
-                          : 'border-rich-sand'
-                      }`}
-                      dir='ltr'
-                    />
-                  </div>
-                  {formErrors.cvc && (
-                    <p className='mt-1 text-sm text-coral-red'>
-                      {formErrors.cvc}
-                    </p>
-                  )}
-                </div>
-
-                {/* Submit Button */}
-                <button
-                  id='moyasar-payment-button'
-                  type='submit'
-                  disabled={isProcessing}
-                  className='w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display cursor-pointer'
+              {/* Cardholder Name */}
+              <div>
+                <label
+                  htmlFor='name'
+                  className='block text-sm font-medium text-deep-charcoal mb-2'
                 >
-                  {isProcessing
-                    ? locale === 'en'
-                      ? 'Processing...'
-                      : 'جاري المعالجة...'
-                    : locale === 'en'
-                    ? 'Complete Payment'
-                    : 'إتمام الدفع'}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Order Summary Sidebar */}
-          <div className='lg:col-span-1'>
-            <div className='bg-white rounded-lg border border-rich-sand/30 p-6 sticky top-20'>
-              <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
-                {locale === 'en' ? 'Order Summary' : 'ملخص الطلب'}
-              </h2>
-
-              <div className='space-y-4 mb-6'>
-                <div>
-                  <p className='text-sm text-deep-charcoal/70 mb-1'>
-                    {locale === 'en' ? 'Product' : 'المنتج'}
+                  {locale === 'en' ? 'Cardholder Name' : 'اسم حامل البطاقة'}
+                </label>
+                <div className='relative'>
+                  <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                    <HiCreditCard className='h-5 w-5 text-deep-charcoal/40' />
+                  </div>
+                  <input
+                    type='text'
+                    id='name'
+                    name='name'
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder={locale === 'en' ? 'John Doe' : 'محمد أحمد'}
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
+                      formErrors.name ? 'border-coral-red' : 'border-rich-sand'
+                    }`}
+                  />
+                </div>
+                {formErrors.name && (
+                  <p className='mt-1 text-sm text-coral-red'>
+                    {formErrors.name}
                   </p>
-                  <p className='font-semibold text-deep-charcoal'>{product}</p>
-                  {size && (
-                    <p className='text-sm text-deep-charcoal/60'>
-                      {locale === 'en' ? 'Size' : 'المقاس'}: {size}
+                )}
+              </div>
+
+              {/* Card Number */}
+              <div>
+                <label
+                  htmlFor='number'
+                  className='block text-sm font-medium text-deep-charcoal mb-2'
+                >
+                  {locale === 'en' ? 'Card Number' : 'رقم البطاقة'}
+                </label>
+                <div className='relative'>
+                  <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                    <HiCreditCard className='h-5 w-5 text-deep-charcoal/40' />
+                  </div>
+                  <input
+                    type='text'
+                    id='number'
+                    name='number'
+                    value={formData.number}
+                    onChange={handleChange}
+                    placeholder='1234 5678 9012 3456'
+                    maxLength={19}
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
+                      formErrors.number
+                        ? 'border-coral-red'
+                        : 'border-rich-sand'
+                    }`}
+                    dir='ltr'
+                  />
+                </div>
+                {formErrors.number && (
+                  <p className='mt-1 text-sm text-coral-red'>
+                    {formErrors.number}
+                  </p>
+                )}
+              </div>
+
+              {/* Expiry Date and CVC */}
+              <div className='grid grid-cols-2 gap-4'>
+                {/* Expiry Month */}
+                <div>
+                  <label
+                    htmlFor='month'
+                    className='block text-sm font-medium text-deep-charcoal mb-2'
+                  >
+                    {locale === 'en' ? 'Month' : 'الشهر'}
+                  </label>
+                  <input
+                    type='text'
+                    id='month'
+                    name='month'
+                    value={formData.month}
+                    onChange={handleChange}
+                    placeholder='MM'
+                    maxLength={2}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
+                      formErrors.month ? 'border-coral-red' : 'border-rich-sand'
+                    }`}
+                    dir='ltr'
+                  />
+                  {formErrors.month && (
+                    <p className='mt-1 text-sm text-coral-red'>
+                      {formErrors.month}
                     </p>
                   )}
                 </div>
 
-                <div className='border-t border-rich-sand/30 pt-4 space-y-2'>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-deep-charcoal/70'>
-                      {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
-                    </span>
-                    <span className='text-deep-charcoal line-through'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {price}
-                    </span>
-                  </div>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-deep-charcoal/70'>
-                      {locale === 'en' ? 'Offer Price' : 'سعر العرض'}
-                    </span>
-                    <span className='font-semibold text-saudi-green'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {offerPrice}
-                    </span>
-                  </div>
-                  <div className='flex justify-between text-sm'>
-                    <span className='text-deep-charcoal/70'>
-                      {locale === 'en' ? 'Shipping' : 'الشحن'}
-                    </span>
-                    <span className='text-deep-charcoal'>
-                      +{locale === 'ar' ? 'ر.س' : 'SAR'} {shipping}
-                    </span>
-                  </div>
-                </div>
-
-                <div className='border-t border-rich-sand/30 pt-4'>
-                  <div className='flex justify-between items-center'>
-                    <span className='text-lg font-semibold text-deep-charcoal'>
-                      {locale === 'en' ? 'Total' : 'الإجمالي'}
-                    </span>
-                    <span className='text-xl font-bold text-saudi-green'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'} {totalPrice}
-                    </span>
-                  </div>
+                {/* Expiry Year */}
+                <div>
+                  <label
+                    htmlFor='year'
+                    className='block text-sm font-medium text-deep-charcoal mb-2'
+                  >
+                    {locale === 'en' ? 'Year' : 'السنة'}
+                  </label>
+                  <input
+                    type='text'
+                    id='year'
+                    name='year'
+                    value={formData.year}
+                    onChange={handleChange}
+                    placeholder='YYYY'
+                    maxLength={4}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
+                      formErrors.year ? 'border-coral-red' : 'border-rich-sand'
+                    }`}
+                    dir='ltr'
+                  />
+                  {formErrors.year && (
+                    <p className='mt-1 text-sm text-coral-red'>
+                      {formErrors.year}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Payment Methods Info */}
-              <div className='border-t border-rich-sand/30 pt-4'>
-                <p className='text-xs text-deep-charcoal/60 mb-2'>
-                  {locale === 'en'
-                    ? 'Accepted Payment Methods:'
-                    : 'طرق الدفع المقبولة:'}
-                </p>
-                <div className='flex flex-wrap gap-2'>
-                  <span className='text-xs px-2 py-1 bg-rich-sand/20 rounded text-deep-charcoal/70'>
-                    Mada
-                  </span>
-                  <span className='text-xs px-2 py-1 bg-rich-sand/20 rounded text-deep-charcoal/70'>
-                    Visa
-                  </span>
-                  <span className='text-xs px-2 py-1 bg-rich-sand/20 rounded text-deep-charcoal/70'>
-                    MasterCard
-                  </span>
-                  <span className='text-xs px-2 py-1 bg-rich-sand/20 rounded text-deep-charcoal/70'>
-                    Apple Pay
-                  </span>
-                  <span className='text-xs px-2 py-1 bg-rich-sand/20 rounded text-deep-charcoal/70'>
-                    STC Pay
-                  </span>
+              {/* CVC */}
+              <div>
+                <label
+                  htmlFor='cvc'
+                  className='block text-sm font-medium text-deep-charcoal mb-2'
+                >
+                  {locale === 'en' ? 'CVC' : 'رمز CVC'}
+                </label>
+                <div className='relative'>
+                  <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                    <HiLockClosed className='h-5 w-5 text-deep-charcoal/40' />
+                  </div>
+                  <input
+                    type='text'
+                    id='cvc'
+                    name='cvc'
+                    value={formData.cvc}
+                    onChange={handleChange}
+                    placeholder='123'
+                    maxLength={4}
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
+                      formErrors.cvc ? 'border-coral-red' : 'border-rich-sand'
+                    }`}
+                    dir='ltr'
+                  />
                 </div>
+                {formErrors.cvc && (
+                  <p className='mt-1 text-sm text-coral-red'>
+                    {formErrors.cvc}
+                  </p>
+                )}
               </div>
-            </div>
+
+              {/* Submit Button */}
+              <button
+                id='moyasar-payment-button'
+                type='submit'
+                disabled={isProcessing}
+                className='w-full bg-saudi-green text-white py-3 rounded-lg font-semibold hover:bg-saudi-green/90 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 font-display cursor-pointer'
+              >
+                {isProcessing
+                  ? locale === 'en'
+                    ? 'Processing...'
+                    : 'جاري المعالجة...'
+                  : locale === 'en'
+                  ? 'Complete Payment'
+                  : 'إتمام الدفع'}
+              </button>
+            </form>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

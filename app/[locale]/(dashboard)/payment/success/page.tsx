@@ -1,10 +1,41 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { HiCheckCircle } from 'react-icons/hi2';
+import { HiCheckCircle, HiXCircle } from 'react-icons/hi2';
+import { apiClient } from '@/lib/api/client';
+import Image from 'next/image';
+
+interface PaymentSuccessResponse {
+  success: boolean;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    paymentStatus: string;
+  };
+  product?: {
+    id: string;
+    title: string;
+    image: string;
+    price: number;
+    originalPrice: number;
+  };
+  payment?: {
+    status: string;
+    paidAmount: number;
+    currency: string;
+    moyasarPaymentId: string;
+  };
+  error?: {
+    hasError: boolean;
+    message?: string;
+    code?: string;
+    details?: any;
+  };
+}
 
 export default function PaymentSuccessPage() {
   const locale = useLocale();
@@ -12,117 +43,295 @@ export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const isRTL = locale === 'ar';
 
-  const offerId = searchParams.get('offerId');
-  const product = searchParams.get('product');
-  const offerPrice = searchParams.get('offerPrice');
-  const shipping = searchParams.get('shipping');
+  const [paymentData, setPaymentData] = useState<PaymentSuccessResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalPrice = (
-    parseFloat(offerPrice || '0') + parseFloat(shipping || '0')
-  ).toFixed(2);
+  // Get parameters from URL or storage
+  const orderId = searchParams.get('orderId') || searchParams.get('order_id') || 
+                  (typeof window !== 'undefined' ? sessionStorage.getItem('orderId') : null);
+  const paymentId = searchParams.get('paymentId') || searchParams.get('payment_id') || 
+                    (typeof window !== 'undefined' ? localStorage.getItem('lastPaymentId') : null);
+  const moyasarPaymentId = searchParams.get('moyasarPaymentId') || searchParams.get('moyasar_payment_id') || 
+                            searchParams.get('id') || // From callback
+                            (typeof window !== 'undefined' ? localStorage.getItem('lastMoyasarPaymentId') : null);
 
-  // Calculate and record affiliate commission on payment success
+  // Call payment success API
   useEffect(() => {
-    const calculateAffiliateCommission = async () => {
+    const fetchPaymentSuccess = async () => {
+      if (!orderId && !paymentId && !moyasarPaymentId) {
+        setError(locale === 'en' 
+          ? 'Missing payment information' 
+          : 'معلومات الدفع مفقودة');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
       try {
-        // Get payment data from localStorage
-        const payments = JSON.parse(localStorage.getItem('payments') || '[]');
-        const currentPayment = payments.find((p: any) => p.offerId === offerId);
-        
-        if (!currentPayment) return;
+        // Prepare request body
+        const requestBody: any = {};
+        if (orderId) requestBody.orderId = orderId;
+        if (paymentId) requestBody.paymentId = paymentId;
+        if (moyasarPaymentId) requestBody.moyasarPaymentId = moyasarPaymentId;
 
-        // Get product/item data to find affiliate code
-        // In production, this would come from the database
-        // For now, we'll check if there's an affiliate code in the payment metadata
-        const affiliateCode = currentPayment.affiliateCode;
-        
-        if (!affiliateCode) return;
-
-        // Calculate platform fee (example: 5% of sale price, minimum 5 SAR)
-        const salePrice = parseFloat(offerPrice || '0');
-        const platformFeePercentage = 0.05; // 5%
-        const platformFee = Math.max(salePrice * platformFeePercentage, 5);
-
-        // Calculate affiliate commission: 25% of platform fee
-        const commission = platformFee * 0.25;
-
-        // Record commission via API
-        const response = await fetch('/api/affiliate/earnings', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            affiliateCode,
-            platformFee,
-            saleId: offerId || `SALE-${Date.now()}`,
-          }),
-        });
-
-        if (response.ok) {
-          console.log('Affiliate commission recorded:', commission);
+        // Try POST first, fallback to GET with query params
+        let response;
+        try {
+          response = await apiClient.post('/api/payments/success/', requestBody);
+        } catch (postError: any) {
+          // If POST fails, try GET with query params
+          const params = new URLSearchParams();
+          if (orderId) params.append('orderId', orderId);
+          if (paymentId) params.append('paymentId', paymentId);
+          if (moyasarPaymentId) params.append('moyasarPaymentId', moyasarPaymentId);
+          
+          response = await apiClient.get(`/api/payments/success/?${params.toString()}`);
         }
-      } catch (error) {
-        console.error('Error recording affiliate commission:', error);
+
+        if (response.data.success) {
+          setPaymentData(response.data);
+        } else {
+          setError(response.data.error?.message || 
+                  (locale === 'en' ? 'Failed to fetch payment details' : 'فشل جلب تفاصيل الدفع'));
+        }
+      } catch (error: any) {
+        console.error('Error fetching payment success:', error);
+        setError(error.response?.data?.error?.message || 
+                error.message || 
+                (locale === 'en' ? 'Failed to fetch payment details' : 'فشل جلب تفاصيل الدفع'));
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    calculateAffiliateCommission();
-  }, [offerId, offerPrice]);
+    fetchPaymentSuccess();
+  }, [orderId, paymentId, moyasarPaymentId, locale]);
+
+  // Determine if payment was successful
+  const isPaymentSuccessful = paymentData?.payment?.status === 'completed' || 
+                               paymentData?.payment?.status === 'paid';
+  const hasError = paymentData?.error?.hasError || false;
+
+  if (isLoading) {
+    return (
+      <div className='bg-off-white min-h-screen py-8 flex items-center justify-center' dir={isRTL ? 'rtl' : 'ltr'}>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-saudi-green mx-auto mb-4'></div>
+          <p className='text-deep-charcoal/70'>
+            {locale === 'en' ? 'Loading payment details...' : 'جاري تحميل تفاصيل الدفع...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !paymentData) {
+    return (
+      <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
+        <div className='max-w-2xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
+            <div className='flex justify-center mb-6'>
+              <div className='w-20 h-20 bg-red-100 rounded-full flex items-center justify-center'>
+                <HiXCircle className='w-12 h-12 text-red-600' />
+              </div>
+            </div>
+            <h1 className='text-3xl font-bold text-deep-charcoal mb-4'>
+              {locale === 'en' ? 'Error' : 'خطأ'}
+            </h1>
+            <p className='text-lg text-deep-charcoal/70 mb-8'>
+              {error || (locale === 'en' ? 'Failed to load payment details' : 'فشل تحميل تفاصيل الدفع')}
+            </p>
+            <Link
+              href={`/${locale}`}
+              className='inline-block px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors shadow-md hover:shadow-lg'
+            >
+              {locale === 'en' ? 'Go Home' : 'العودة للرئيسية'}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
       <div className='max-w-2xl mx-auto px-4 sm:px-6 lg:px-8'>
         <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-          {/* Success Icon */}
+          {/* Status Icon */}
           <div className='flex justify-center mb-6'>
-            <div className='w-20 h-20 bg-green-100 rounded-full flex items-center justify-center'>
-              <HiCheckCircle className='w-12 h-12 text-green-600' />
-            </div>
+            {isPaymentSuccessful && !hasError ? (
+              <div className='w-20 h-20 bg-green-100 rounded-full flex items-center justify-center'>
+                <HiCheckCircle className='w-12 h-12 text-green-600' />
+              </div>
+            ) : (
+              <div className='w-20 h-20 bg-red-100 rounded-full flex items-center justify-center'>
+                <HiXCircle className='w-12 h-12 text-red-600' />
+              </div>
+            )}
           </div>
 
-          {/* Success Message */}
+          {/* Status Message */}
           <h1 className='text-3xl font-bold text-deep-charcoal mb-4'>
-            {locale === 'en' ? 'Payment Successful!' : 'تم الدفع بنجاح!'}
+            {isPaymentSuccessful && !hasError
+              ? (locale === 'en' ? 'Payment Successful!' : 'تم الدفع بنجاح!')
+              : (locale === 'en' ? 'Payment Failed' : 'فشل الدفع')}
           </h1>
           <p className='text-lg text-deep-charcoal/70 mb-8'>
-            {locale === 'en'
-              ? 'Thank you for your purchase. Your order has been confirmed.'
-              : 'شكراً لك على الشراء. تم تأكيد طلبك.'}
+            {isPaymentSuccessful && !hasError
+              ? (locale === 'en'
+                  ? 'Thank you for your purchase. Your order has been confirmed.'
+                  : 'شكراً لك على الشراء. تم تأكيد طلبك.')
+              : (paymentData.error?.message ||
+                 (locale === 'en'
+                   ? 'Your payment could not be processed. Please try again.'
+                   : 'لم يتم معالجة الدفع. يرجى المحاولة مرة أخرى.'))}
           </p>
 
           {/* Order Details */}
-          <div className='bg-rich-sand/10 rounded-lg p-6 mb-8 text-left'>
-            <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
-              {locale === 'en' ? 'Order Details' : 'تفاصيل الطلب'}
-            </h2>
-            <div className='space-y-2 text-sm text-deep-charcoal/70'>
-              {offerId && (
-                <p>
-                  <span className='font-medium'>
-                    {locale === 'en' ? 'Order ID:' : 'رقم الطلب:'}
-                  </span>{' '}
-                  {offerId}
-                </p>
-              )}
-              {product && (
-                <p>
-                  <span className='font-medium'>
-                    {locale === 'en' ? 'Product:' : 'المنتج:'}
-                  </span>{' '}
-                  {product}
-                </p>
-              )}
-              <p>
-                <span className='font-medium'>
-                  {locale === 'en' ? 'Amount Paid:' : 'المبلغ المدفوع:'}
-                </span>{' '}
-                <span className='text-saudi-green font-bold'>
-                  {locale === 'ar' ? 'ر.س' : 'SAR'} {totalPrice}
-                </span>
-              </p>
+          {paymentData.order && (
+            <div className='bg-rich-sand/10 rounded-lg p-6 mb-6 text-left'>
+              <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
+                {locale === 'en' ? 'Order Details' : 'تفاصيل الطلب'}
+              </h2>
+              <div className='space-y-2 text-sm text-deep-charcoal/70'>
+                {paymentData.order.orderNumber && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Order Number:' : 'رقم الطلب:'}
+                    </span>{' '}
+                    {paymentData.order.orderNumber}
+                  </p>
+                )}
+                {paymentData.order.status && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Order Status:' : 'حالة الطلب:'}
+                    </span>{' '}
+                    <span className='capitalize'>{paymentData.order.status}</span>
+                  </p>
+                )}
+                {paymentData.order.paymentStatus && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Payment Status:' : 'حالة الدفع:'}
+                    </span>{' '}
+                    <span className='capitalize'>{paymentData.order.paymentStatus}</span>
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Product Details */}
+          {paymentData.product && (
+            <div className='bg-rich-sand/10 rounded-lg p-6 mb-6 text-left'>
+              <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
+                {locale === 'en' ? 'Product Details' : 'تفاصيل المنتج'}
+              </h2>
+              <div className='flex gap-4 items-start'>
+                {paymentData.product.image && (
+                  <div className='relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden'>
+                    <Image
+                      src={paymentData.product.image}
+                      alt={paymentData.product.title}
+                      fill
+                      className='object-cover'
+                    />
+                  </div>
+                )}
+                <div className='flex-1 space-y-2 text-sm text-deep-charcoal/70'>
+                  <p className='font-semibold text-deep-charcoal text-base'>
+                    {paymentData.product.title}
+                  </p>
+                  {paymentData.product.originalPrice && (
+                    <p>
+                      <span className='font-medium'>
+                        {locale === 'en' ? 'Original Price:' : 'السعر الأصلي:'}
+                      </span>{' '}
+                      <span className='line-through'>
+                        {locale === 'ar' ? 'ر.س' : 'SAR'} {paymentData.product.originalPrice.toFixed(2)}
+                      </span>
+                    </p>
+                  )}
+                  {paymentData.product.price && (
+                    <p>
+                      <span className='font-medium'>
+                        {locale === 'en' ? 'Price:' : 'السعر:'}
+                      </span>{' '}
+                      <span className='text-saudi-green font-bold'>
+                        {locale === 'ar' ? 'ر.س' : 'SAR'} {paymentData.product.price.toFixed(2)}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Details */}
+          {paymentData.payment && (
+            <div className='bg-rich-sand/10 rounded-lg p-6 mb-8 text-left'>
+              <h2 className='text-xl font-semibold text-deep-charcoal mb-4'>
+                {locale === 'en' ? 'Payment Details' : 'تفاصيل الدفع'}
+              </h2>
+              <div className='space-y-2 text-sm text-deep-charcoal/70'>
+                {paymentData.payment.status && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Status:' : 'الحالة:'}
+                    </span>{' '}
+                    <span className='capitalize'>{paymentData.payment.status}</span>
+                  </p>
+                )}
+                {paymentData.payment.paidAmount !== undefined && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Amount Paid:' : 'المبلغ المدفوع:'}
+                    </span>{' '}
+                    <span className='text-saudi-green font-bold'>
+                      {paymentData.payment.currency || 'SAR'} {paymentData.payment.paidAmount.toFixed(2)}
+                    </span>
+                  </p>
+                )}
+                {paymentData.payment.moyasarPaymentId && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Payment ID:' : 'رقم الدفع:'}
+                    </span>{' '}
+                    <span className='font-mono text-xs'>{paymentData.payment.moyasarPaymentId}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Error Details */}
+          {hasError && paymentData.error && (
+            <div className='bg-red-50 border border-red-200 rounded-lg p-6 mb-8 text-left'>
+              <h2 className='text-xl font-semibold text-red-800 mb-4'>
+                {locale === 'en' ? 'Error Details' : 'تفاصيل الخطأ'}
+              </h2>
+              <div className='space-y-2 text-sm text-red-700'>
+                {paymentData.error.message && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Message:' : 'الرسالة:'}
+                    </span>{' '}
+                    {paymentData.error.message}
+                  </p>
+                )}
+                {paymentData.error.code && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Error Code:' : 'رمز الخطأ:'}
+                    </span>{' '}
+                    {paymentData.error.code}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className='flex flex-col sm:flex-row gap-4 justify-center'>
@@ -132,6 +341,14 @@ export default function PaymentSuccessPage() {
             >
               {locale === 'en' ? 'Continue Shopping' : 'متابعة التسوق'}
             </Link>
+            {hasError && (
+              <Link
+                href={`/${locale}/payment?orderId=${orderId || ''}`}
+                className='px-6 py-3 bg-deep-charcoal text-white rounded-lg font-semibold hover:bg-deep-charcoal/90 transition-colors shadow-md hover:shadow-lg cursor-pointer text-center'
+              >
+                {locale === 'en' ? 'Try Again' : 'حاول مرة أخرى'}
+              </Link>
+            )}
           </div>
         </div>
       </div>

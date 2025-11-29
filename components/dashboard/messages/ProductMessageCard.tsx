@@ -11,6 +11,7 @@ import {
   HiCheck,
   HiShoppingCart,
 } from 'react-icons/hi2';
+import { formatMessageTime } from './utils';
 import type {
   ConversationUser,
   Message,
@@ -137,7 +138,10 @@ export default function ProductMessageCard({
     message.text ||
     'Product';
   const counterAmount = message.offer?.counterAmount;
-  const offerStatus = message.offer?.status || message.offer?.type;
+  // Get offer status from multiple possible locations
+  const offerStatus = message.offer?.status || 
+                      message.offer?.type || 
+                      (message.offerId ? 'pending' : undefined);
   
   // Helper function to get display status - show "paid" if accepted and payment is paid
   const getDisplayStatus = (): string => {
@@ -150,6 +154,12 @@ export default function ProductMessageCard({
   };
   
   const displayStatus = getDisplayStatus();
+  
+  // Check if offer is accepted - check multiple conditions
+  const isOfferAccepted = offerStatus === 'accepted' || 
+                          message.offer?.status === 'accepted' ||
+                          displayStatus === 'accepted' ||
+                          displayStatus === 'paid';
   const productSize =
     message.offer?.size ||
     (typeof message.offer?.product === 'object' &&
@@ -415,11 +425,13 @@ export default function ProductMessageCard({
               </div>
             )}
 
+            {/* Seller receiving offer from buyer - show Accept/Counter/Reject buttons */}
             {!isMyMessage &&
               isSeller &&
               (message.offerId || message.offer) &&
               offerStatus !== 'accepted' &&
-              offerStatus !== 'rejected' && (
+              offerStatus !== 'rejected' &&
+              offerStatus !== 'countered' && (
                 <div className='flex gap-2 pt-3 border-t border-rich-sand/20'>
                   <button
                     onClick={handleAccept}
@@ -461,7 +473,7 @@ export default function ProductMessageCard({
             {!isMyMessage &&
               !isSeller &&
               (message.offerId || message.offer) &&
-              counterAmount &&
+              (counterAmount || offerStatus === 'countered') &&
               offerStatus !== 'accepted' &&
               offerStatus !== 'rejected' && (
                 <div className='flex gap-2 pt-2 border-t border-white/20'>
@@ -496,8 +508,7 @@ export default function ProductMessageCard({
 
             {!isSeller &&
               (message.offerId || message.offer) &&
-              (offerStatus === 'accepted' ||
-                message.offer?.status === 'accepted') && (
+              isOfferAccepted && (
                 <div className='flex gap-2 pt-3 border-t border-rich-sand/20'>
                   {(() => {
                     const productSellerId =
@@ -543,8 +554,7 @@ export default function ProductMessageCard({
 
             {isSeller &&
               (message.offerId || message.offer) &&
-              (offerStatus === 'accepted' ||
-                message.offer?.status === 'accepted') && (
+              isOfferAccepted && (
                 <div className='flex gap-2 pt-3 border-t border-rich-sand/20'>
                   <button
                     onClick={() => {
@@ -578,7 +588,9 @@ export default function ProductMessageCard({
                     : 'text-deep-charcoal/60'
                 }`}
               >
-                {message.timestamp || (locale === 'en' ? 'Just now' : 'الآن')}
+                {message.rawTimestamp 
+                  ? formatMessageTime(message.rawTimestamp, locale)
+                  : (message.timestamp || (locale === 'en' ? 'Just now' : 'الآن'))}
               </p>
             </div>
           </div>

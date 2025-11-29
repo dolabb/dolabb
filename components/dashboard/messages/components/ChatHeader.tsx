@@ -66,12 +66,6 @@ export default function ChatHeader({
           <h3 className='font-semibold text-deep-charcoal truncate'>
             {formattedUsername}
           </h3>
-          {isOnline && (
-            <span className='flex items-center gap-1 text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full'>
-              <div className='w-2 h-2 bg-green-500 rounded-full'></div>
-              {locale === 'en' ? 'Active now' : 'نشط الآن'}
-            </span>
-          )}
         </div>
         <p className='text-xs text-deep-charcoal/60 mt-0.5'>
           {isConnecting
