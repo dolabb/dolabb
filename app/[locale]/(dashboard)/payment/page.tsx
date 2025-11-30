@@ -6,6 +6,7 @@ import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
+import { toast } from '@/utils/toast';
 
 export default function PaymentPage() {
   const locale = useLocale();
@@ -276,28 +277,64 @@ export default function PaymentPage() {
       if (!paymentResponse.ok) {
         console.error('Payment API Error:', paymentResult);
 
-        // Check for specific error messages from API
-        const apiError =
-          paymentResult.error ||
-          paymentResult.details?.message ||
-          paymentResult.details?.type;
+        // Extract error details from API response
+        const errorDetails = paymentResult.details || {};
+        const errorMessage = paymentResult.error || errorDetails.message || errorDetails.type;
+        const validationErrors = errorDetails.errors || {};
 
-        // Provide more detailed error message
-        let errorMessage;
-        if (apiError === 'You cannot purchase your own product') {
-          errorMessage =
-            locale === 'en'
-              ? 'You cannot purchase your own product'
-              : 'لا يمكنك شراء منتجك الخاص';
-        } else {
-          errorMessage =
-            apiError ||
-            (locale === 'en'
-              ? 'Payment processing failed. Please try again.'
-              : 'فشل معالجة الدفع. يرجى المحاولة مرة أخرى.');
+        // Build detailed error message
+        let errorMessages: string[] = [];
+
+        // Add main error message with specific handling for common errors
+        if (errorMessage) {
+          if (errorMessage === 'You cannot purchase your own product') {
+            errorMessages.push(
+              locale === 'en'
+                ? 'You cannot purchase your own product'
+                : 'لا يمكنك شراء منتجك الخاص'
+            );
+          } else if (errorMessage === 'Invalid offer' || errorMessage === 'Invalid Offer') {
+            errorMessages.push(
+              locale === 'en'
+                ? 'Invalid offer. The offer may have expired or is no longer available. Please go back to messages and try again.'
+                : 'عرض غير صالح. قد يكون العرض قد انتهى أو لم يعد متاحًا. يرجى العودة إلى الرسائل والمحاولة مرة أخرى.'
+            );
+          } else {
+            errorMessages.push(errorMessage);
+          }
         }
 
-        throw new Error(errorMessage);
+        // Add validation errors if they exist
+        if (Object.keys(validationErrors).length > 0) {
+          const validationMessages = Object.entries(validationErrors)
+            .map(([field, messages]: [string, any]) => {
+              const fieldLabel = field.charAt(0).toUpperCase() + field.slice(1);
+              const messagesArray = Array.isArray(messages) ? messages : [messages];
+              return `${fieldLabel}: ${messagesArray.join(', ')}`;
+            })
+            .join('; ');
+          
+          if (validationMessages) {
+            errorMessages.push(validationMessages);
+          }
+        }
+
+        // If no specific error message, use generic one
+        if (errorMessages.length === 0) {
+          errorMessages.push(
+            locale === 'en'
+              ? 'Payment processing failed. Please check your details and try again.'
+              : 'فشل معالجة الدفع. يرجى التحقق من التفاصيل والمحاولة مرة أخرى.'
+          );
+        }
+
+        // Show error in toast
+        const finalErrorMessage = errorMessages.join('\n');
+        toast.error(finalErrorMessage, {
+          duration: 5000,
+        });
+
+        throw new Error(finalErrorMessage);
       }
 
       console.log('Payment processed successfully:', paymentResult);
@@ -420,21 +457,29 @@ export default function PaymentPage() {
         // Payment status is neither 'paid' nor 'initiated' - unexpected state
         console.warn('Unexpected payment status:', paymentStatus);
         setIsProcessing(false);
-        alert(
+        toast.error(
           locale === 'en'
             ? 'Payment status is unclear. Please check your payment or contact support.'
-            : 'حالة الدفع غير واضحة. يرجى التحقق من الدفع أو الاتصال بالدعم.'
+            : 'حالة الدفع غير واضحة. يرجى التحقق من الدفع أو الاتصال بالدعم.',
+          {
+            duration: 5000,
+          }
         );
       }
     } catch (error: any) {
       console.error('Payment error:', error);
       setIsProcessing(false);
-      alert(
+      
+      // Show error in toast if not already shown
+      const errorMessage =
         error.message ||
-          (locale === 'en'
-            ? 'Payment processing failed. Please check your card details and try again.'
-            : 'فشل معالجة الدفع. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.')
-      );
+        (locale === 'en'
+          ? 'Payment processing failed. Please check your card details and try again.'
+          : 'فشل معالجة الدفع. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.');
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
     }
   };
 
@@ -444,6 +489,21 @@ export default function PaymentPage() {
     amount: number,
     offerId: string
   ) => {
+    // Backend behavior:
+    // - On payment completion: Adds earnings to affiliate's total_earnings and pending_earnings
+    // - Creates/updates transaction with status 'pending'
+    // - Transaction status changes to 'paid' only after review + shipment proof
+    // Prevent duplicate webhook calls to avoid double-counting affiliate earnings
+    const webhookKey = `webhook_called_${paymentId}`;
+    const webhookAlreadyCalled = typeof window !== 'undefined' 
+      ? sessionStorage.getItem(webhookKey) 
+      : null;
+    
+    if (webhookAlreadyCalled) {
+      console.log('Webhook already called for this payment ID, skipping to prevent duplicate earnings');
+      return { success: true, message: 'Webhook already processed' };
+    }
+
     try {
       console.log('Calling Django backend payment webhook with:', {
         id: paymentId,
@@ -467,11 +527,53 @@ export default function PaymentPage() {
         data: webhookResponse.data,
       });
 
+      // Mark webhook as called to prevent duplicate calls
+      if (typeof window !== 'undefined' && webhookResponse.data?.success) {
+        sessionStorage.setItem(webhookKey, 'true');
+        console.log('Webhook successful - affiliate earnings updated (status: pending)');
+      }
+
       return webhookResponse.data;
     } catch (error: any) {
       console.error('Payment webhook error:', error);
+      
+      // Extract error details
+      const errorResponse = error.response?.data || {};
+      const errorMessage = errorResponse.error || errorResponse.message || error.message;
+      const errorStatus = error.response?.status;
+      
+      // Log detailed error
+      console.error('Webhook error details:', {
+        message: error.message,
+        response: errorResponse,
+        status: errorStatus,
+      });
+      
+      // Show warning toast but don't block payment success
+      if (errorStatus === 500) {
+        // Backend error - likely missing method or server issue
+        toast.warning(
+          locale === 'en'
+            ? 'Payment successful, but there was an issue updating the order status. Your payment has been processed. Please contact support if you have any concerns.'
+            : 'تم الدفع بنجاح، ولكن حدثت مشكلة في تحديث حالة الطلب. تمت معالجة الدفع الخاص بك. يرجى الاتصال بالدعم إذا كان لديك أي مخاوف.',
+          {
+            duration: 8000, // Longer duration for important message
+          }
+        );
+      } else if (errorStatus) {
+        // Other webhook errors
+        toast.warning(
+          locale === 'en'
+            ? 'Payment successful, but there was an issue with the backend webhook. Your payment has been processed.'
+            : 'تم الدفع بنجاح، ولكن حدثت مشكلة في webhook الخلفي. تمت معالجة الدفع الخاص بك.',
+          {
+            duration: 6000,
+          }
+        );
+      }
+      
       // Don't fail the payment flow if webhook fails
-      return { error: error.response?.data?.error || error.message };
+      return { error: errorMessage || error.message };
     }
   };
 
@@ -492,10 +594,13 @@ export default function PaymentPage() {
     // Check for error parameters from callback
     const error = searchParams.get('error');
     if (error === 'payment_pending') {
-      alert(
+      toast.warning(
         locale === 'en'
           ? 'Payment is still processing. Please wait a moment and check your payment status.'
-          : 'الدفع لا يزال قيد المعالجة. يرجى الانتظار قليلاً والتحقق من حالة الدفع.'
+          : 'الدفع لا يزال قيد المعالجة. يرجى الانتظار قليلاً والتحقق من حالة الدفع.',
+        {
+          duration: 5000,
+        }
       );
     } else if (error === 'payment_failed') {
       alert(

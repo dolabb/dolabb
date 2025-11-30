@@ -195,14 +195,68 @@ export default function CheckoutPage() {
       console.error('Error creating order:', error);
       setIsCreatingOrder(false);
       
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
-                          (locale === 'en'
-                            ? 'Failed to create order. Please try again.'
-                            : 'فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
+      // Extract error details from API response
+      const errorResponse = error.response?.data || {};
+      const errorDetails = errorResponse.details || {};
+      const errorMessage = errorResponse.error || errorResponse.message || errorDetails.message || errorDetails.type;
+      const validationErrors = errorDetails.errors || errorResponse.errors || {};
       
-      toast.error(errorMessage);
+      // Build detailed error message
+      let errorMessages: string[] = [];
+      
+      // Add main error message with specific handling for common errors
+      if (errorMessage) {
+        if (errorMessage === 'Invalid offer' || errorMessage === 'Invalid Offer') {
+          errorMessages.push(
+            locale === 'en'
+              ? 'Invalid offer. The offer may have expired or is no longer available. Please go back to messages and try again.'
+              : 'عرض غير صالح. قد يكون العرض قد انتهى أو لم يعد متاحًا. يرجى العودة إلى الرسائل والمحاولة مرة أخرى.'
+          );
+        } else {
+          errorMessages.push(errorMessage);
+        }
+      }
+      
+      // Add validation errors if they exist
+      if (Object.keys(validationErrors).length > 0) {
+        const validationMessages = Object.entries(validationErrors)
+          .map(([field, messages]: [string, any]) => {
+            // Format field name (e.g., "deliveryAddress.fullName" -> "Full Name")
+            const fieldLabel = field
+              .split('.')
+              .map(part => {
+                // Convert camelCase to Title Case
+                return part
+                  .replace(/([A-Z])/g, ' $1')
+                  .replace(/^./, str => str.toUpperCase())
+                  .trim();
+              })
+              .join(' - ');
+            
+            const messagesArray = Array.isArray(messages) ? messages : [messages];
+            return `${fieldLabel}: ${messagesArray.join(', ')}`;
+          })
+          .join('\n');
+        
+        if (validationMessages) {
+          errorMessages.push(validationMessages);
+        }
+      }
+      
+      // If no specific error message, use generic one
+      if (errorMessages.length === 0) {
+        errorMessages.push(
+          locale === 'en'
+            ? 'Failed to create order. Please check your details and try again.'
+            : 'فشل إنشاء الطلب. يرجى التحقق من التفاصيل والمحاولة مرة أخرى.'
+        );
+      }
+      
+      // Show error in toast
+      const finalErrorMessage = errorMessages.join('\n');
+      toast.error(finalErrorMessage, {
+        duration: 5000,
+      });
     }
   };
 

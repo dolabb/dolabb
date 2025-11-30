@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
+import { toast } from '@/utils/toast';
 
 export default function PaymentCallbackPage() {
   const locale = useLocale();
@@ -153,36 +154,90 @@ export default function PaymentCallbackPage() {
               existingPayments.push(paymentRecord);
               localStorage.setItem('payments', JSON.stringify(existingPayments));
 
-              // Call Django backend payment webhook
-              try {
-                console.log('Calling Django backend payment webhook with:', {
-                  id: paymentId,
-                  status: 'paid',
-                  amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
-                  offerId: finalOfferId,
-                });
+              // Call Django backend payment webhook (with idempotency check)
+              // Backend behavior:
+              // - On payment completion: Adds earnings to affiliate's total_earnings and pending_earnings
+              // - Creates/updates transaction with status 'pending'
+              // - Transaction status changes to 'paid' only after review + shipment proof
+              // Prevent duplicate webhook calls to avoid double-counting affiliate earnings
+              const webhookKey = `webhook_called_${paymentId}`;
+              const webhookAlreadyCalled = sessionStorage.getItem(webhookKey);
+              
+              if (!webhookAlreadyCalled) {
+                try {
+                  console.log('Calling Django backend payment webhook with:', {
+                    id: paymentId,
+                    status: 'paid',
+                    amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
+                    offerId: finalOfferId,
+                  });
 
-                const webhookResponse = await apiClient.post('/api/payment/webhook/', {
-                  id: paymentId,
-                  status: 'paid',
-                  amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
-                  offerId: finalOfferId, // CRITICAL: Include offerId for backend to update offer status
-                });
+                  const webhookResponse = await apiClient.post('/api/payment/webhook/', {
+                    id: paymentId,
+                    status: 'paid',
+                    amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
+                    offerId: finalOfferId, // CRITICAL: Include offerId for backend to update offer status
+                  });
 
-                console.log('Payment Webhook Response:', {
-                  status: webhookResponse.status,
-                  statusText: webhookResponse.statusText,
-                  headers: webhookResponse.headers,
-                  data: webhookResponse.data,
-                });
-              } catch (webhookError: any) {
+                  console.log('Payment Webhook Response:', {
+                    status: webhookResponse.status,
+                    statusText: webhookResponse.statusText,
+                    headers: webhookResponse.headers,
+                    data: webhookResponse.data,
+                  });
+
+                  // Mark webhook as called to prevent duplicate calls
+                  sessionStorage.setItem(webhookKey, 'true');
+                  
+                  // Store webhook success info
+                  if (webhookResponse.data?.success) {
+                    console.log('Webhook successful - affiliate earnings updated (status: pending)');
+                  }
+                } catch (webhookError: any) {
                 console.error('Payment webhook error:', webhookError);
-                // Don't fail the whole process if webhook fails
+                
+                // Extract error details
+                const errorResponse = webhookError.response?.data || {};
+                const errorMessage = errorResponse.error || errorResponse.message || webhookError.message;
+                const errorStatus = webhookError.response?.status;
+                
+                // Log detailed error
                 console.error('Webhook error details:', {
                   message: webhookError.message,
-                  response: webhookError.response?.data,
-                  status: webhookError.response?.status,
+                  response: errorResponse,
+                  status: errorStatus,
                 });
+                
+                // Show warning toast but don't block payment success
+                // The payment was successful, but backend webhook failed
+                if (errorStatus === 500) {
+                  // Backend error - likely missing method or server issue
+                  toast.warning(
+                    locale === 'en'
+                      ? 'Payment successful, but there was an issue updating the order status. Your payment has been processed. Please contact support if you have any concerns.'
+                      : 'تم الدفع بنجاح، ولكن حدثت مشكلة في تحديث حالة الطلب. تمت معالجة الدفع الخاص بك. يرجى الاتصال بالدعم إذا كان لديك أي مخاوف.',
+                    {
+                      duration: 8000, // Longer duration for important message
+                    }
+                  );
+                } else {
+                  // Other webhook errors
+                  toast.warning(
+                    locale === 'en'
+                      ? 'Payment successful, but there was an issue with the backend webhook. Your payment has been processed.'
+                      : 'تم الدفع بنجاح، ولكن حدثت مشكلة في webhook الخلفي. تمت معالجة الدفع الخاص بك.',
+                    {
+                      duration: 6000,
+                    }
+                  );
+                }
+                
+                  // Don't fail the whole process if webhook fails
+                  // Payment is still successful, just webhook notification failed
+                  // Note: We don't mark webhook as called on error, so it can be retried
+                }
+              } else {
+                console.log('Webhook already called for this payment ID, skipping to prevent duplicate earnings');
               }
 
               // Redirect to success page with payment IDs

@@ -125,6 +125,7 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
     }
   };
 
+  // Status badge for payout requests (pending, approved, rejected)
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: HiClock, text: locale === 'en' ? 'Pending' : 'قيد الانتظار' },
@@ -137,6 +138,52 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
 
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+        <Icon className="w-3 h-3" />
+        {config.text}
+      </span>
+    );
+  };
+
+  // Status badge for transactions (pending, paid, cancelled)
+  // Backend behavior:
+  // - 'pending': Earnings added on payment completion, waiting for review + shipment proof
+  // - 'paid': Review and shipment proof provided, earnings confirmed
+  const getTransactionStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { 
+        color: 'bg-yellow-100 text-yellow-800', 
+        icon: HiClock, 
+        text: locale === 'en' ? 'Pending Review' : 'قيد المراجعة',
+        tooltip: locale === 'en' 
+          ? 'Earnings added, waiting for review and shipment proof' 
+          : 'تمت إضافة الأرباح، في انتظار المراجعة وإثبات الشحن'
+      },
+      paid: { 
+        color: 'bg-green-100 text-green-800', 
+        icon: HiCheckCircle, 
+        text: locale === 'en' ? 'Paid' : 'مدفوع',
+        tooltip: locale === 'en' 
+          ? 'Review and shipment proof provided, earnings confirmed' 
+          : 'تم تقديم المراجعة وإثبات الشحن، تم تأكيد الأرباح'
+      },
+      cancelled: { 
+        color: 'bg-red-100 text-red-800', 
+        icon: HiXCircle, 
+        text: locale === 'en' ? 'Cancelled' : 'ملغي',
+        tooltip: locale === 'en' 
+          ? 'Transaction cancelled' 
+          : 'تم إلغاء المعاملة'
+      },
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const Icon = config.icon;
+
+    return (
+      <span 
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}
+        title={config.tooltip}
+      >
         <Icon className="w-3 h-3" />
         {config.text}
       </span>
@@ -507,7 +554,7 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                             {transaction.commissionRate}%
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {getStatusBadge(transaction.status)}
+                            {getTransactionStatusBadge(transaction.status)}
                           </td>
                         </tr>
                       ))}
