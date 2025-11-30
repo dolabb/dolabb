@@ -38,6 +38,19 @@ export default function MessagesContent() {
     isFetching: isFetchingConversations,
   } = useGetConversationsQuery();
 
+  // Log conversations API response
+  useEffect(() => {
+    if (conversationsData) {
+      console.log('📋 [CONVERSATIONS API] Response:', {
+        timestamp: new Date().toISOString(),
+        success: conversationsData.success,
+        conversationsCount: conversationsData.conversations?.length || 0,
+        conversations: conversationsData.conversations,
+        fullResponse: conversationsData,
+      });
+    }
+  }, [conversationsData]);
+
   // Track if query has been initialized (not loading and not fetching means it's ready)
   const isQueryInitialized =
     !isLoadingConversations && !isFetchingConversations;
@@ -285,6 +298,17 @@ export default function MessagesContent() {
 
     setSelectedConversation(conversation);
     setShowChat(true);
+
+    // Set conversationId immediately from conversation data to trigger message loading
+    const convId = conversation.conversationId || conversation.id;
+    if (convId) {
+      setConversationId(convId);
+      console.log('💬 [CONVERSATION SELECTED] Setting conversationId:', {
+        conversationId: convId,
+        conversation: conversation,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     if (!isSameConversation) {
       if (wsRef.current && selectedConversation?.id !== conversation.id) {

@@ -46,8 +46,14 @@ export function useMessages({
   useEffect(() => {
     if (conversationId) {
       setCurrentPage(1);
-      setHasMoreMessages(true); // Start with true, will be updated when data arrives
+      // Start with true optimistically - will be updated when data arrives
+      // Don't reset if we already have the correct value to avoid flickering
+      setHasMoreMessages(prev => {
+        if (prev === true) return prev; // Keep true if already set
+        return true; // Otherwise set to true
+      });
       setIsLoadingMore(false);
+      console.log('🔄 [PAGINATION] Conversation changed, resetting to page 1, hasMoreMessages set to true');
       // Note: Don't clear messages here - let the component handle it
       // This prevents unnecessary clearing and allows proper message merging
     } else {
@@ -56,6 +62,7 @@ export function useMessages({
       setCurrentPage(1);
       setHasMoreMessages(false);
       setIsLoadingMore(false);
+      console.log('🔄 [PAGINATION] No conversationId, hasMoreMessages set to false');
     }
   }, [conversationId]);
 
@@ -76,19 +83,126 @@ export function useMessages({
       const messagesArray = messagesData.messages || [];
       const pagination = messagesData.pagination;
 
+      // Log messages API response with full endpoint details
+      const endpoint = `/api/chat/conversations/${conversationId}/messages/`;
+      const queryParams = `?page=${currentPage}&limit=${MESSAGES_PER_PAGE}`;
+      const fullUrl = `${endpoint}${queryParams}`;
+      
+      console.log('💬 [MESSAGES API] Endpoint:', fullUrl);
+      console.log('💬 [MESSAGES API] Request:', {
+        method: 'GET',
+        endpoint: endpoint,
+        queryParams: {
+          page: currentPage,
+          limit: MESSAGES_PER_PAGE,
+        },
+        conversationId: conversationId,
+      });
+      console.log('💬 [MESSAGES API] Response:', {
+        timestamp: new Date().toISOString(),
+        status: 'success',
+        conversationId: conversationId,
+        page: currentPage,
+        limit: MESSAGES_PER_PAGE,
+        messagesCount: messagesArray.length,
+        pagination: pagination,
+        hasMoreMessages: currentPage < (pagination?.totalPages || 0),
+        messages: messagesArray,
+        fullResponse: {
+          success: true,
+          messages: messagesArray,
+          pagination: pagination,
+        },
+      });
+
       // Update hasMoreMessages based on pagination
-      // Always prioritize pagination metadata if available
-      if (pagination && typeof pagination.totalPages === 'number') {
+      // Strategy: Show button if there are more messages available
+      let hasMore = false;
+      
+      // CRITICAL: Use messagesArray.length (from API) not merged messages count
+      const apiMessagesCount = messagesArray.length;
+      const isFirstPage = currentPage === 1;
+      const gotFullPage = apiMessagesCount >= MESSAGES_PER_PAGE;
+      
+      // Debug: Log all values before calculation
+      console.log('🔍 [PAGINATION DEBUG] Before calculation:', {
+        currentPage,
+        apiMessagesCount,
+        MESSAGES_PER_PAGE,
+        isFirstPage,
+        gotFullPage,
+        pagination: pagination ? {
+          totalPages: pagination.totalPages,
+          totalItems: pagination.totalItems,
+        } : 'no pagination',
+      });
+      
+      if (pagination && typeof pagination.totalPages === 'number' && pagination.totalPages > 0) {
         // If pagination exists and is valid, check if currentPage is less than totalPages
-        const hasMore = currentPage < pagination.totalPages;
-        setHasMoreMessages(hasMore);
+        const hasMoreFromPagination = currentPage < pagination.totalPages;
+        
+        // Show button if:
+        // 1. Pagination says there are more pages (currentPage < totalPages), OR
+        // 2. We got 4+ messages from API on page 1 (ALWAYS show on page 1 if we got full page - conservative approach)
+        // Note: On page 2+, only show if pagination says there are more pages
+        const condition1 = hasMoreFromPagination;
+        const condition2 = gotFullPage && isFirstPage;
+        hasMore = condition1 || condition2;
+        
+        console.log('📄 [PAGINATION] hasMoreMessages (from pagination):', {
+          currentPage,
+          totalPages: pagination.totalPages,
+          totalItems: pagination.totalItems,
+          apiMessagesReceived: apiMessagesCount,
+          hasMoreFromPagination: condition1,
+          gotFullPageAndFirstPage: condition2,
+          gotFullPage,
+          isFirstPage,
+          hasMore,
+          calculation: `(${currentPage} < ${pagination.totalPages}) = ${condition1} OR (${apiMessagesCount} >= ${MESSAGES_PER_PAGE} && ${currentPage} === 1) = ${condition2} → ${hasMore}`,
+          explanation: condition1
+            ? `Page ${currentPage} < ${pagination.totalPages} total pages - more pages available`
+            : condition2
+            ? `Page 1 with ${apiMessagesCount} messages (>= ${MESSAGES_PER_PAGE}) - showing button conservatively`
+            : `Page ${currentPage} is last page (${pagination.totalPages}) and not page 1 with full page - no more messages`,
+        });
       } else {
         // If no pagination info, use heuristics:
-        // - If we got exactly the requested amount (4), there might be more
-        // - If we got fewer than requested, there are no more messages
-        const hasMore = messagesArray.length >= MESSAGES_PER_PAGE;
-        setHasMoreMessages(hasMore);
+        // - If we got 4+ messages from API, there might be more (show button)
+        // - If we got fewer than 4 from API, there are no more messages (hide button)
+        hasMore = gotFullPage;
+        console.log('📄 [PAGINATION] hasMoreMessages (heuristic - no pagination):', {
+          apiMessagesReceived: apiMessagesCount,
+          expected: MESSAGES_PER_PAGE,
+          gotFullPage,
+          hasMore,
+          reason: gotFullPage 
+            ? `Got ${apiMessagesCount} messages from API (>= ${MESSAGES_PER_PAGE}), might have more` 
+            : `Got ${apiMessagesCount} messages from API (< ${MESSAGES_PER_PAGE}), no more messages`,
+        });
       }
+      
+      // Always update hasMoreMessages when we have data
+      // Use functional update to ensure we're working with the latest state
+      setHasMoreMessages(prev => {
+        console.log('✅ [PAGINATION] Updating hasMoreMessages:', {
+          previous: prev,
+          new: hasMore,
+          willChange: prev !== hasMore,
+        });
+        return hasMore;
+      });
+      
+      // Additional debug: Log the final state
+      console.log('✅ [PAGINATION] Final hasMoreMessages state:', hasMore, {
+        willShowButton: hasMore,
+        apiMessagesCount: apiMessagesCount,
+        currentPage,
+        paginationExists: !!pagination,
+        totalPages: pagination?.totalPages,
+        totalItems: pagination?.totalItems,
+        messagesArrayLength: messagesArray.length,
+      });
 
       // Reset loading state when data arrives
       setIsLoadingMore(false);
@@ -392,6 +506,11 @@ export function useMessages({
       }
     }
   }, [messagesData, user, locale, conversationId, messagesError, setMessages, currentPage]);
+
+  // Debug: Log the value being returned
+  useEffect(() => {
+    console.log('🔔 [PAGINATION] hasMoreMessages value being returned:', hasMoreMessages);
+  }, [hasMoreMessages]);
 
   return {
     isLoadingMessages,
