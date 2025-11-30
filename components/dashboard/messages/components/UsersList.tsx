@@ -2,7 +2,7 @@
 
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
-import type { ConversationUser } from '../types';
+import type { ConversationUser, OnlineUserDetail } from '../types';
 import { formatDate, formatUsername } from '../utils';
 
 interface UsersListProps {
@@ -10,7 +10,8 @@ interface UsersListProps {
   selectedConversation: ConversationUser | null;
   isLoading: boolean;
   isWebSocketConnected: boolean;
-  onlineUsers: string[];
+  onlineUsers: string[]; // Backward compatible - array of user IDs
+  onlineUsersDetails?: OnlineUserDetail[]; // Enhanced - array of user objects with username and profileImage
   onSelectConversation: (conversation: ConversationUser) => void;
   showChat: boolean;
 }
@@ -21,6 +22,7 @@ export default function UsersList({
   isLoading,
   isWebSocketConnected,
   onlineUsers,
+  onlineUsersDetails = [],
   onSelectConversation,
   showChat,
 }: UsersListProps) {
@@ -59,7 +61,21 @@ export default function UsersList({
         ) : (
           conversations.map(conv => {
             const timeAgo = formatDate(conv.lastMessageAt, locale);
-            const formattedUsername = formatUsername(conv.otherUser.username);
+            
+            // Enhance with online user details if available
+            let displayUser = conv.otherUser;
+            if (onlineUsersDetails && onlineUsersDetails.length > 0) {
+              const onlineUserDetail = onlineUsersDetails.find(u => u.id === conv.otherUser.id);
+              if (onlineUserDetail) {
+                displayUser = {
+                  ...conv.otherUser,
+                  username: onlineUserDetail.username || conv.otherUser.username,
+                  profileImage: onlineUserDetail.profileImage || conv.otherUser.profileImage,
+                };
+              }
+            }
+            
+            const formattedUsername = formatUsername(displayUser.username);
             const isOnline =
               isWebSocketConnected &&
               (onlineUsers.includes(conv.otherUser.id) || conv.otherUser.isOnline);
@@ -76,9 +92,9 @@ export default function UsersList({
               >
                 <div className='relative w-12 h-12 rounded-full overflow-visible flex-shrink-0'>
                   <div className='w-12 h-12 rounded-full overflow-hidden bg-rich-sand/20'>
-                    {conv.otherUser.profileImage ? (
+                    {displayUser.profileImage ? (
                       <Image
-                        src={conv.otherUser.profileImage}
+                        src={displayUser.profileImage}
                         alt={formattedUsername}
                         fill
                         className='object-cover w-12 h-12 rounded-full'

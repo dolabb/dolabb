@@ -2,13 +2,13 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { navigationCategories, StyleCategory } from '@/data/navigation';
+import { useAppSelector } from '@/lib/store/hooks';
 import { gsap } from 'gsap';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
-import { useAppSelector } from '@/lib/store/hooks';
 import {
   HiClock,
   HiHome,
@@ -246,9 +246,13 @@ export default function NavigationBar() {
       key: isSeller ? 'seller' : 'buyer',
       href: `/${locale}/buyer`,
       icon: HiTag,
-      label: isSeller 
-        ? (locale === 'en' ? 'Offers' : 'العروض')
-        : (locale === 'en' ? 'Buyer' : 'المشتري'),
+      label: isSeller
+        ? locale === 'en'
+          ? 'Offers'
+          : 'العروض'
+        : locale === 'en'
+        ? 'Buyer'
+        : 'المشتري',
     },
   ];
 
@@ -278,7 +282,8 @@ export default function NavigationBar() {
               const isActive =
                 item.key === 'home'
                   ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(item.href + '/');
+                  : pathname === item.href ||
+                    pathname.startsWith(item.href + '/');
 
               return (
                 <Link
@@ -318,7 +323,8 @@ export default function NavigationBar() {
               const isActive =
                 item.key === 'home'
                   ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(item.href + '/');
+                  : pathname === item.href ||
+                    pathname.startsWith(item.href + '/');
 
               return (
                 <Link

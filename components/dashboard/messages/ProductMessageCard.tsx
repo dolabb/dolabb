@@ -2,24 +2,16 @@
 
 import CounterOfferModal from '@/components/shared/CounterOfferModal';
 import { useGetProductDetailQuery } from '@/lib/api/productsApi';
-import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import {
-  HiBanknotes,
-  HiCheck,
-  HiShoppingCart,
-} from 'react-icons/hi2';
+import { HiBanknotes, HiCheck, HiShoppingCart } from 'react-icons/hi2';
+import type { ConversationUser, Message, ProductInfo } from './types';
 import { formatMessageTime } from './utils';
-import type {
-  ConversationUser,
-  Message,
-  ProductInfo,
-} from './types';
 
 interface ProductMessageCardProps {
   message: Message;
+  messages: Message[]; // All messages to count counter offers
   locale: string;
   user: any;
   selectedConversation: ConversationUser | null;
@@ -50,6 +42,7 @@ interface ProductMessageCardProps {
 
 export default function ProductMessageCard({
   message,
+  messages,
   locale,
   user,
   selectedConversation,
@@ -139,27 +132,87 @@ export default function ProductMessageCard({
     'Product';
   const counterAmount = message.offer?.counterAmount;
   // Get offer status from multiple possible locations
-  const offerStatus = message.offer?.status || 
-                      message.offer?.type || 
-                      (message.offerId ? 'pending' : undefined);
-  
+  const offerStatus =
+    message.offer?.status ||
+    message.offer?.type ||
+    (message.offerId ? 'pending' : undefined);
+
   // Helper function to get display status - show "paid" if accepted and payment is paid
   const getDisplayStatus = (): string => {
     const status = offerStatus || '';
-    const paymentStatus = (message.offer as any)?.payment?.status || (message.offer as any)?.paymentStatus;
+    const paymentStatus =
+      (message.offer as any)?.payment?.status ||
+      (message.offer as any)?.paymentStatus;
     if (status === 'accepted' && paymentStatus === 'paid') {
       return 'paid';
     }
     return status;
   };
-  
+
   const displayStatus = getDisplayStatus();
-  
+
   // Check if offer is accepted - check multiple conditions
-  const isOfferAccepted = offerStatus === 'accepted' || 
-                          message.offer?.status === 'accepted' ||
-                          displayStatus === 'accepted' ||
-                          displayStatus === 'paid';
+  const isOfferAccepted =
+    offerStatus === 'accepted' ||
+    message.offer?.status === 'accepted' ||
+    displayStatus === 'accepted' ||
+    displayStatus === 'paid';
+
+  // Check if offer is rejected
+  const isOfferRejected =
+    offerStatus === 'rejected' ||
+    message.offer?.status === 'rejected' ||
+    displayStatus === 'rejected';
+
+  // Check if offer is pending or countered (can still be acted upon)
+  // When offer is countered, both sides can still act on it (accept/reject/counter again)
+  const canActOnOffer =
+    !isOfferAccepted &&
+    !isOfferRejected &&
+    (offerStatus === 'pending' || offerStatus === 'countered' || !offerStatus);
+
+  // Check if this is a countered offer (either has counterAmount or status is countered)
+  const isCounteredOffer = offerStatus === 'countered' || !!counterAmount;
+
+  // Count how many times this offer has been countered
+  // Count messages with same offerId and status "countered" (excluding the original offer)
+  const counterOfferCount = message.offerId
+    ? messages.filter(
+        m =>
+          m.offerId === message.offerId &&
+          m.offer?.status === 'countered' &&
+          m.offer?.counterAmount !== undefined &&
+          m.offer?.counterAmount !== null
+      ).length
+    : 0;
+
+  // Check if the last counter offer was sent by the current user
+  // If so, they cannot counter again until the other party responds
+  const lastCounterOffer = message.offerId
+    ? messages
+        .filter(
+          m =>
+            m.offerId === message.offerId &&
+            m.offer?.status === 'countered' &&
+            m.offer?.counterAmount !== undefined &&
+            m.offer?.counterAmount !== null
+        )
+        .sort((a, b) => {
+          // Sort by timestamp to get the most recent counter offer
+          const timeA = a.rawTimestamp ? new Date(a.rawTimestamp).getTime() : 0;
+          const timeB = b.rawTimestamp ? new Date(b.rawTimestamp).getTime() : 0;
+          return timeB - timeA; // Most recent first
+        })[0]
+    : null;
+
+  const lastCounterWasFromMe =
+    lastCounterOffer?.sender === 'me' ||
+    lastCounterOffer?.senderId === user?.id;
+
+  // Maximum counter offers allowed (4 times)
+  const MAX_COUNTER_OFFERS = 4;
+  const canCounterOffer =
+    counterOfferCount < MAX_COUNTER_OFFERS && !lastCounterWasFromMe;
   const productSize =
     message.offer?.size ||
     (typeof message.offer?.product === 'object' &&
@@ -204,9 +257,38 @@ export default function ProductMessageCard({
   };
 
   const handleCounterSubmit = async (counterAmount: number) => {
-    if (!message.offerId || !selectedConversation?.otherUser.id) return;
+    // Get offerId from multiple possible locations
+    const offerId = message.offerId || message.offer?.id;
+
+    if (!offerId || !selectedConversation?.otherUser.id) {
+      console.error(
+        '❌ Error: Missing offerId or receiverId for counter offer:',
+        {
+          messageOfferId: message.offerId,
+          offerObjectId: message.offer?.id,
+          finalOfferId: offerId,
+          receiverId: selectedConversation?.otherUser.id,
+          messageId: message.id,
+          hasOfferObject: !!message.offer,
+        }
+      );
+      return;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📤 Preparing to send counter offer:', {
+        offerId: offerId,
+        messageOfferId: message.offerId,
+        offerObjectId: message.offer?.id,
+        counterAmount: counterAmount,
+        receiverId: selectedConversation.otherUser.id,
+        hasOriginalOffer: !!message.offer,
+        offerStatus: message.offer?.status,
+      });
+    }
+
     await onCounterOffer(
-      message.offerId,
+      offerId, // Use the resolved offerId (from message.offerId or message.offer.id)
       counterAmount,
       selectedConversation.otherUser.id,
       message.text,
@@ -425,13 +507,12 @@ export default function ProductMessageCard({
               </div>
             )}
 
-            {/* Seller receiving offer from buyer - show Accept/Counter/Reject buttons */}
-            {!isMyMessage &&
-              isSeller &&
+            {/* Seller side - show Accept/Counter/Reject buttons when offer can be acted upon */}
+            {/* Show buttons when offer is pending or countered (not accepted/rejected) */}
+            {/* Seller can act on: pending offers from buyer OR countered offers (can counter again) */}
+            {isSeller &&
               (message.offerId || message.offer) &&
-              offerStatus !== 'accepted' &&
-              offerStatus !== 'rejected' &&
-              offerStatus !== 'countered' && (
+              canActOnOffer && (
                 <div className='flex gap-2 pt-3 border-t border-rich-sand/20'>
                   <button
                     onClick={handleAccept}
@@ -447,17 +528,32 @@ export default function ProductMessageCard({
                       ? 'Accept'
                       : 'قبول'}
                   </button>
-                  <button
-                    onClick={() => setShowCounterModal(true)}
-                    disabled={isAccepting || isRejecting}
-                    className='flex-1 px-4 py-2.5 bg-deep-charcoal text-white rounded-lg font-medium hover:bg-deep-charcoal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
-                  >
-                    {locale === 'en' ? 'Counter' : 'عرض مقابل'}
-                  </button>
+                  {canCounterOffer ? (
+                    <button
+                      onClick={() => setShowCounterModal(true)}
+                      disabled={isAccepting || isRejecting}
+                      className='flex-1 px-4 py-2.5 bg-deep-charcoal text-white rounded-lg font-medium hover:bg-deep-charcoal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
+                    >
+                      {locale === 'en' ? 'Counter' : 'عرض مقابل'}
+                    </button>
+                  ) : lastCounterWasFromMe ? (
+                    <div
+                      className='flex-1 px-4 py-2.5 bg-deep-charcoal/30 text-deep-charcoal/60 rounded-lg text-sm text-center'
+                      title={
+                        locale === 'en'
+                          ? 'Wait for the other party to respond'
+                          : 'انتظر رد الطرف الآخر'
+                      }
+                    >
+                      {locale === 'en' ? 'Wait for response' : 'انتظر الرد'}
+                    </div>
+                  ) : null}
                   <button
                     onClick={handleReject}
                     disabled={isAccepting || isRejecting}
-                    className='px-4 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
+                    className={`${
+                      canCounterOffer ? 'px-4' : 'flex-1'
+                    } py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm`}
                   >
                     {isRejecting
                       ? locale === 'en'
@@ -470,12 +566,12 @@ export default function ProductMessageCard({
                 </div>
               )}
 
-            {!isMyMessage &&
-              !isSeller &&
+            {/* Buyer side - show Accept/Counter/Reject buttons when offer is countered */}
+            {/* Show buttons when offer is countered and can still be acted upon (not accepted/rejected) */}
+            {!isSeller &&
               (message.offerId || message.offer) &&
-              (counterAmount || offerStatus === 'countered') &&
-              offerStatus !== 'accepted' &&
-              offerStatus !== 'rejected' && (
+              isCounteredOffer &&
+              canActOnOffer && (
                 <div className='flex gap-2 pt-2 border-t border-white/20'>
                   <button
                     onClick={handleAccept}
@@ -487,13 +583,35 @@ export default function ProductMessageCard({
                         ? 'Accepting...'
                         : 'جاري القبول...'
                       : locale === 'en'
-                      ? 'Accept Counter'
-                      : 'قبول العرض المقابل'}
+                      ? 'Accept'
+                      : 'قبول'}
                   </button>
+                  {canCounterOffer ? (
+                    <button
+                      onClick={() => setShowCounterModal(true)}
+                      disabled={isAccepting || isRejecting}
+                      className='flex-1 px-3 py-2 bg-deep-charcoal text-white rounded-lg font-medium hover:bg-deep-charcoal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
+                    >
+                      {locale === 'en' ? 'Counter' : 'عرض مقابل'}
+                    </button>
+                  ) : lastCounterWasFromMe ? (
+                    <div
+                      className='flex-1 px-3 py-2 bg-deep-charcoal/30 text-deep-charcoal/60 rounded-lg text-sm text-center'
+                      title={
+                        locale === 'en'
+                          ? 'Wait for the other party to respond'
+                          : 'انتظر رد الطرف الآخر'
+                      }
+                    >
+                      {locale === 'en' ? 'Wait for response' : 'انتظر الرد'}
+                    </div>
+                  ) : null}
                   <button
                     onClick={handleReject}
                     disabled={isAccepting || isRejecting}
-                    className='flex-1 px-3 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
+                    className={`${
+                      canCounterOffer ? 'flex-1' : 'flex-1'
+                    } px-3 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm`}
                   >
                     {isRejecting
                       ? locale === 'en'
@@ -517,7 +635,9 @@ export default function ProductMessageCard({
                         ? (productData as any).sellerId
                         : null);
                     const canPurchase =
-                      !user?.id || !productSellerId || user.id !== productSellerId;
+                      !user?.id ||
+                      !productSellerId ||
+                      user.id !== productSellerId;
 
                     return !canPurchase ? (
                       <div className='flex-1 px-4 py-2.5 bg-rich-sand/20 border border-rich-sand/40 text-deep-charcoal/70 rounded-lg text-sm text-center'>
@@ -588,9 +708,10 @@ export default function ProductMessageCard({
                     : 'text-deep-charcoal/60'
                 }`}
               >
-                {message.rawTimestamp 
+                {message.rawTimestamp
                   ? formatMessageTime(message.rawTimestamp, locale)
-                  : (message.timestamp || (locale === 'en' ? 'Just now' : 'الآن'))}
+                  : message.timestamp ||
+                    (locale === 'en' ? 'Just now' : 'الآن')}
               </p>
             </div>
           </div>
@@ -613,4 +734,3 @@ export default function ProductMessageCard({
     </>
   );
 }
-

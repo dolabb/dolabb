@@ -26,6 +26,7 @@ export interface OfferInfo {
   expirationDate?: string;
   expires?: string;
   size?: string;
+  counterCount?: number; // Track number of counter offers made
   payment?: {
     status?: 'pending' | 'paid' | 'completed' | 'failed';
   };
@@ -66,6 +67,12 @@ export interface AttachedFile {
   id: string;
   file: File;
   preview: string;
+}
+
+export interface OnlineUserDetail {
+  id: string;
+  username: string;
+  profileImage?: string;
 }
 
 export interface ConversationUser {

@@ -146,8 +146,24 @@ export default function MessageInput({
       offerId: undefined,
     };
 
-    // Add optimistic message immediately
-    setMessages(prev => [...prev, optimisticMessage]);
+    // Add optimistic message immediately and sort to maintain chronological order
+    setMessages(prev => {
+      const updated = [...prev, optimisticMessage];
+      return updated.sort((a, b) => {
+        try {
+          const timeA = a.rawTimestamp 
+            ? new Date(a.rawTimestamp).getTime()
+            : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
+          const timeB = b.rawTimestamp 
+            ? new Date(b.rawTimestamp).getTime()
+            : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
+          if (timeA > 0 && timeB > 0) {
+            return timeA - timeB; // Ascending order (oldest first, newest last)
+          }
+        } catch {}
+        return a.id.localeCompare(b.id);
+      });
+    });
     setMessageText('');
     setAttachedFiles([]);
     setValidationError('');

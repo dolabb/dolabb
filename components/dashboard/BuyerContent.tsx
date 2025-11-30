@@ -751,6 +751,7 @@ export default function BuyerContent() {
           setSelectedOffer(null);
         }}
         originalOfferAmount={selectedOffer?.offerAmount || 0}
+        originalPrice={selectedOffer?.originalPrice || 0}
         productTitle={selectedOffer?.productTitle}
         onSubmit={handleCounterOfferSubmit}
         isLoading={isCountering}

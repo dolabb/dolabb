@@ -3,14 +3,15 @@
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { HiArrowLeft } from 'react-icons/hi2';
-import type { ConversationUser } from '../types';
+import type { ConversationUser, OnlineUserDetail } from '../types';
 import { formatUsername } from '../utils';
 
 interface ChatHeaderProps {
   selectedConversation: ConversationUser;
   isConnecting: boolean;
   isWebSocketConnected: boolean;
-  onlineUsers: string[];
+  onlineUsers: string[]; // Backward compatible - array of user IDs
+  onlineUsersDetails?: OnlineUserDetail[]; // Enhanced - array of user objects with username and profileImage
   otherUserOnlineStatus: boolean;
   onBack: () => void;
 }
@@ -20,13 +21,26 @@ export default function ChatHeader({
   isConnecting,
   isWebSocketConnected,
   onlineUsers,
+  onlineUsersDetails = [],
   otherUserOnlineStatus,
   onBack,
 }: ChatHeaderProps) {
   const locale = useLocale();
-  const formattedUsername = formatUsername(
-    selectedConversation.otherUser.username
-  );
+  
+  // Enhance with online user details if available
+  let displayUser = selectedConversation.otherUser;
+  if (onlineUsersDetails && onlineUsersDetails.length > 0) {
+    const onlineUserDetail = onlineUsersDetails.find(u => u.id === selectedConversation.otherUser.id);
+    if (onlineUserDetail) {
+      displayUser = {
+        ...selectedConversation.otherUser,
+        username: onlineUserDetail.username || selectedConversation.otherUser.username,
+        profileImage: onlineUserDetail.profileImage || selectedConversation.otherUser.profileImage,
+      };
+    }
+  }
+  
+  const formattedUsername = formatUsername(displayUser.username);
   const isOnline =
     isWebSocketConnected &&
     (onlineUsers.includes(selectedConversation.otherUser.id) ||
@@ -43,9 +57,9 @@ export default function ChatHeader({
       </button>
       <div className='relative w-10 h-10 rounded-full overflow-visible flex-shrink-0'>
         <div className='w-10 h-10 rounded-full overflow-hidden bg-rich-sand/20'>
-          {selectedConversation.otherUser.profileImage ? (
+          {displayUser.profileImage ? (
             <Image
-              src={selectedConversation.otherUser.profileImage}
+              src={displayUser.profileImage}
               alt={formattedUsername}
               fill
               className='object-cover w-10 h-10 rounded-full'
@@ -58,7 +72,7 @@ export default function ChatHeader({
           )}
         </div>
         {isOnline && (
-          <div className='absolute top-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full z-10'></div>
+          <div className='absolute top-0 hidden right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full z-10'></div>
         )}
       </div>
       <div className='flex-1 min-w-0'>
@@ -84,4 +98,3 @@ export default function ChatHeader({
     </div>
   );
 }
-

@@ -3,8 +3,8 @@
 import { useGetConversationsQuery } from '@/lib/api/chatApi';
 import { useAppSelector } from '@/lib/store/hooks';
 import { useLocale } from 'next-intl';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import ChatArea from './messages/components/ChatArea';
 import ChatHeader from './messages/components/ChatHeader';
 import MessageInput from './messages/components/MessageInput';
@@ -37,9 +37,10 @@ export default function MessagesContent() {
     isLoading: isLoadingConversations,
     isFetching: isFetchingConversations,
   } = useGetConversationsQuery();
-  
+
   // Track if query has been initialized (not loading and not fetching means it's ready)
-  const isQueryInitialized = !isLoadingConversations && !isFetchingConversations;
+  const isQueryInitialized =
+    !isLoadingConversations && !isFetchingConversations;
 
   // Use messages hook
   const {
@@ -63,6 +64,7 @@ export default function MessagesContent() {
     isWebSocketConnected,
     otherUserOnlineStatus,
     onlineUsers,
+    onlineUsersDetails,
     wsRef,
     initializeConversation,
   } = useWebSocket({
@@ -83,43 +85,193 @@ export default function MessagesContent() {
     selectedConversation,
   });
 
-  // Convert API conversations to local format
-  const conversations: ConversationUser[] =
-    conversationsData?.conversations?.map((conv: any) => {
-      const otherUser = conv.otherUser || {
-        id: conv.participants?.find((p: any) => p.id !== user?.id)?.id || '',
-        username:
-          conv.participants?.find((p: any) => p.id !== user?.id)?.username ||
-          'Unknown',
-        profileImage: conv.participants?.find((p: any) => p.id !== user?.id)
-          ?.profileImage,
-        status: conv.participants?.find((p: any) => p.id !== user?.id)?.status,
-        isOnline: conv.participants?.find((p: any) => p.id !== user?.id)
-          ?.isOnline,
-      };
+  // Convert API conversations to local format and group by user (not by product)
+  // This prevents multiple conversations with the same user for different products
+  const rawConversations =
+    conversationsData?.conversations?.map(
+      (conv: {
+        id?: string;
+        conversationId?: string;
+        otherUser?: {
+          id: string;
+          username: string;
+          profileImage?: string;
+          status?: string;
+          isOnline?: boolean;
+        };
+        participants?: Array<{
+          id: string;
+          username: string;
+          profileImage?: string;
+          status?: string;
+          isOnline?: boolean;
+        }>;
+        lastMessage?: string | { text?: string };
+        lastMessageAt?: string;
+        updatedAt?: string;
+        unreadCount?: number | string;
+        productId?: string | null;
+      }) => {
+        // Get other user from conversation data
+        let otherUser = conv.otherUser || {
+          id:
+            conv.participants?.find((p: { id: string }) => p.id !== user?.id)
+              ?.id || '',
+          username:
+            conv.participants?.find(
+              (p: { id: string; username?: string }) => p.id !== user?.id
+            )?.username || 'Unknown',
+          profileImage: conv.participants?.find(
+            (p: { id: string; profileImage?: string }) => p.id !== user?.id
+          )?.profileImage,
+          status: conv.participants?.find(
+            (p: { id: string; status?: string }) => p.id !== user?.id
+          )?.status,
+          isOnline: conv.participants?.find(
+            (p: { id: string; isOnline?: boolean }) => p.id !== user?.id
+          )?.isOnline,
+        };
+        
+        // Enhance with online user details if available
+        if (onlineUsersDetails && onlineUsersDetails.length > 0 && otherUser.id) {
+          const onlineUserDetail = onlineUsersDetails.find(u => u.id === otherUser.id);
+          if (onlineUserDetail) {
+            // Update username and profileImage from online users details
+            otherUser = {
+              ...otherUser,
+              username: onlineUserDetail.username || otherUser.username,
+              profileImage: onlineUserDetail.profileImage || otherUser.profileImage,
+            };
+          }
+        }
 
-      const isOnline =
-        selectedConversation?.id === conv.id
-          ? onlineUsers.includes(otherUser.id) || otherUserOnlineStatus
-          : onlineUsers.includes(otherUser.id) ||
-            (otherUser.isOnline !== undefined
-              ? otherUser.isOnline
-              : conv.otherUser?.status === 'active');
+        const isOnline =
+          selectedConversation?.id === conv.id
+            ? onlineUsers.includes(otherUser.id) || otherUserOnlineStatus
+            : onlineUsers.includes(otherUser.id) ||
+              (otherUser.isOnline !== undefined
+                ? otherUser.isOnline
+                : conv.otherUser?.status === 'active');
 
+        const convId = conv.conversationId || conv.id || '';
+        return {
+          id: conv.id || conv.conversationId || '',
+          conversationId: convId,
+          otherUser: {
+            ...otherUser,
+            status: (otherUser.status || conv.otherUser?.status) as
+              | 'active'
+              | 'inactive'
+              | 'offline'
+              | undefined,
+            isOnline: isOnline,
+          },
+          lastMessage:
+            typeof conv.lastMessage === 'string'
+              ? conv.lastMessage
+              : conv.lastMessage?.text || '',
+          lastMessageAt: conv.lastMessageAt || conv.updatedAt,
+          unreadCount: conv.unreadCount?.toString() || '0',
+          productId: conv.productId,
+        };
+      }
+    ) || [];
+
+  // Group conversations by otherUser.id (merge conversations with same user)
+  // This prevents multiple conversations with the same user for different products
+  // Use the most recent conversation as the main one, but combine unread counts
+  const conversationsMap = new Map<
+    string,
+    ConversationUser & { allConversationIds: string[] }
+  >();
+
+  rawConversations.forEach(conv => {
+    const userId = conv.otherUser.id;
+    if (!userId) return;
+
+    const existing = conversationsMap.get(userId);
+
+    if (!existing) {
+      // First conversation with this user
+      const convId = conv.conversationId;
+      if (convId) {
+        conversationsMap.set(userId, {
+          ...conv,
+          allConversationIds: [convId], // Store all conversation IDs for this user
+        });
+      }
+    } else {
+      // Merge with existing conversation
+      // Use the most recent conversation (by lastMessageAt) as the main one
+      const existingDate = new Date(existing.lastMessageAt || 0).getTime();
+      const newDate = new Date(conv.lastMessageAt || 0).getTime();
+      const convId = conv.conversationId;
+
+      if (convId) {
+        if (newDate > existingDate) {
+          // This conversation is more recent, use it as the main one
+          conversationsMap.set(userId, {
+            ...conv,
+            // Combine unread counts from all conversations with this user
+            unreadCount: (
+              parseInt(existing.unreadCount) + parseInt(conv.unreadCount)
+            ).toString(),
+            // Keep track of all conversation IDs for this user
+            allConversationIds: [...existing.allConversationIds, convId],
+          });
+        } else {
+          // Existing is more recent, just update unread count and add conversationId
+          existing.unreadCount = (
+            parseInt(existing.unreadCount) + parseInt(conv.unreadCount)
+          ).toString();
+          if (!existing.allConversationIds.includes(convId)) {
+            existing.allConversationIds.push(convId);
+          }
+        }
+      }
+    }
+  });
+
+  // Convert map to array and sort by lastMessageAt (most recent first)
+  const conversations: ConversationUser[] = Array.from(
+    conversationsMap.values()
+  )
+    .map(({ allConversationIds: _allIds, ...conv }) => {
+      // Enhance with online user details if available (after grouping)
+      let enhancedOtherUser = conv.otherUser;
+      if (onlineUsersDetails && onlineUsersDetails.length > 0 && conv.otherUser.id) {
+        const onlineUserDetail = onlineUsersDetails.find(u => u.id === conv.otherUser.id);
+        if (onlineUserDetail) {
+          enhancedOtherUser = {
+            ...conv.otherUser,
+            username: onlineUserDetail.username || conv.otherUser.username,
+            profileImage: onlineUserDetail.profileImage || conv.otherUser.profileImage,
+          };
+        }
+      }
+      
+      // Remove allConversationIds from final output (stored but not needed in UI)
+      // Note: allConversationIds could be used in future to fetch messages from all conversations
+      // Ensure required fields are strings
       return {
-        id: conv.id || conv.conversationId,
-        conversationId: conv.conversationId || conv.id,
+        ...conv,
+        id: conv.id || conv.conversationId || '',
+        conversationId: conv.conversationId || conv.id || '',
         otherUser: {
-          ...otherUser,
-          status: otherUser.status || conv.otherUser?.status,
-          isOnline: isOnline,
+          ...enhancedOtherUser,
+          status: enhancedOtherUser.status as
+            | 'active'
+            | 'inactive'
+            | 'offline'
+            | undefined,
         },
-        lastMessage: conv.lastMessage || conv.lastMessage?.text,
-        lastMessageAt: conv.lastMessageAt || conv.updatedAt,
-        unreadCount: conv.unreadCount?.toString() || '0',
-        productId: conv.productId,
       };
-    }) || [];
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.lastMessageAt || 0).getTime();
+      const dateB = new Date(b.lastMessageAt || 0).getTime();
+      return dateB - dateA; // Most recent first
+    });
 
   const handleUserSelect = async (conversation: ConversationUser) => {
     const isSameConversation =
@@ -136,8 +288,8 @@ export default function MessagesContent() {
 
     if (!isSameConversation) {
       if (wsRef.current && selectedConversation?.id !== conversation.id) {
-          wsRef.current.close(1000, 'Switching conversation');
-          wsRef.current = null;
+        wsRef.current.close(1000, 'Switching conversation');
+        wsRef.current = null;
       }
 
       if (conversation.otherUser.id) {
@@ -157,7 +309,7 @@ export default function MessagesContent() {
       conversationsData
     ) {
       const conversation = conversations.find(
-        (conv) => conv.otherUser.id === buyerId
+        conv => conv.otherUser.id === buyerId
       );
       if (conversation) {
         hasSelectedFromQueryRef.current = true;
@@ -219,6 +371,7 @@ export default function MessagesContent() {
             isLoading={isLoadingConversations}
             isWebSocketConnected={isWebSocketConnected}
             onlineUsers={onlineUsers}
+            onlineUsersDetails={onlineUsersDetails}
             onSelectConversation={handleUserSelect}
             showChat={showChat}
           />
@@ -235,6 +388,7 @@ export default function MessagesContent() {
                   isConnecting={isConnecting}
                   isWebSocketConnected={isWebSocketConnected}
                   onlineUsers={onlineUsers}
+                  onlineUsersDetails={onlineUsersDetails}
                   otherUserOnlineStatus={otherUserOnlineStatus}
                   onBack={handleBackToUsers}
                 />
@@ -244,15 +398,15 @@ export default function MessagesContent() {
                   hasMoreMessages={hasMoreMessages}
                   isLoadingMore={isLoadingMore}
                   messages={messages}
-                            selectedConversation={selectedConversation}
+                  selectedConversation={selectedConversation}
                   isLoading={isLoadingMessages}
                   isFetching={isFetchingMessages}
                   error={messagesError}
                   user={user}
-                            onAcceptOffer={acceptOffer}
-                            onCounterOffer={counterOffer}
-                            onRejectOffer={rejectOffer}
-                            sendOffer={sendOffer}
+                  onAcceptOffer={acceptOffer}
+                  onCounterOffer={counterOffer}
+                  onRejectOffer={rejectOffer}
+                  sendOffer={sendOffer}
                   onRetry={() => refetchMessages()}
                   conversationId={conversationId}
                 />

@@ -3,7 +3,7 @@ import { useAppSelector } from '@/lib/store/hooks';
 import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ConversationUser, Message } from '../types';
+import type { ConversationUser, Message, OnlineUserDetail } from '../types';
 import { formatMessageTime, formatUsername } from '../utils';
 
 const WS_BASE_URL = 'wss://dolabb-backend-2vsj.onrender.com';
@@ -35,9 +35,15 @@ export function useWebSocket({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [otherUserOnlineStatus, setOtherUserOnlineStatus] = useState<boolean>(false);
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]); // Keep for backward compatibility
+  const [onlineUsersDetails, setOnlineUsersDetails] = useState<OnlineUserDetail[]>([]); // Enhanced with user details
 
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const isIntentionallyClosedRef = useRef<boolean>(false);
+  const maxReconnectAttempts = 5;
+  const reconnectDelay = 3000; // 3 seconds
   
   // Track if we can safely refetch (query must be initialized and not currently fetching)
   const canRefetchRef = useRef(false);
@@ -161,32 +167,97 @@ export function useWebSocket({
         switch (data.type) {
           case 'online_users':
             if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
+              // Update online user IDs (backward compatible)
               setOnlineUsers(data.onlineUsers);
+              
+              // Update online user details if provided
+              if (data.onlineUsersDetails && Array.isArray(data.onlineUsersDetails)) {
+                setOnlineUsersDetails(data.onlineUsersDetails);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('👥 Online users details received:', {
+                    count: data.onlineUsersDetails.length,
+                    users: data.onlineUsersDetails.map((u: OnlineUserDetail) => ({
+                      id: u.id,
+                      username: u.username,
+                      hasProfileImage: !!u.profileImage,
+                    })),
+                  });
+                }
+              }
+              
               if (selectedConversation?.otherUser.id) {
                 const isOtherUserOnline = data.onlineUsers.includes(
                   selectedConversation.otherUser.id
                 );
                 setOtherUserOnlineStatus(isOtherUserOnline);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('✅ Other user online status updated:', {
+                    otherUserId: selectedConversation.otherUser.id,
+                    isOnline: isOtherUserOnline,
+                  });
+                }
               }
             }
             break;
 
           case 'user_status':
             if (data.user_id && data.status) {
+              // Update online user IDs if provided
               if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
                 setOnlineUsers(data.onlineUsers);
               }
+              
+              // Update online user details if provided
+              if (data.onlineUsersDetails && Array.isArray(data.onlineUsersDetails)) {
+                setOnlineUsersDetails(data.onlineUsersDetails);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('👤 User status - online users details updated:', {
+                    count: data.onlineUsersDetails.length,
+                    statusUserId: data.user_id,
+                    status: data.status,
+                  });
+                }
+              }
+              
+              // Update user details if provided in user object
+              if (data.user && data.user.id) {
+                setOnlineUsersDetails(prev => {
+                  const existingIndex = prev.findIndex(u => u.id === data.user.id);
+                  if (data.status === 'online') {
+                    // Add or update user in online users details
+                    if (existingIndex >= 0) {
+                      const updated = [...prev];
+                      updated[existingIndex] = {
+                        id: data.user.id,
+                        username: data.user.username || prev[existingIndex].username,
+                        profileImage: data.user.profileImage || prev[existingIndex].profileImage,
+                      };
+                      return updated;
+                    } else {
+                      return [...prev, {
+                        id: data.user.id,
+                        username: data.user.username || 'Unknown',
+                        profileImage: data.user.profileImage,
+                      }];
+                    }
+                  } else {
+                    // Remove user from online users details when they go offline
+                    return prev.filter(u => u.id !== data.user.id);
+                  }
+                });
+              }
+              
               if (selectedConversation?.otherUser.id === data.user_id) {
                 setOtherUserOnlineStatus(data.status === 'online');
                 if (data.status === 'online') {
+                  // Use username from user object if available, otherwise from selectedConversation
+                  const username = data.user?.username 
+                    ? formatUsername(data.user.username)
+                    : formatUsername(selectedConversation.otherUser.username);
                   toast.info(
                     locale === 'en'
-                      ? `${formatUsername(
-                          selectedConversation.otherUser.username
-                        )} is now online`
-                      : `${formatUsername(
-                          selectedConversation.otherUser.username
-                        )} متصل الآن`
+                      ? `${username} is now online`
+                      : `${username} متصل الآن`
                   );
                 }
               }
@@ -572,18 +643,31 @@ export function useWebSocket({
               }
 
               // Use backend's isSender and sender fields from message if available (most reliable)
-              // Otherwise determine from offer data
+              // The backend sets isSender based on the current WebSocket connection user
+              // isSender = true means YOU sent this message, false means YOU received it
               let isMyMessage = false;
               if (data.message) {
-                // Backend provides isSender and sender in message object
-                isMyMessage = data.message.isSender !== undefined
-                  ? data.message.isSender
-                  : data.message.sender === 'me' ||
-                    (data.message.senderId && data.message.senderId === user?.id);
+                // Method 1: Use isSender (most reliable - backend sets this per client)
+                if (data.message.isSender !== undefined) {
+                  isMyMessage = data.message.isSender;
+                }
+                // Method 2: Use sender field ("me" = you sent it, "other" = you received it)
+                else if (data.message.sender !== undefined) {
+                  isMyMessage = data.message.sender === 'me';
+                }
+                // Method 3: Compare senderId with current user ID
+                else if (data.message.senderId && user?.id) {
+                  isMyMessage = data.message.senderId === user?.id;
+                }
               } else {
-                // Fallback: determine from offer data
+                // Fallback: determine from offer data (should not happen if backend is correct)
                 if (data.type === 'offer_countered') {
-                  isMyMessage = data.offer.sellerId === user?.id;
+                  // For counter offers: check who sent it
+                  // Backend should provide message.senderId, but if not, use offer context
+                  const userIsSeller = data.offer.sellerId === user?.id;
+                  const userIsBuyer = data.offer.buyerId === user?.id;
+                  // This is a fallback - backend should provide isSender or senderId
+                  isMyMessage = userIsSeller || userIsBuyer;
                 } else if (data.type === 'offer_sent') {
                   isMyMessage = data.offer.buyerId === user?.id;
                 } else {
@@ -600,9 +684,13 @@ export function useWebSocket({
                   isSender: data.message?.isSender,
                   sender: data.message?.sender,
                   senderId: data.message?.senderId || data.offer.sellerId || data.offer.buyerId,
+                  receiverId: data.message?.receiverId,
+                  currentUserId: user?.id,
                   offerId: data.offer.id,
                   status: data.offer.status,
                   conversationId: data.conversationId,
+                  offerSellerId: data.offer.sellerId,
+                  offerBuyerId: data.offer.buyerId,
                 });
               }
               
@@ -615,9 +703,29 @@ export function useWebSocket({
               let offerReceiverId: string | undefined;
               if (!messageSenderId || !messageReceiverId) {
                 if (data.type === 'offer_countered') {
-                  // Seller countered buyer's offer: seller is sender, buyer is receiver
-                  offerSenderId = data.offer.sellerId;
-                  offerReceiverId = data.offer.buyerId;
+                  // Counter offer can be sent by either seller or buyer
+                  // We need to determine who sent it based on message.senderId or offer context
+                  if (data.message?.senderId) {
+                    // Use message.senderId to determine sender
+                    offerSenderId = data.message.senderId;
+                    // Receiver is the other party
+                    offerReceiverId = data.message.senderId === data.offer.sellerId 
+                      ? data.offer.buyerId 
+                      : data.offer.sellerId;
+                  } else {
+                    // Fallback: determine from offer context
+                    // Check if current user is seller or buyer to infer who sent it
+                    const userIsSeller = data.offer.sellerId === user?.id;
+                    if (userIsSeller) {
+                      // Seller sent the counter
+                      offerSenderId = data.offer.sellerId;
+                      offerReceiverId = data.offer.buyerId;
+                    } else {
+                      // Buyer sent the counter
+                      offerSenderId = data.offer.buyerId;
+                      offerReceiverId = data.offer.sellerId;
+                    }
+                  }
                 } else if (data.type === 'offer_sent') {
                   // Buyer sent initial offer: buyer is sender, seller is receiver
                   offerSenderId = data.offer.buyerId;
@@ -636,13 +744,90 @@ export function useWebSocket({
                                        data.offer.updatedAt || 
                                        data.offer.createdAt;
               
+              // Determine final senderId and receiverId
+              // Priority: message.senderId > offerSenderId > fallback
+              const finalSenderId = messageSenderId || offerSenderId || (isMyMessage ? user?.id : selectedConversation?.otherUser.id);
+              const finalReceiverId = messageReceiverId || offerReceiverId || (isMyMessage ? selectedConversation?.otherUser.id : user?.id);
+              
+              // Ensure sender is correctly set based on backend's isSender/sender fields
+              // Priority: message.sender > isMyMessage (from isSender) > senderId comparison
+              let finalIsMyMessage = isMyMessage; // Already determined from isSender/sender/senderId
+              let finalSender = data.message?.sender; // Use backend's sender field if available
+              
+              // If backend didn't provide sender field, determine from isMyMessage
+              if (!finalSender) {
+                finalSender = finalIsMyMessage ? 'me' : 'other';
+              }
+              
+              // Double-check: ensure finalIsMyMessage matches finalSender
+              if (finalSender === 'me' && !finalIsMyMessage) {
+                finalIsMyMessage = true;
+              } else if (finalSender === 'other' && finalIsMyMessage) {
+                finalIsMyMessage = false;
+              }
+              
+              // Final verification: compare senderId with current user ID
+              if (finalSenderId && user?.id) {
+                const senderIdMatches = finalSenderId === user?.id;
+                if (senderIdMatches !== finalIsMyMessage) {
+                  // Log warning if there's a mismatch
+                  if (process.env.NODE_ENV === 'development') {
+                    console.warn('⚠️ Mismatch in sender determination:', {
+                      finalSenderId,
+                      currentUserId: user?.id,
+                      finalIsMyMessage,
+                      senderIdMatches,
+                      messageSender: data.message?.sender,
+                      messageIsSender: data.message?.isSender,
+                    });
+                  }
+                  // Use senderId comparison as final authority
+                  finalIsMyMessage = senderIdMatches;
+                  finalSender = senderIdMatches ? 'me' : 'other';
+                }
+              }
+              
+              // Log offer send/receive for debugging
+              if (process.env.NODE_ENV === 'development') {
+                if (data.type === 'offer_sent' || data.type === 'offer_countered') {
+                  console.log(
+                    finalIsMyMessage ? '📤 Offer SENT:' : '📥 Offer RECEIVED:',
+                    {
+                      type: data.type,
+                      isMyOffer: finalIsMyMessage,
+                      // Backend fields (most important)
+                      isSender: data.message?.isSender,
+                      sender: data.message?.sender,
+                      messageSenderId: data.message?.senderId,
+                      messageReceiverId: data.message?.receiverId,
+                      // Final determination
+                      finalSender: finalSender,
+                      finalIsMyMessage: finalIsMyMessage,
+                      finalSenderId: finalSenderId,
+                      finalReceiverId: finalReceiverId,
+                      // Current user
+                      currentUserId: user?.id,
+                      // Offer details
+                      offerId: data.offer.id,
+                      counterAmount: data.offer.counterAmount,
+                      offerAmount: data.offer.offerAmount,
+                      offerSellerId: data.offer.sellerId,
+                      offerBuyerId: data.offer.buyerId,
+                      // Additional debugging
+                      hasMessage: !!data.message,
+                      messageId: data.message?.id,
+                    }
+                  );
+                }
+              }
+              
               // Build complete offer object matching backend structure
               const offerMessage: Message = {
                 id: data.message?.id || `${data.type}_${data.offer.id}_${Date.now()}`,
                 text: data.message?.text || '',
-                sender: data.message?.sender || (isMyMessage ? 'me' : 'other'),
-                senderId: messageSenderId || offerSenderId || (isMyMessage ? user?.id : selectedConversation?.otherUser.id),
-                receiverId: messageReceiverId || offerReceiverId || (isMyMessage ? selectedConversation?.otherUser.id : user?.id),
+                sender: finalSender,
+                senderId: finalSenderId,
+                receiverId: finalReceiverId,
                 timestamp: formatMessageTime(offerRawTimestamp, locale),
                 rawTimestamp: offerRawTimestamp, // Store original timestamp for sorting
                 offerId: data.offer.id,
@@ -670,10 +855,10 @@ export function useWebSocket({
                     : undefined,
                 },
                 messageType: 'offer',
-                isDelivered: isMyMessage
+                isDelivered: finalIsMyMessage
                   ? (data.message?.isDelivered !== undefined ? data.message.isDelivered : true)
                   : undefined,
-                isRead: isMyMessage
+                isRead: finalIsMyMessage
                   ? (data.message?.isRead !== undefined ? data.message.isRead : false)
                   : undefined,
               };
@@ -681,7 +866,7 @@ export function useWebSocket({
               // Always add the offer message if it matches the current conversation
               setMessages(prev => {
                 // For my messages (especially counter offers), try to replace optimistic messages
-                if (isMyMessage && data.type === 'offer_countered') {
+                if (finalIsMyMessage && data.type === 'offer_countered') {
                   // Find optimistic counter offer messages to replace
                   const optimisticMessages = prev
                     .map((msg, index) => ({ msg, index }))
@@ -700,10 +885,25 @@ export function useWebSocket({
                       ...offerMessage,
                       isDelivered: true,
                     };
-                    // Remove any other duplicate optimistic messages
-                    return updated.filter((msg, idx) => 
+                    // Remove any other duplicate optimistic messages, but keep the replaced one
+                    const filtered = updated.filter((msg, idx) => 
                       idx === index || !msg.id.startsWith('temp-counter-') || msg.offerId !== offerMessage.offerId
                     );
+                    // Sort to maintain chronological order (oldest first, newest last)
+                    return filtered.sort((a, b) => {
+                      try {
+                        const timeA = a.rawTimestamp 
+                          ? new Date(a.rawTimestamp).getTime()
+                          : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
+                        const timeB = b.rawTimestamp 
+                          ? new Date(b.rawTimestamp).getTime()
+                          : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
+                        if (timeA > 0 && timeB > 0) {
+                          return timeA - timeB; // Ascending order (oldest first)
+                        }
+                      } catch {}
+                      return a.id.localeCompare(b.id);
+                    });
                   }
                 }
 
@@ -851,6 +1051,41 @@ export function useWebSocket({
 
           case 'error':
             const errorMsg = data.message || data.error;
+            const errorType = data.error || '';
+            
+            // Comprehensive error logging for counter offer errors
+            if (errorType === 'COUNTER_OFFER_ERROR' || errorMsg === 'Offer not found') {
+              console.error('❌ [COUNTER OFFER ERROR] Full WebSocket Error Response:', {
+                timestamp: new Date().toISOString(),
+                errorType: errorType,
+                errorMessage: errorMsg,
+                fullErrorData: data,
+                errorDataKeys: Object.keys(data),
+                conversationId: data.conversationId,
+                offerId: data.offerId,
+                // Log all fields from error response
+                allFields: JSON.stringify(data, null, 2),
+              });
+              
+              // Log what was likely sent (based on error context)
+              console.warn('⚠️ [COUNTER OFFER ERROR] Expected payload that was sent:', {
+                type: 'counter_offer',
+                offerId: data.offerId || 'NOT PROVIDED IN ERROR',
+                note: 'Backend should include the offerId that was received in the error response',
+              });
+            }
+            
+            // Remove optimistic counter offer message if error occurred
+            if (errorType === 'COUNTER_OFFER_ERROR' && setMessages) {
+              // Remove any optimistic counter offer messages for this offerId
+              if (data.conversationId) {
+                setMessages(prev => prev.filter(msg => 
+                  !msg.id.startsWith('temp-counter-') || 
+                  msg.offerId !== data.offerId
+                ));
+              }
+            }
+            
             if (errorMsg === 'You cannot make an offer on your own product') {
               toast.error(
                 locale === 'en'
@@ -862,6 +1097,45 @@ export function useWebSocket({
                 locale === 'en'
                   ? 'You cannot purchase your own product'
                   : 'لا يمكنك شراء منتجك الخاص'
+              );
+            } else if (errorMsg === 'You cannot counter your own last counter. Wait for the other party to respond.') {
+              // Specific error for countering your own last counter
+              console.warn('⚠️ [COUNTER OFFER] User tried to counter their own last counter offer');
+              toast.warning(
+                locale === 'en'
+                  ? 'You cannot counter your own last counter. Please wait for the other party to respond.'
+                  : 'لا يمكنك الرد على عرضك المقابل الأخير. يرجى انتظار رد الطرف الآخر.'
+              );
+            } else if (errorMsg === 'Offer not found' || errorType === 'COUNTER_OFFER_ERROR') {
+              // Log detailed error information for debugging (always log, not just in development)
+              console.error('❌ [COUNTER OFFER ERROR] Detailed Error Information:', {
+                timestamp: new Date().toISOString(),
+                errorMessage: errorMsg,
+                errorType: errorType,
+                conversationId: data.conversationId,
+                offerIdFromError: data.offerId, // Backend might not include this
+                fullErrorData: data,
+                errorDataStringified: JSON.stringify(data, null, 2),
+                currentUserId: user?.id,
+                currentUserRole: user?.role,
+                selectedConversationId: selectedConversation?.id,
+                selectedConversationOtherUserId: selectedConversation?.otherUser?.id,
+                websocketState: wsRef.current?.readyState,
+                note: 'Backend error response should include the offerId that was sent for debugging.',
+              });
+              
+              // Log what was sent (if we can track it)
+              console.warn('⚠️ [COUNTER OFFER ERROR] Check the "📤 [COUNTER OFFER] Sending via WebSocket" log above to see what was sent.');
+              
+              // Remove optimistic counter offer messages on error
+              if (setMessages && errorType === 'COUNTER_OFFER_ERROR') {
+                setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-counter-')));
+              }
+              
+              toast.error(
+                locale === 'en'
+                  ? 'Offer not found. The offer may have been deleted, accepted, rejected, or the offer ID may be incorrect. Please refresh the page and try again.'
+                  : 'العرض غير موجود. ربما تم حذفه أو قبوله أو رفضه أو معرف العرض غير صحيح. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
               );
             } else {
               toast.error(
@@ -968,15 +1242,15 @@ export function useWebSocket({
           return;
         }
 
-        const connectionState = { isIntentionallyClosed: false };
+        isIntentionallyClosedRef.current = false;
 
         if (wsRef.current && conversationId && conversationId !== convId) {
-          connectionState.isIntentionallyClosed = true;
+          isIntentionallyClosedRef.current = true;
           wsRef.current.close(1000, 'Switching conversation');
           wsRef.current = null;
         } else if (wsRef.current) {
           if (wsRef.current.readyState !== WebSocket.OPEN) {
-            connectionState.isIntentionallyClosed = true;
+            isIntentionallyClosedRef.current = true;
             wsRef.current.close();
             wsRef.current = null;
           }
@@ -1006,16 +1280,37 @@ export function useWebSocket({
           console.log('✅ WebSocket Connected successfully');
           setIsConnecting(false);
           setIsWebSocketConnected(true);
-          connectionState.isIntentionallyClosed = false;
+          isIntentionallyClosedRef.current = false;
+          // Reset reconnection attempts on successful connection
+          reconnectAttemptsRef.current = 0;
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+          }
         };
 
         websocket.onmessage = event => {
           try {
             const data = JSON.parse(event.data);
-            // Log incoming messages for debugging (can be removed in production)
-            if (process.env.NODE_ENV === 'development') {
-              console.log('📨 WebSocket message received:', data.type, data);
+            // Always log incoming messages for debugging (especially errors)
+            console.log('📨 [WEBSOCKET] Message received:', {
+              timestamp: new Date().toISOString(),
+              type: data.type,
+              data: data,
+              dataStringified: JSON.stringify(data, null, 2),
+            });
+            
+            // Special logging for error messages
+            if (data.type === 'error') {
+              console.error('📨 [WEBSOCKET ERROR] Error message received:', {
+                timestamp: new Date().toISOString(),
+                errorType: data.error,
+                errorMessage: data.message,
+                fullErrorData: data,
+                errorDataStringified: JSON.stringify(data, null, 2),
+              });
             }
+            
             // Wrap handleWebSocketMessage in try-catch to catch refetch errors
             try {
               handleWebSocketMessage(data);
@@ -1052,7 +1347,8 @@ export function useWebSocket({
           setIsConnecting(false);
           setIsWebSocketConnected(false);
 
-          if (connectionState.isIntentionallyClosed) {
+          if (isIntentionallyClosedRef.current) {
+            reconnectAttemptsRef.current = 0; // Reset attempts on intentional close
             return;
           }
 
@@ -1062,12 +1358,44 @@ export function useWebSocket({
                 ? 'Authentication failed. Please login again.'
                 : 'فشل المصادقة. يرجى تسجيل الدخول مرة أخرى.'
             );
+            reconnectAttemptsRef.current = 0; // Don't reconnect on auth failure
             return;
+          }
+
+          // Handle unexpected disconnections (like 1011 - Internal Server Error)
+          // Attempt to reconnect if we have a conversation and haven't exceeded max attempts
+          if (selectedConversation && reconnectAttemptsRef.current < maxReconnectAttempts) {
+            reconnectAttemptsRef.current += 1;
+            const delay = reconnectDelay * reconnectAttemptsRef.current; // Exponential backoff
+            
+            console.log(`🔄 Attempting to reconnect WebSocket (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`);
+            
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (selectedConversation && user && token) {
+                initializeConversation(selectedConversation.otherUser.id).catch(error => {
+                  console.error('Reconnection attempt failed:', error);
+                  if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+                    toast.error(
+                      locale === 'en'
+                        ? 'Failed to reconnect. Please refresh the page.'
+                        : 'فشل إعادة الاتصال. يرجى تحديث الصفحة.'
+                    );
+                  }
+                });
+              }
+            }, delay);
+          } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+            console.error('❌ Max reconnection attempts reached. Please refresh the page.');
+            toast.error(
+              locale === 'en'
+                ? 'Connection lost. Please refresh the page to reconnect.'
+                : 'انقطع الاتصال. يرجى تحديث الصفحة لإعادة الاتصال.'
+            );
           }
         };
 
         wsRef.current = websocket;
-        connectionState.isIntentionallyClosed = false;
+        isIntentionallyClosedRef.current = false;
         
         if (setConversationId) {
           setConversationId(convId);
@@ -1089,10 +1417,20 @@ export function useWebSocket({
 
   useEffect(() => {
     return () => {
+      // Clear any pending reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      // Close WebSocket connection
       if (wsRef.current) {
-        wsRef.current.close();
+        // Mark as intentionally closed to prevent reconnection attempts
+        isIntentionallyClosedRef.current = true;
+        wsRef.current.close(1000, 'Component unmounting');
         wsRef.current = null;
       }
+      // Reset reconnection attempts
+      reconnectAttemptsRef.current = 0;
     };
   }, []);
 
@@ -1100,7 +1438,8 @@ export function useWebSocket({
     isConnecting,
     isWebSocketConnected,
     otherUserOnlineStatus,
-    onlineUsers,
+    onlineUsers, // Backward compatible - array of user IDs
+    onlineUsersDetails, // Enhanced - array of user objects with username and profileImage
     wsRef,
     initializeConversation,
   };

@@ -124,7 +124,6 @@ export default function ChatArea({
       if (scrollTop < 100 && hasMoreMessages && !isLoadingMore) {
         // Store current scroll position
         previousScrollHeight.current = scrollHeight;
-        isUserScrollingUp.current = true; // Mark that user is viewing old messages
         loadMoreMessages();
       }
       
@@ -324,24 +323,31 @@ export default function ChatArea({
             </div>
           )}
           {messages.map(message => {
-          // Check if message is an offer message using messageType from backend
-          // Backend sets messageType to "offer" for all offer-related messages
-          const isOfferMessage = message.messageType === 'offer' || !!message.offerId;
+          // Explicitly check if this is a text message - if so, never render as offer card
+          const isTextMessage = message.messageType === 'text' || 
+                                (!message.messageType && !message.offerId && !message.offer);
           
-          const hasActualOffer =
-            message.offer &&
-            (message.offer.offerAmount ||
+          // Only render as offer card if:
+          // 1. messageType is explicitly 'offer' AND has offerId/offer
+          // 2. OR has offerId AND offer object (not null/undefined)
+          // 3. AND is NOT a text message
+          const shouldRenderAsOffer = !isTextMessage && (
+            (message.messageType === 'offer' && (message.offerId || message.offer)) ||
+            (message.offerId && message.offer && message.offerId !== null && message.offerId !== undefined) ||
+            (message.offer && (
+              message.offer.offerAmount ||
               message.offer.offer ||
               message.offer.counterAmount ||
-              message.offer.status);
+              message.offer.status
+            ))
+          );
 
-          // Show as offer message if: messageType is "offer" OR has offer object OR has offerId
-          // Also show if offerId exists (even without full offer object initially)
-          if (isOfferMessage || hasActualOffer || (message.offerId && message.offer) || message.offerId) {
+          if (shouldRenderAsOffer) {
             return (
               <ProductMessageCard
                 key={message.id}
                 message={message}
+                messages={messages}
                 locale={locale}
                 user={user}
                 selectedConversation={selectedConversation}

@@ -1,18 +1,36 @@
 import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { ConversationUser, Message } from '../types';
 import { formatMessageTime } from '../utils';
 
 interface UseOffersProps {
   wsRef: React.MutableRefObject<WebSocket | null>;
-  user: any;
+  user: { id: string; role: string } | null | undefined;
   setMessages?: React.Dispatch<React.SetStateAction<Message[]>>;
   selectedConversation?: ConversationUser | null;
 }
 
-export function useOffers({ wsRef, user, setMessages, selectedConversation }: UseOffersProps) {
+interface CounterOfferPayload {
+  type: 'counter_offer';
+  offerId: string;
+  counterAmount: number;
+  receiverId: string;
+  text: string;
+  sellerId?: string;
+  seller_id?: string;
+  buyerId?: string;
+  buyer_id?: string;
+}
+
+export function useOffers({ wsRef, user, setMessages }: UseOffersProps) {
   const locale = useLocale();
+  // Track last sent counter offer for error logging
+  const lastCounterOfferRef = useRef<{
+    offerId: string;
+    timestamp: number;
+    payload: CounterOfferPayload;
+  } | null>(null);
 
   const sendOffer = useCallback(
     async (
@@ -71,6 +89,7 @@ export function useOffers({ wsRef, user, setMessages, selectedConversation }: Us
       counterAmount: number,
       receiverId: string,
       text?: string,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       originalOffer?: any
     ): Promise<void> => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -82,7 +101,28 @@ export function useOffers({ wsRef, user, setMessages, selectedConversation }: Us
         return;
       }
 
-      const counterText = text ||
+      // Validate offerId exists
+      if (!offerId || offerId.trim() === '') {
+        toast.error(
+          locale === 'en'
+            ? 'Invalid offer. Please try again.'
+            : 'عرض غير صالح. يرجى المحاولة مرة أخرى.'
+        );
+        return;
+      }
+
+      // Validate counter amount
+      if (!counterAmount || counterAmount <= 0) {
+        toast.error(
+          locale === 'en'
+            ? 'Please enter a valid counter offer amount.'
+            : 'يرجى إدخال مبلغ عرض مقابل صحيح.'
+        );
+        return;
+      }
+
+      const counterText =
+        text ||
         (locale === 'en'
           ? `I can do ${counterAmount} SAR`
           : `يمكنني الموافقة على ${counterAmount} ريال`);
@@ -108,17 +148,19 @@ export function useOffers({ wsRef, user, setMessages, selectedConversation }: Us
             originalPrice: originalOffer.originalPrice,
             status: 'countered',
             productId: originalOffer.productId || originalOffer.product?.id,
-            product: originalOffer.product ? {
-              id: originalOffer.product.id || originalOffer.productId,
-              title: originalOffer.product.title,
-              image: originalOffer.product.image,
-              images: originalOffer.product.images,
-              price: originalOffer.product.price,
-              originalPrice: originalOffer.product.originalPrice,
-              currency: originalOffer.product.currency,
-              size: originalOffer.product.size,
-              condition: originalOffer.product.condition,
-            } : undefined,
+            product: originalOffer.product
+              ? {
+                  id: originalOffer.product.id || originalOffer.productId,
+                  title: originalOffer.product.title,
+                  image: originalOffer.product.image,
+                  images: originalOffer.product.images,
+                  price: originalOffer.product.price,
+                  originalPrice: originalOffer.product.originalPrice,
+                  currency: originalOffer.product.currency,
+                  size: originalOffer.product.size,
+                  condition: originalOffer.product.condition,
+                }
+              : undefined,
           },
           messageType: 'offer',
           isDelivered: false,
@@ -127,34 +169,121 @@ export function useOffers({ wsRef, user, setMessages, selectedConversation }: Us
 
         setMessages(prev => {
           // Check if we already have this counter offer
-          const exists = prev.some(m => 
-            m.offerId === offerId && 
-            m.offer?.status === 'countered' && 
-            m.offer?.counterAmount === counterAmount
+          const exists = prev.some(
+            m =>
+              m.offerId === offerId &&
+              m.offer?.status === 'countered' &&
+              m.offer?.counterAmount === counterAmount
           );
           if (exists) return prev;
-          return [...prev, optimisticMessage];
+          // Add and sort to maintain chronological order (oldest first, newest last)
+          const updated = [...prev, optimisticMessage];
+          return updated.sort((a, b) => {
+            try {
+              const timeA = a.rawTimestamp
+                ? new Date(a.rawTimestamp).getTime()
+                : a.id && !a.id.startsWith('temp-')
+                ? parseInt(a.id.substring(0, 8), 16) * 1000
+                : Date.now();
+              const timeB = b.rawTimestamp
+                ? new Date(b.rawTimestamp).getTime()
+                : b.id && !b.id.startsWith('temp-')
+                ? parseInt(b.id.substring(0, 8), 16) * 1000
+                : Date.now();
+              if (timeA > 0 && timeB > 0) {
+                return timeA - timeB; // Ascending order (oldest first, newest last)
+              }
+            } catch {}
+            return a.id.localeCompare(b.id);
+          });
         });
       }
 
-      const counterPayload = {
+      // Determine if user is seller or buyer
+      const isSeller = user?.role === 'seller';
+      const isBuyer = user?.role === 'buyer';
+
+      // Ensure offerId is always included in the payload
+      // Include sellerId if user is seller, buyerId if user is buyer
+      const counterPayload: CounterOfferPayload = {
         type: 'counter_offer',
-        offerId: offerId,
+        offerId: offerId, // Always include offerId
         counterAmount: counterAmount,
         receiverId: receiverId,
         text: counterText,
       };
 
+      // Add sellerId or buyerId based on user role
+      if (isSeller && user?.id) {
+        counterPayload.sellerId = user.id;
+        // Also include seller_id (snake_case) for backend compatibility
+        counterPayload.seller_id = user.id;
+      } else if (isBuyer && user?.id) {
+        counterPayload.buyerId = user.id;
+        // Also include buyer_id (snake_case) for backend compatibility
+        counterPayload.buyer_id = user.id;
+      }
+
+      // Double-check offerId is present before sending
+      if (!counterPayload.offerId || counterPayload.offerId.trim() === '') {
+        console.error(
+          '❌ Error: offerId is missing or empty from counter offer payload',
+          {
+            offerId: offerId,
+            counterAmount: counterAmount,
+            receiverId: receiverId,
+            originalOffer: originalOffer,
+          }
+        );
+        toast.error(
+          locale === 'en'
+            ? 'Error: Offer ID is missing. Please try again.'
+            : 'خطأ: معرف العرض مفقود. يرجى المحاولة مرة أخرى.'
+        );
+        return;
+      }
+
+      // Store the full payload being sent for error tracking
+      lastCounterOfferRef.current = {
+        offerId: counterPayload.offerId,
+        timestamp: Date.now(),
+        payload: { ...counterPayload },
+      };
+
+      // Log the payload being sent (always log, not just in development)
+      console.log('📤 [COUNTER OFFER] Sending via WebSocket:', {
+        timestamp: new Date().toISOString(),
+        payload: counterPayload,
+        payloadString: JSON.stringify(counterPayload),
+        user: {
+          id: user?.id,
+          role: user?.role,
+        },
+        originalOffer: {
+          id: originalOffer?.id,
+          status: originalOffer?.status,
+          offerAmount: originalOffer?.offerAmount,
+          counterAmount: originalOffer?.counterAmount,
+        },
+      });
+
       try {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('📤 Sending counter offer via WebSocket:', counterPayload);
-        }
         wsRef.current.send(JSON.stringify(counterPayload));
+        console.log('✅ [COUNTER OFFER] WebSocket message sent successfully');
       } catch (error) {
-        console.error('Error sending counter offer:', error);
+        console.error('❌ [COUNTER OFFER] Error sending via WebSocket:', {
+          error: error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          payload: lastCounterOfferRef.current?.payload,
+          websocketState: wsRef.current?.readyState,
+          websocketUrl: wsRef.current?.url,
+        });
         // Remove optimistic message on error
         if (setMessages) {
-          setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-counter-')));
+          setMessages(prev =>
+            prev.filter(msg => !msg.id.startsWith('temp-counter-'))
+          );
         }
         toast.error(
           locale === 'en'
@@ -252,4 +381,3 @@ export function useOffers({ wsRef, user, setMessages, selectedConversation }: Us
     rejectOffer,
   };
 }
-

@@ -9,6 +9,7 @@ interface CounterOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
   originalOfferAmount: number;
+  originalPrice?: number;
   productTitle?: string;
   onSubmit: (counterAmount: number) => Promise<void>;
   isLoading?: boolean;
@@ -18,6 +19,7 @@ export default function CounterOfferModal({
   isOpen,
   onClose,
   originalOfferAmount,
+  originalPrice,
   productTitle,
   onSubmit,
   isLoading = false,
@@ -110,16 +112,19 @@ export default function CounterOfferModal({
                 </div>
               )}
 
-              <div className='mb-4 p-3 bg-rich-sand/10 rounded-lg'>
-                <div className='flex items-center justify-between'>
-                  <span className='text-sm text-deep-charcoal/70'>
-                    {locale === 'en' ? 'Original Offer' : 'العرض الأصلي'}
-                  </span>
-                  <span className='text-lg font-bold text-deep-charcoal/60'>
-                    {locale === 'ar' ? 'ر.س' : 'SAR'} {originalOfferAmount.toFixed(2)}
-                  </span>
+              {originalPrice && originalPrice > 0 && (
+                <div className='mb-4 p-3 bg-rich-sand/10 rounded-lg'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-sm text-deep-charcoal/70'>
+                      {locale === 'en' ? 'Original Offer' : 'العرض الأصلي'}
+                    </span>
+                    <span className='text-lg font-bold text-deep-charcoal/60'>
+                      {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
+                      {originalPrice.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <form onSubmit={handleSubmit} className='space-y-4'>
                 <div>
@@ -127,10 +132,16 @@ export default function CounterOfferModal({
                     htmlFor='counterAmount'
                     className='block text-sm font-medium text-deep-charcoal mb-2'
                   >
-                    {locale === 'en' ? 'Your Counter Offer Amount' : 'مبلغ العرض المقابل'}
+                    {locale === 'en'
+                      ? 'Your Counter Offer Amount'
+                      : 'مبلغ العرض المقابل'}
                   </label>
                   <div className='relative'>
-                    <span className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-deep-charcoal/60 text-sm`}>
+                    <span
+                      className={`absolute ${
+                        isRTL ? 'right-3' : 'left-3'
+                      } top-1/2 -translate-y-1/2 text-deep-charcoal/60 text-sm`}
+                    >
                       {locale === 'ar' ? 'ر.س' : 'SAR'}
                     </span>
                     <input
@@ -192,5 +203,3 @@ export default function CounterOfferModal({
     </AnimatePresence>
   );
 }
-
-

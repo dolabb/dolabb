@@ -96,8 +96,11 @@ export function useMessages({
         (msg: ApiMessage) => {
           // Check if message is an offer message using messageType from backend
           // Backend sets messageType to "offer" for all offer-related messages
+          // Explicitly check that messageType is NOT 'text' to avoid false positives
           const apiMessage = msg as any;
-          const isOfferMessage = apiMessage.messageType === 'offer' || !!msg.offerId;
+          const isOfferMessage = 
+            apiMessage.messageType === 'offer' ||
+            (!!msg.offerId && apiMessage.messageType !== 'text');
 
           const formattedMessage: Message = {
             id: msg.id,
@@ -110,13 +113,15 @@ export function useMessages({
             attachments: msg.attachments || [],
             senderId: msg.senderId,
             receiverId: msg.receiverId,
-            offerId: msg.offerId || apiMessage.offer?.id || undefined,
-            productId:
+            // Only set offerId/productId if this is actually an offer message
+            offerId: isOfferMessage ? (msg.offerId || apiMessage.offer?.id || undefined) : undefined,
+            productId: isOfferMessage ? (
               msg.productId ||
               apiMessage.offer?.productId ||
               apiMessage.offer?.product?.id ||
-              undefined,
-            offer: apiMessage.offer ? {
+              undefined
+            ) : undefined,
+            offer: (apiMessage.offer && isOfferMessage) ? {
               id: apiMessage.offer.id,
               offerAmount: apiMessage.offer.offerAmount,
               counterAmount: apiMessage.offer.counterAmount,
@@ -165,10 +170,22 @@ export function useMessages({
           
           // Get WebSocket messages (real IDs) that aren't in the API response yet
           // These are messages received via WebSocket that haven't been persisted to DB yet
+          // IMPORTANT: Also preserve offer messages (counter offers, etc.) that might not be in API yet
           const websocketMessages = prev.filter(msg => 
             !msg.id.startsWith('temp-') && // Not an optimistic message
             !formattedMessages.some(apiMsg => apiMsg.id === msg.id) && // Not in API response
             msg.id && // Has a real ID (from WebSocket)
+            true
+          );
+          
+          // Also preserve offer messages (counter offers, accepted offers, etc.) that might not be in API response yet
+          // These are important and should not be removed
+          const offerMessages = prev.filter(msg => 
+            (msg.offerId || msg.messageType === 'offer') && // Is an offer message
+            !formattedMessages.some(apiMsg => 
+              apiMsg.id === msg.id || 
+              (apiMsg.offerId === msg.offerId && apiMsg.offer?.status === msg.offer?.status)
+            ) && // Not in API response with same offerId and status
             true
           );
           
@@ -193,8 +210,9 @@ export function useMessages({
             return true; // New message or will replace a temp message
           });
           
-          // Combine new API messages with optimistic and WebSocket messages
-          const allMessages = [...newApiMessages, ...optimisticMessages, ...websocketMessages];
+          // Combine new API messages with optimistic, WebSocket, and offer messages
+          // This ensures counter offers and other offer messages don't disappear
+          const allMessages = [...newApiMessages, ...optimisticMessages, ...websocketMessages, ...offerMessages];
           
           // Remove duplicates by ID
           const uniqueMessages = allMessages.reduce((acc, msg) => {
@@ -208,10 +226,21 @@ export function useMessages({
           // 1. Keep existing real messages that aren't in the new API response
           // 2. Replace temp messages if they match new API messages
           // 3. Add new messages from API
+          // IMPORTANT: Preserve offer messages (counter offers, etc.) even if not in API response
           const finalMessages = [
             ...prev.filter(m => {
               // Remove temp messages that are being replaced
               if (m.id.startsWith('temp-')) {
+                // For temp counter offers, check if they're being replaced by real message
+                if (m.id.startsWith('temp-counter-')) {
+                  const isBeingReplaced = newApiMessages.some(apiMsg => 
+                    apiMsg.offerId === m.offerId && 
+                    apiMsg.offer?.status === 'countered' &&
+                    apiMsg.offer?.counterAmount === m.offer?.counterAmount
+                  );
+                  return !isBeingReplaced; // Keep if not being replaced
+                }
+                // For other temp messages, check by text content
                 const isBeingReplaced = newApiMessages.some(apiMsg => {
                   const tempText = (m.text || '').trim().toLowerCase();
                   const apiText = (apiMsg.text || '').trim().toLowerCase();
@@ -221,6 +250,23 @@ export function useMessages({
                 });
                 return !isBeingReplaced; // Keep if not being replaced
               }
+              
+              // Always preserve offer messages (counter offers, accepted offers, etc.)
+              // These are important and might not be in API response yet
+              if (m.offerId || m.messageType === 'offer') {
+                // Check if this exact offer message is already in new API messages
+                const existsInApi = newApiMessages.some(apiMsg => 
+                  apiMsg.id === m.id || 
+                  (apiMsg.offerId === m.offerId && 
+                   apiMsg.offer?.status === m.offer?.status &&
+                   (m.offer?.counterAmount !== undefined 
+                     ? apiMsg.offer?.counterAmount === m.offer?.counterAmount
+                     : true))
+                );
+                // Keep if not in API response (it's a real-time message that hasn't been persisted yet)
+                return !existsInApi;
+              }
+              
               // Keep real messages that aren't in the new API response
               // (they might be newer messages not yet in page 1, or older messages from previous loads)
               return !newApiMessages.some(apiMsg => apiMsg.id === m.id);
@@ -229,7 +275,8 @@ export function useMessages({
           ];
           
           // Sort by rawTimestamp (chronological order - oldest first, newest last)
-          return uniqueMessages.sort((a, b) => {
+          // IMPORTANT: Sort finalMessages, not uniqueMessages, to include all preserved messages
+          return finalMessages.sort((a, b) => {
             try {
               const timeA = a.rawTimestamp 
                 ? new Date(a.rawTimestamp).getTime()
@@ -239,7 +286,7 @@ export function useMessages({
                 : (b.id ? parseInt(b.id.substring(0, 8), 16) * 1000 : 0);
               
               if (timeA > 0 && timeB > 0) {
-                return timeA - timeB; // Ascending order (oldest first)
+                return timeA - timeB; // Ascending order (oldest first, newest last)
               }
             } catch (error) {
               if (process.env.NODE_ENV === 'development') {
