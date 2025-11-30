@@ -25,7 +25,7 @@ export function useMessages({
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const MESSAGES_PER_PAGE = 4;
+  const MESSAGES_PER_PAGE = 4; // Load 4 messages per page (both initial and load more)
 
   const {
     data: messagesData,
@@ -46,7 +46,15 @@ export function useMessages({
   useEffect(() => {
     if (conversationId) {
       setCurrentPage(1);
-      setHasMoreMessages(true);
+      setHasMoreMessages(true); // Start with true, will be updated when data arrives
+      setIsLoadingMore(false);
+      // Note: Don't clear messages here - let the component handle it
+      // This prevents unnecessary clearing and allows proper message merging
+    } else {
+      // If no conversationId, reset state but don't clear messages
+      // (component will handle clearing when needed)
+      setCurrentPage(1);
+      setHasMoreMessages(false);
       setIsLoadingMore(false);
     }
   }, [conversationId]);
@@ -69,11 +77,17 @@ export function useMessages({
       const pagination = messagesData.pagination;
 
       // Update hasMoreMessages based on pagination
-      if (pagination) {
-        setHasMoreMessages(currentPage < pagination.totalPages);
+      // Always prioritize pagination metadata if available
+      if (pagination && typeof pagination.totalPages === 'number') {
+        // If pagination exists and is valid, check if currentPage is less than totalPages
+        const hasMore = currentPage < pagination.totalPages;
+        setHasMoreMessages(hasMore);
       } else {
-        // If no pagination info, check if we got fewer messages than requested
-        setHasMoreMessages(messagesArray.length === MESSAGES_PER_PAGE);
+        // If no pagination info, use heuristics:
+        // - If we got exactly the requested amount (4), there might be more
+        // - If we got fewer than requested, there are no more messages
+        const hasMore = messagesArray.length >= MESSAGES_PER_PAGE;
+        setHasMoreMessages(hasMore);
       }
 
       // Reset loading state when data arrives
@@ -96,15 +110,68 @@ export function useMessages({
         (msg: ApiMessage) => {
           // Check if message is an offer message using messageType from backend
           // Backend sets messageType to "offer" for all offer-related messages
-          // Explicitly check that messageType is NOT 'text' to avoid false positives
+          // This includes: initial offers, counter offers, accepted offers, rejected offers
           const apiMessage = msg as any;
+          
+          // Multiple ways to identify offer messages:
+          // 1. messageType === 'offer'
+          // 2. Has offerId
+          // 3. Has offer object (which may contain counterAmount for counter offers)
           const isOfferMessage = 
             apiMessage.messageType === 'offer' ||
-            (!!msg.offerId && apiMessage.messageType !== 'text');
+            (!!msg.offerId && apiMessage.messageType !== 'text') ||
+            !!apiMessage.offer;
+
+          // Extract offer data - ensure we capture all offer fields including counter offers
+          let offerData = undefined;
+          if (isOfferMessage && (apiMessage.offer || msg.offerId)) {
+            const offer = apiMessage.offer || {};
+            offerData = {
+              id: offer.id || msg.offerId || undefined,
+              offerAmount: offer.offerAmount !== undefined && offer.offerAmount !== null ? offer.offerAmount : undefined,
+              counterAmount: offer.counterAmount !== undefined && offer.counterAmount !== null ? offer.counterAmount : undefined,
+              originalPrice: offer.originalPrice !== undefined && offer.originalPrice !== null ? offer.originalPrice : undefined,
+              status: offer.status || 'pending',
+              productId: offer.productId || msg.productId || undefined,
+              shippingCost: offer.shippingCost !== undefined && offer.shippingCost !== null 
+                ? offer.shippingCost 
+                : (offer.shipping !== undefined && offer.shipping !== null ? offer.shipping : undefined),
+              expirationDate: offer.expirationDate || undefined,
+              // Include complete product information
+              product: offer.product ? {
+                id: offer.product.id || offer.productId || msg.productId,
+                title: offer.product.title,
+                image: offer.product.image,
+                images: offer.product.images || (offer.product.image ? [offer.product.image] : []),
+                price: offer.product.price,
+                originalPrice: offer.product.originalPrice !== undefined && offer.product.originalPrice !== null
+                  ? offer.product.originalPrice
+                  : offer.product.price,
+                currency: offer.product.currency || 'SAR',
+                size: offer.product.size,
+                condition: offer.product.condition,
+                brand: offer.product.brand,
+                category: offer.product.category,
+              } : undefined,
+            };
+            
+            // Log in development to help debug offer parsing
+            if (process.env.NODE_ENV === 'development' && offerData.counterAmount !== undefined) {
+              console.log('📦 [OFFER] Parsed counter offer:', {
+                messageId: msg.id,
+                offerId: offerData.id,
+                offerAmount: offerData.offerAmount,
+                counterAmount: offerData.counterAmount,
+                status: offerData.status,
+              });
+            }
+          }
 
           const formattedMessage: Message = {
             id: msg.id,
-            text: isOfferMessage ? '' : msg.text,
+            // For offer messages, keep the text if it exists (e.g., "Made an offer of $1300")
+            // Otherwise use empty string to let ProductMessageCard handle display
+            text: isOfferMessage && !msg.text ? '' : msg.text,
             sender: (msg.senderId === user.id ? 'me' : 'other') as
               | 'me'
               | 'other',
@@ -113,34 +180,21 @@ export function useMessages({
             attachments: msg.attachments || [],
             senderId: msg.senderId,
             receiverId: msg.receiverId,
-            // Only set offerId/productId if this is actually an offer message
-            offerId: isOfferMessage ? (msg.offerId || apiMessage.offer?.id || undefined) : undefined,
+            // Set offerId/productId if this is an offer message
+            offerId: isOfferMessage ? (
+              msg.offerId || 
+              apiMessage.offer?.id || 
+              offerData?.id || 
+              undefined
+            ) : undefined,
             productId: isOfferMessage ? (
               msg.productId ||
               apiMessage.offer?.productId ||
               apiMessage.offer?.product?.id ||
+              offerData?.productId ||
               undefined
             ) : undefined,
-            offer: (apiMessage.offer && isOfferMessage) ? {
-              id: apiMessage.offer.id,
-              offerAmount: apiMessage.offer.offerAmount,
-              counterAmount: apiMessage.offer.counterAmount,
-              originalPrice: apiMessage.offer.originalPrice,
-              status: apiMessage.offer.status,
-              productId: apiMessage.offer.productId,
-              shippingCost: apiMessage.offer.shippingCost || apiMessage.offer.shipping,
-              product: apiMessage.offer.product ? {
-                id: apiMessage.offer.product.id || apiMessage.offer.productId,
-                title: apiMessage.offer.product.title,
-                image: apiMessage.offer.product.image,
-                images: apiMessage.offer.product.images,
-                price: apiMessage.offer.product.price,
-                originalPrice: apiMessage.offer.product.originalPrice,
-                currency: apiMessage.offer.product.currency || 'SAR',
-                size: apiMessage.offer.product.size,
-                condition: apiMessage.offer.product.condition,
-              } : undefined,
-            } : undefined,
+            offer: offerData,
             messageType: apiMessage.messageType || (isOfferMessage ? 'offer' : undefined),
             isDelivered: msg.senderId === user.id ? true : undefined,
             isRead: msg.senderId === user.id ? false : undefined,
@@ -155,7 +209,16 @@ export function useMessages({
         // On first page load (page 1), replace messages but preserve optimistic and WebSocket messages
         // On subsequent pages, prepend older messages
         if (currentPage === 1) {
-          // Get optimistic messages (temp IDs) that aren't in the API response yet
+          // For page 1, we should prioritize API messages (they are the source of truth)
+          // But we need to preserve:
+          // 1. Optimistic messages (temp IDs) that haven't been confirmed by API yet
+          // 2. WebSocket messages (real IDs) that are newer than what API returned
+          // 3. Offer messages that might not be in API response yet
+          
+          // Get existing message IDs from API (these are the confirmed messages)
+          const apiMessageIds = new Set(formattedMessages.map(m => m.id));
+          
+          // Preserve optimistic messages (temp IDs) that aren't in API response yet
           const optimisticMessages = prev.filter(msg => 
             msg.id.startsWith('temp-') && 
             !formattedMessages.some(apiMsg => {
@@ -168,122 +231,75 @@ export function useMessages({
             })
           );
           
-          // Get WebSocket messages (real IDs) that aren't in the API response yet
+          // Preserve WebSocket messages that are newer than the newest API message
           // These are messages received via WebSocket that haven't been persisted to DB yet
-          // IMPORTANT: Also preserve offer messages (counter offers, etc.) that might not be in API yet
-          const websocketMessages = prev.filter(msg => 
-            !msg.id.startsWith('temp-') && // Not an optimistic message
-            !formattedMessages.some(apiMsg => apiMsg.id === msg.id) && // Not in API response
-            msg.id && // Has a real ID (from WebSocket)
-            true
-          );
+          const newestApiTimestamp = formattedMessages.length > 0 
+            ? Math.max(...formattedMessages.map(m => {
+                try {
+                  return m.rawTimestamp ? new Date(m.rawTimestamp).getTime() : 0;
+                } catch {
+                  return 0;
+                }
+              }))
+            : 0;
           
-          // Also preserve offer messages (counter offers, accepted offers, etc.) that might not be in API response yet
-          // These are important and should not be removed
-          const offerMessages = prev.filter(msg => 
-            (msg.offerId || msg.messageType === 'offer') && // Is an offer message
-            !formattedMessages.some(apiMsg => 
-              apiMsg.id === msg.id || 
-              (apiMsg.offerId === msg.offerId && apiMsg.offer?.status === msg.offer?.status)
-            ) && // Not in API response with same offerId and status
-            true
-          );
-          
-          // For page 1, we need to be careful:
-          // - API returns the 4 newest messages
-          // - We might already have more messages displayed (from WebSocket, optimistic, or previous loads)
-          // - We should only add NEW messages from API, not re-add existing ones
-          
-          // Get existing message IDs (excluding temp messages that might be replaced)
-          const existingRealMessageIds = new Set(
-            prev
-              .filter(m => !m.id.startsWith('temp-'))
-              .map(m => m.id)
-          );
-          
-          // Filter API messages to only include new ones or ones that replace temp messages
-          const newApiMessages = formattedMessages.filter(apiMsg => {
-            // If this message ID already exists (and it's not a temp message), skip it
-            if (existingRealMessageIds.has(apiMsg.id)) {
-              return false; // Already displayed, skip
+          const websocketMessages = prev.filter(msg => {
+            if (msg.id.startsWith('temp-')) return false; // Skip optimistic messages
+            if (apiMessageIds.has(msg.id)) return false; // Skip messages already in API response
+            
+            // Keep messages that are newer than the newest API message
+            try {
+              const msgTimestamp = msg.rawTimestamp 
+                ? new Date(msg.rawTimestamp).getTime()
+                : 0;
+              return msgTimestamp > newestApiTimestamp;
+            } catch {
+              return false;
             }
-            return true; // New message or will replace a temp message
           });
           
-          // Combine new API messages with optimistic, WebSocket, and offer messages
-          // This ensures counter offers and other offer messages don't disappear
-          const allMessages = [...newApiMessages, ...optimisticMessages, ...websocketMessages, ...offerMessages];
+          // Preserve offer messages (counter offers, accepted offers, etc.) that might not be in API response yet
+          // These are important and should not be removed
+          const offerMessages = prev.filter(msg => {
+            if (apiMessageIds.has(msg.id)) return false; // Already in API response
+            if (msg.id.startsWith('temp-')) return false; // Already handled as optimistic
+            
+            // Keep offer messages that aren't in API response
+            return (msg.offerId || msg.messageType === 'offer');
+          });
           
-          // Remove duplicates by ID
+          // Combine: API messages (source of truth) + optimistic + WebSocket + offer messages
+          const allMessages = [
+            ...formattedMessages, // API messages are the base
+            ...optimisticMessages,
+            ...websocketMessages,
+            ...offerMessages
+          ];
+          
+          // Remove duplicates by ID (API messages take precedence)
           const uniqueMessages = allMessages.reduce((acc, msg) => {
-            if (!acc.some(m => m.id === msg.id)) {
+            const existingIndex = acc.findIndex(m => m.id === msg.id);
+            if (existingIndex === -1) {
               acc.push(msg);
+            } else {
+              // If duplicate, prefer API message (from formattedMessages) over others
+              const isApiMessage = formattedMessages.some(m => m.id === msg.id);
+              if (isApiMessage) {
+                acc[existingIndex] = msg; // Replace with API version
+              }
             }
             return acc;
           }, [] as Message[]);
           
-          // Merge with existing messages:
-          // 1. Keep existing real messages that aren't in the new API response
-          // 2. Replace temp messages if they match new API messages
-          // 3. Add new messages from API
-          // IMPORTANT: Preserve offer messages (counter offers, etc.) even if not in API response
-          const finalMessages = [
-            ...prev.filter(m => {
-              // Remove temp messages that are being replaced
-              if (m.id.startsWith('temp-')) {
-                // For temp counter offers, check if they're being replaced by real message
-                if (m.id.startsWith('temp-counter-')) {
-                  const isBeingReplaced = newApiMessages.some(apiMsg => 
-                    apiMsg.offerId === m.offerId && 
-                    apiMsg.offer?.status === 'countered' &&
-                    apiMsg.offer?.counterAmount === m.offer?.counterAmount
-                  );
-                  return !isBeingReplaced; // Keep if not being replaced
-                }
-                // For other temp messages, check by text content
-                const isBeingReplaced = newApiMessages.some(apiMsg => {
-                  const tempText = (m.text || '').trim().toLowerCase();
-                  const apiText = (apiMsg.text || '').trim().toLowerCase();
-                  return tempText === apiText && 
-                         m.senderId === apiMsg.senderId &&
-                         m.sender === apiMsg.sender;
-                });
-                return !isBeingReplaced; // Keep if not being replaced
-              }
-              
-              // Always preserve offer messages (counter offers, accepted offers, etc.)
-              // These are important and might not be in API response yet
-              if (m.offerId || m.messageType === 'offer') {
-                // Check if this exact offer message is already in new API messages
-                const existsInApi = newApiMessages.some(apiMsg => 
-                  apiMsg.id === m.id || 
-                  (apiMsg.offerId === m.offerId && 
-                   apiMsg.offer?.status === m.offer?.status &&
-                   (m.offer?.counterAmount !== undefined 
-                     ? apiMsg.offer?.counterAmount === m.offer?.counterAmount
-                     : true))
-                );
-                // Keep if not in API response (it's a real-time message that hasn't been persisted yet)
-                return !existsInApi;
-              }
-              
-              // Keep real messages that aren't in the new API response
-              // (they might be newer messages not yet in page 1, or older messages from previous loads)
-              return !newApiMessages.some(apiMsg => apiMsg.id === m.id);
-            }),
-            ...uniqueMessages
-          ];
-          
           // Sort by rawTimestamp (chronological order - oldest first, newest last)
-          // IMPORTANT: Sort finalMessages, not uniqueMessages, to include all preserved messages
-          return finalMessages.sort((a, b) => {
+          return uniqueMessages.sort((a, b) => {
             try {
               const timeA = a.rawTimestamp 
                 ? new Date(a.rawTimestamp).getTime()
-                : (a.id ? parseInt(a.id.substring(0, 8), 16) * 1000 : 0);
+                : (a.id && !a.id.startsWith('temp-') ? parseInt(a.id.substring(0, 8), 16) * 1000 : Date.now());
               const timeB = b.rawTimestamp 
                 ? new Date(b.rawTimestamp).getTime()
-                : (b.id ? parseInt(b.id.substring(0, 8), 16) * 1000 : 0);
+                : (b.id && !b.id.startsWith('temp-') ? parseInt(b.id.substring(0, 8), 16) * 1000 : Date.now());
               
               if (timeA > 0 && timeB > 0) {
                 return timeA - timeB; // Ascending order (oldest first, newest last)

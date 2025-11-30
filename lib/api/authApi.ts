@@ -123,6 +123,24 @@ export const authApi = baseApi.injectEndpoints({
         data,
       }),
     }),
+
+    // Affiliate Forgot Password
+    affiliateForgotPassword: builder.mutation<{ success: boolean; message: string; otp: string }, { email: string }>({
+      query: (data) => ({
+        url: '/api/auth/affiliate/forget-password/',
+        method: 'POST',
+        data,
+      }),
+    }),
+
+    // Affiliate Reset Password
+    affiliateResetPassword: builder.mutation<{ success: boolean; message: string }, ResetPasswordRequest>({
+      query: (data) => ({
+        url: '/api/auth/affiliate/reset-password/',
+        method: 'POST',
+        data,
+      }),
+    }),
   }),
 });
 
@@ -139,5 +157,7 @@ export const {
   useAffiliateSignupMutation,
   useAffiliateLoginMutation,
   useAffiliateVerifyOtpMutation,
+  useAffiliateForgotPasswordMutation,
+  useAffiliateResetPasswordMutation,
 } = authApi;
 
