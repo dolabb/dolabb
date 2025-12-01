@@ -8,6 +8,8 @@ export interface ProductInfo {
   currency?: string;
   size?: string;
   condition?: string;
+  brand?: string;
+  category?: string;
 }
 
 export interface OfferInfo {
