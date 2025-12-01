@@ -131,7 +131,7 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
     totalReferrals: transactionsStats?.totalReferrals || transactionsData?.totalReferrals || 0,
     totalEarnings: transactionsStats?.totalEarnings || transactionsData?.totalEarnings || earnings.totalEarnings,
     totalSales: transactionsStats?.['Total Sales'] || transactionsData?.totalSales || 0,
-    commissionRate: transactionsStats?.['Commission Rate'] || transactionsStats?.commissionRate || transactionsData?.commissionRate || earnings.commissionRate,
+    commissionRate: transactionsStats?.['Commission Rate'] || transactionsData?.commissionRate || earnings.commissionRate,
   };
   
   // Helper function to normalize transaction data
