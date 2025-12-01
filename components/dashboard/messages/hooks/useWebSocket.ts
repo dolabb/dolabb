@@ -253,7 +253,9 @@ export function useWebSocket({
                   // Use username from user object if available, otherwise from selectedConversation
                   const username = data.user?.username 
                     ? formatUsername(data.user.username)
-                    : formatUsername(selectedConversation.otherUser.username);
+                    : selectedConversation?.otherUser.username 
+                      ? formatUsername(selectedConversation.otherUser.username)
+                      : 'User';
                   toast.info(
                     locale === 'en'
                       ? `${username} is now online`
