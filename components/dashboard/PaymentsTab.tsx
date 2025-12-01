@@ -126,7 +126,7 @@ export default function PaymentsTab() {
   };
 
   // Helper to get product info
-  const getProductInfo = (payment: Payment) => {
+  const getProductInfo = (payment: Payment | LocalStoragePayment) => {
     if (payment.product && typeof payment.product === 'object' && 'title' in payment.product) {
       return {
         title: payment.product.title,
@@ -134,12 +134,13 @@ export default function PaymentsTab() {
         id: payment.product.id || '',
       };
     }
+    const localStoragePayment = payment as LocalStoragePayment;
     return {
-      title: payment.productTitle || (typeof payment.product === 'string' ? payment.product : 'Product'),
-          image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&h=500&fit=crop&auto=format',
+      title: localStoragePayment.productTitle || (typeof payment.product === 'string' ? payment.product : 'Product'),
+      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&h=500&fit=crop&auto=format',
       id: '',
     };
-    };
+  };
 
   // Helper to get buyer info
   const getBuyerInfo = (payment: Payment) => {
