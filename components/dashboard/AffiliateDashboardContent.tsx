@@ -492,7 +492,8 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                           beginAtZero: true,
                           ticks: {
                             callback: function (value) {
-                              return value.toFixed(0) + (locale === 'ar' ? ' ر.س' : ' SAR');
+                              const numValue = typeof value === 'string' ? parseFloat(value) : value;
+                              return (numValue ?? 0).toFixed(0) + (locale === 'ar' ? ' ر.س' : ' SAR');
                             },
                             color: '#666',
                             font: {
