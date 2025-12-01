@@ -4,40 +4,15 @@ import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { HiTruck } from 'react-icons/hi2';
-import { useGetPaymentsQuery, useShipOrderMutation } from '@/lib/api/ordersApi';
+import { useGetPaymentsQuery, useShipOrderMutation, type Payment } from '@/lib/api/ordersApi';
 import { toast } from '@/utils/toast';
 import Link from 'next/link';
 
-interface Payment {
-  id: string;
-  orderNumber?: string;
-  product?: {
-    id: string;
-    title: string;
-    images?: string[];
-    price?: number;
-    image?: string; // Fallback for localStorage
-  } | string; // Can be string for legacy localStorage data
-  productTitle?: string; // Fallback for localStorage data
-  buyer?: {
-    id: string;
-    username: string;
-    profileImage?: string;
-  } | string; // Can be string for legacy localStorage data
-  buyerName?: string; // Fallback for localStorage data
-  orderDate: string;
-  status: 'pending' | 'ready' | 'shipped' | 'completed';
-  paymentStatus?: 'pending' | 'completed' | 'failed';
-  totalPrice: number;
-  shippingAddress?: {
-    fullName: string;
-    address: string;
-    city: string;
-    postalCode: string;
-    country: string;
-  };
-  trackingNumber?: string;
+// Extended Payment type for localStorage compatibility
+interface LocalStoragePayment extends Payment {
   // Legacy fields from localStorage
+  productTitle?: string;
+  buyerName?: string;
   offerId?: string;
   size?: string;
   price?: string;
@@ -72,7 +47,7 @@ export default function PaymentsTab() {
   const [shipOrder, { isLoading: isShipping }] = useShipOrderMutation();
 
   // Get payments from API or fallback to localStorage
-  const payments: Payment[] = paymentsData?.payments || [];
+  const payments = (paymentsData?.payments || []) as (Payment | LocalStoragePayment)[];
 
   // Also load from localStorage as fallback
   useEffect(() => {
