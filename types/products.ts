@@ -28,7 +28,7 @@ export interface Product {
     locations: string[];
   };
   affiliateCode?: string;
-  status?: 'pending' | 'approved' | 'rejected' | 'active';
+  status?: 'pending' | 'approved' | 'rejected' | 'active' | 'sold';
   quantity?: number;
   taxPercentage?: number;
   createdAt?: string;
