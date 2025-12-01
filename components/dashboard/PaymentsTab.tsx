@@ -143,12 +143,14 @@ export default function PaymentsTab() {
   };
 
   // Helper to get buyer info
-  const getBuyerInfo = (payment: Payment) => {
+  const getBuyerInfo = (payment: Payment | LocalStoragePayment) => {
     if (payment.buyer && typeof payment.buyer === 'object') {
-      return payment.buyer.username || payment.buyerName || 'Buyer';
+      const localStoragePayment = payment as LocalStoragePayment;
+      return payment.buyer.username || localStoragePayment.buyerName || 'Buyer';
     }
-    return payment.buyerName || 'Buyer';
-    };
+    const localStoragePayment = payment as LocalStoragePayment;
+    return localStoragePayment.buyerName || 'Buyer';
+  };
 
   if (isLoading) {
     return (
