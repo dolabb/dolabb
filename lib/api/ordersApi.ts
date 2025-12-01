@@ -40,6 +40,7 @@ export interface Payment extends Order {
   sellerPayout: number;
   affiliateCode?: string;
   shipmentProof?: string; // NEW: Shipment proof URL
+  paymentStatus?: 'pending' | 'completed' | 'failed' | 'paid';
 }
 
 export interface PaginationMeta {
