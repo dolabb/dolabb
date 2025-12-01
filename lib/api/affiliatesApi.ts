@@ -5,6 +5,7 @@ import type {
   AffiliateTransactionsResponse,
   PayoutRequestsResponse,
   Affiliate,
+  EarningsBreakdownResponse,
 } from '@/types/auth';
 
 export const affiliatesApi = baseApi.injectEndpoints({
@@ -37,23 +38,23 @@ export const affiliatesApi = baseApi.injectEndpoints({
     // Get Affiliate Transactions
     getAffiliateTransactions: builder.query<
       AffiliateTransactionsResponse,
-      { affiliateId: string; page?: number; limit?: number }
+      { page?: number; limit?: number }
     >({
-      query: ({ affiliateId, page = 1, limit = 20 }) => ({
-        url: `/api/affiliate/${affiliateId}/transactions/`,
+      query: ({ page = 1, limit = 20 }) => ({
+        url: '/api/affiliate/transactions/',
         method: 'GET',
         params: { page, limit },
       }),
       providesTags: ['Affiliate'],
     }),
 
-    // Get Payout Requests
+    // Get Cashout Requests (My Cashout Request History)
     getPayoutRequests: builder.query<
       PayoutRequestsResponse,
       { page?: number; limit?: number; status?: 'pending' | 'approved' | 'rejected' }
     >({
       query: ({ page = 1, limit = 20, status }) => ({
-        url: '/api/affiliate/payout-requests/',
+        url: '/api/affiliate/cashout-requests/',
         method: 'GET',
         params: { page, limit, status },
       }),
@@ -93,6 +94,29 @@ export const affiliatesApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Affiliate'],
     }),
+
+    // Get Earnings Breakdown (Time-Based)
+    getEarningsBreakdown: builder.query<
+      EarningsBreakdownResponse,
+      {
+        period?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+        limit?: number;
+        startDate?: string;
+        endDate?: string;
+      }
+    >({
+      query: ({ period = 'monthly', limit = 12, startDate, endDate }) => ({
+        url: '/api/affiliate/earnings-breakdown/',
+        method: 'GET',
+        params: {
+          period,
+          limit,
+          ...(startDate && { startDate }),
+          ...(endDate && { endDate }),
+        },
+      }),
+      providesTags: ['Affiliate'],
+    }),
   }),
 });
 
@@ -105,5 +129,7 @@ export const {
   useLazyGetPayoutRequestsQuery,
   useGetAffiliateProfileQuery,
   useUpdateAffiliateProfileMutation,
+  useGetEarningsBreakdownQuery,
+  useLazyGetEarningsBreakdownQuery,
 } = affiliatesApi;
 

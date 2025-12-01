@@ -130,20 +130,64 @@ export interface AffiliateResponse {
 }
 
 export interface AffiliateTransaction {
-  id: string;
-  orderId: string;
-  orderNumber: string;
-  referredUserId: string;
-  referredUserName: string;
-  commission: number;
-  commissionRate: number;
+  _id?: string;
+  id?: string;
+  orderId?: string;
+  orderNumber?: string;
+  'Transaction ID'?: string;
+  referredUserId?: string;
+  'Referred User Name'?: string;
+  referredUserName?: string;
+  'Referred User Commission'?: number;
+  commission?: number;
+  commissionRate?: number;
+  'Commission Rate'?: number;
   status: 'pending' | 'paid' | 'cancelled';
-  created_at: string;
+  created_at?: string;
+  date?: string;
+  affiliateId?: string;
+  affiliateName?: string;
+  stats?: {
+    totalReferrals?: number;
+    totalEarnings?: number;
+    'Total Sales'?: number;
+    'Commission Rate'?: number;
+  };
 }
 
 export interface AffiliateTransactionsResponse {
   success: boolean;
   transactions: AffiliateTransaction[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+  };
+  // Overall stats from transactions API
+  totalReferrals?: number;
+  totalEarnings?: number;
+  totalSales?: number;
+  commissionRate?: number;
+}
+
+export interface EarningsBreakdownPeriod {
+  period: string;
+  label: string;
+  totalEarnings: number;
+  pendingEarnings: number;
+  paidEarnings: number;
+  transactionCount: number;
+}
+
+export interface EarningsBreakdownResponse {
+  success: boolean;
+  summary: {
+    totalEarnings: number;
+    pendingEarnings: number;
+    paidEarnings: number;
+    availableBalance: number;
+  };
+  breakdown: EarningsBreakdownPeriod[];
   pagination: {
     currentPage: number;
     totalPages: number;
@@ -164,13 +208,39 @@ export interface CashoutRequest {
 
 export interface CashoutResponse {
   success: boolean;
-  cashoutRequest: CashoutRequest;
+  cashoutRequest?: {
+    id: string;
+    affiliateId: string;
+    amount: number;
+    status: 'pending' | 'approved' | 'rejected';
+    requestedAt: string;
+  };
   error?: string;
+  message?: string;
 }
 
 export interface PayoutRequestsResponse {
   success: boolean;
-  payoutRequests: Array<{
+  cashoutRequests: Array<{
+    id: string;
+    affiliateId: string;
+    affiliateName: string;
+    amount: number;
+    requestedDate: string;
+    paymentMethod: string;
+    status: 'pending' | 'approved' | 'rejected';
+    accountDetails?: string;
+    rejectionReason?: string | null;
+    reviewedAt?: string | null;
+    reviewedBy?: string | null;
+  }>;
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+  };
+  // Legacy support - map old field name
+  payoutRequests?: Array<{
     id: string;
     affiliateId: string;
     affiliateName: string;
@@ -181,11 +251,6 @@ export interface PayoutRequestsResponse {
     processedAt?: string;
     notes?: string;
   }>;
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-  };
 }
 
 export interface ValidateCodeResponse {

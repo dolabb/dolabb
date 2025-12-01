@@ -83,6 +83,15 @@ export default function CartPage() {
 
     try {
       await createOffer({ productId, offerAmount }).unwrap();
+      
+      // Remove product from cart after successful offer creation
+      try {
+        await unsaveProduct(productId).unwrap();
+      } catch (unsaveError) {
+        // Log error but don't block the flow
+        console.error('Error removing product from cart:', unsaveError);
+      }
+      
       toast.success(
         locale === 'en'
           ? 'Offer created successfully!'
@@ -94,6 +103,9 @@ export default function CartPage() {
         return newAmounts;
       });
       await refetchCart();
+      
+      // Redirect to buyer page with offers tab
+      router.push(`/${locale}/buyer?tab=offers`);
     } catch (error: any) {
       // Check for specific error messages from API
       const apiError = error?.data?.error || error?.data?.message;

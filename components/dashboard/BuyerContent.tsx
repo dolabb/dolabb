@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import Image from 'next/image';
 import { HiPencil, HiShoppingCart, HiBanknotes, HiTruck } from 'react-icons/hi2';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Pagination from '@/components/shared/Pagination';
 import { useGetOffersQuery, useAcceptOfferMutation, useRejectOfferMutation, useCounterOfferMutation, type Offer } from '@/lib/api/offersApi';
 import { useGetProductDetailQuery } from '@/lib/api/productsApi';
@@ -168,13 +168,13 @@ function OfferItem({
             </p>
           )}
         </div>
-        {/* Accept and Counter/Reject buttons inside the card */}
+        {/* Accept, Counter, and Reject buttons inside the card */}
         {/* Show buttons until offer is accepted or rejected */}
         {(offer.status === 'pending' || offer.status === 'countered') && (
           <div className='flex gap-2 mt-4'>
             <button
               onClick={onAccept}
-              disabled={isAccepting}
+              disabled={isAccepting || isRejecting || isCountering}
               className='flex-1 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
             >
               {isAccepting 
@@ -182,19 +182,30 @@ function OfferItem({
                 : (locale === 'en' ? 'Accept' : 'قبول')}
             </button>
             {offer.status === 'pending' ? (
-              <button
-                onClick={onCounter}
-                disabled={isCountering}
-                className='flex-1 px-4 py-2 bg-saudi-green text-white rounded-lg text-sm font-medium hover:bg-saudi-green/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                {isCountering 
-                  ? (locale === 'en' ? 'Sending...' : 'جاري الإرسال...')
-                  : (locale === 'en' ? 'Counter' : 'مقابل')}
-              </button>
+              <>
+                <button
+                  onClick={onCounter}
+                  disabled={isCountering || isAccepting || isRejecting}
+                  className='flex-1 px-4 py-2 bg-saudi-green text-white rounded-lg text-sm font-medium hover:bg-saudi-green/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isCountering 
+                    ? (locale === 'en' ? 'Sending...' : 'جاري الإرسال...')
+                    : (locale === 'en' ? 'Counter' : 'مقابل')}
+                </button>
+                <button
+                  onClick={onReject}
+                  disabled={isRejecting || isAccepting || isCountering}
+                  className='flex-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isRejecting 
+                    ? (locale === 'en' ? 'Rejecting...' : 'جاري الرفض...')
+                    : (locale === 'en' ? 'Reject' : 'رفض')}
+                </button>
+              </>
             ) : (
               <button
                 onClick={onReject}
-                disabled={isRejecting}
+                disabled={isRejecting || isAccepting}
                 className='flex-1 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 {isRejecting 
@@ -264,13 +275,25 @@ function OfferItem({
 export default function BuyerContent() {
   const locale = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isRTL = locale === 'ar';
   const user = useAppSelector(state => state.auth.user);
   const isSeller = user?.role === 'seller';
+  
+  // Get tab from URL parameter, default based on user role
+  const tabParam = searchParams.get('tab');
+  const defaultTab = isSeller ? 'offers' : 'orders';
+  const initialTab = (tabParam === 'offers' || tabParam === 'orders') ? tabParam : defaultTab;
+  
   // For sellers, only show offers tab; for buyers, show orders and offers tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'offers'>(() => {
-    return isSeller ? 'offers' : 'orders';
-  });
+  const [activeTab, setActiveTab] = useState<'orders' | 'offers'>(initialTab);
+  
+  // Update active tab when URL parameter changes
+  useEffect(() => {
+    if (tabParam === 'offers' || tabParam === 'orders') {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 

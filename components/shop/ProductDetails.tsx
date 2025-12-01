@@ -615,6 +615,17 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 )}
                 <button
                   onClick={async () => {
+                    // Check authentication first
+                    if (!isAuthenticated) {
+                      toast.error(
+                        locale === 'en'
+                          ? 'Please login to add items to bag'
+                          : 'يرجى تسجيل الدخول لإضافة المنتجات إلى الحقيبة'
+                      );
+                      router.push(`/${locale}/login`);
+                      return;
+                    }
+
                     // Add to bag logic - call save product API
                     try {
                       await saveProduct(productId).unwrap();
@@ -623,7 +634,17 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           ? 'Item added to bag!'
                           : 'تم إضافة المنتج إلى الحقيبة!'
                       );
-                    } catch {
+                    } catch (error: any) {
+                      // Check if it's an authentication error
+                      if (error?.status === 401 || error?.response?.status === 401) {
+                        toast.error(
+                          locale === 'en'
+                            ? 'Your session has expired. Please login again.'
+                            : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
+                        );
+                        router.push(`/${locale}/login`);
+                        return;
+                      }
                       toast.error(
                         locale === 'en'
                           ? 'Failed to add item to bag. Please try again.'
@@ -710,7 +731,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                       />
                     ))}
                     <span className='text-xs text-deep-charcoal/70'>
-                      ({sellerData.reviews})
+                      ({sellerData.rating})
                     </span>
                   </div>
                   <p className='text-xs text-deep-charcoal/60'>
@@ -719,8 +740,36 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                   </p>
                 </div>
               </div>
-              <button className='w-full bg-white border border-saudi-green text-saudi-green py-2 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'>
-                {locale === 'en' ? 'Ask a question' : 'اسأل سؤالاً'}
+              <button
+                onClick={() => {
+                  // Check authentication first
+                  if (!isAuthenticated) {
+                    toast.error(
+                      locale === 'en'
+                        ? 'Please login to chat with the seller'
+                        : 'يرجى تسجيل الدخول للدردشة مع البائع'
+                    );
+                    router.push(`/${locale}/login`);
+                    return;
+                  }
+
+                  // Get seller ID from product
+                  const sellerId = product?.seller?.id;
+                  if (!sellerId) {
+                    toast.error(
+                      locale === 'en'
+                        ? 'Seller information not available'
+                        : 'معلومات البائع غير متاحة'
+                    );
+                    return;
+                  }
+
+                  // Navigate to messages page with sellerId query parameter
+                  router.push(`/${locale}/messages?sellerId=${sellerId}`);
+                }}
+                className='w-full bg-white border border-saudi-green text-saudi-green py-2 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
+              >
+                {locale === 'en' ? 'Chat' : 'دردشة'}
               </button>
             </div>
 
@@ -1041,13 +1090,12 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           (product as any)['Tags/Keywords'] ||
                           []
                         ).map((tag: string) => (
-                          <Link
+                          <span
                             key={tag}
-                            href={`/${locale}/search?q=${tag}`}
-                            className='px-2.5 py-1 bg-rich-sand/30 text-deep-charcoal rounded-full text-xs font-medium hover:bg-rich-sand hover:text-saudi-green transition-colors'
+                            className='px-2.5 py-1 bg-rich-sand/30 text-deep-charcoal rounded-full text-xs font-medium'
                           >
                             #{tag}
-                          </Link>
+                          </span>
                         ))
                       ) : (
                         <p className='text-deep-charcoal/60 text-sm'>

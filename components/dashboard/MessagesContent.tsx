@@ -322,19 +322,24 @@ export default function MessagesContent() {
     }
   };
 
-  // Auto-select conversation from query params (e.g., when redirected from counter offer)
+  // Auto-select conversation from query params (e.g., when redirected from counter offer or product page)
   useEffect(() => {
     const buyerId = searchParams.get('buyerId');
+    const sellerId = searchParams.get('sellerId');
+    
     if (
-      buyerId &&
+      (buyerId || sellerId) &&
       conversations.length > 0 &&
       !selectedConversation &&
       !hasSelectedFromQueryRef.current &&
       conversationsData
     ) {
+      // Find conversation by buyerId (for sellers) or sellerId (for buyers)
+      const targetUserId = buyerId || sellerId;
       const conversation = conversations.find(
-        conv => conv.otherUser.id === buyerId
+        conv => conv.otherUser.id === targetUserId
       );
+      
       if (conversation) {
         hasSelectedFromQueryRef.current = true;
         hasAutoSelectedRef.current = true; // Prevent auto-selecting first conversation

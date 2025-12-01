@@ -148,7 +148,7 @@ export default function OfferModal({
                       placeholder='0.00'
                       min='0'
                       step='0.01'
-                      max={productPrice - 0.01}
+                      max={productPrice}
                       className={`w-full ${
                         isRTL ? 'pr-12 pl-3' : 'pl-12 pr-3'
                       } py-3 border ${
@@ -165,12 +165,8 @@ export default function OfferModal({
                   )}
                   <p className='mt-2 text-xs text-deep-charcoal/60'>
                     {locale === 'en'
-                      ? `Maximum offer: ${locale === 'ar' ? 'ر.س' : 'SAR'} ${(
-                          productPrice - 0.01
-                        ).toFixed(2)}`
-                      : `الحد الأقصى للعرض: ${locale === 'ar' ? 'ر.س' : 'SAR'} ${(
-                          productPrice - 0.01
-                        ).toFixed(2)}`}
+                      ? `Maximum offer: ${locale === 'ar' ? 'ر.س' : 'SAR'} ${productPrice.toFixed(2)}`
+                      : `الحد الأقصى للعرض: ${locale === 'ar' ? 'ر.س' : 'SAR'} ${productPrice.toFixed(2)}`}
                   </p>
                 </div>
 

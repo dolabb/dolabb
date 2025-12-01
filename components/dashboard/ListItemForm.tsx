@@ -3,7 +3,7 @@
 import { navigationCategories } from '@/data/navigation';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiPlus, HiXMark } from 'react-icons/hi2';
 import TermsModal from '@/components/shared/TermsModal';
@@ -82,55 +82,158 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
   const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
 
+  // Helper function to normalize API response to Product type
+  // Handles both capitalized API field names and lowercase Product type field names
+  const normalizeProductData = (data: any): Product | null => {
+    if (!data) return null;
+    
+    // Handle images - check both "Images" (capital) and "images" (lowercase)
+    const images = (data as any).Images || data.images || [];
+    const filteredImages = Array.isArray(images) 
+      ? images.filter((img: any) => img && img.trim() !== '' && img !== 'undefined' && img !== 'null')
+      : [];
+
+    // Handle tags - check both "Tags/Keywords" and "tags"
+    const tagsData = (data as any)['Tags/Keywords'] || data.tags || [];
+    const normalizedTags = Array.isArray(tagsData) 
+      ? tagsData.filter((tag: any) => tag && tag.trim() !== '')
+      : (typeof tagsData === 'string' 
+          ? tagsData.split(',').map((t: string) => t.trim()).filter(Boolean) 
+          : []);
+
+    // Handle shipping info - check both nested object and flat API fields
+    const shippingCost = data.shippingInfo?.cost ?? (data as any)['Shipping Cost'] ?? 0;
+    const estimatedDays = data.shippingInfo?.estimatedDays ?? (data as any)['Processing Time (days)'] ?? 3;
+    const shippingLocations = data.shippingInfo?.locations ?? (data as any)['Shipping Locations'] ?? ['Saudi Arabia'];
+
+    return {
+      id: data.id || '',
+      title: data.itemtitle || data.title || '',
+      description: data.description || '',
+      price: data.price || 0,
+      originalPrice: data.originalPrice,
+      images: filteredImages,
+      category: data.category || '',
+      subcategory: data.subcategory || '',
+      brand: data.brand || '',
+      size: (data as any).Size || data.size || '',
+      color: (data as any).Color || data.color || '',
+      condition: (data as any).Condition || data.condition || 'fair',
+      tags: normalizedTags,
+      quantity: (data as any).Quantity ?? data.quantity ?? 1,
+      seller: data.seller || { id: '', username: '' },
+      shippingInfo: {
+        cost: typeof shippingCost === 'number' ? shippingCost : parseFloat(shippingCost) || 0,
+        estimatedDays: typeof estimatedDays === 'number' ? estimatedDays : parseInt(estimatedDays) || 3,
+        locations: Array.isArray(shippingLocations) ? shippingLocations : ['Saudi Arabia'],
+      },
+      affiliateCode: data.affiliateCode || (data as any)['Affiliate Code (Optional)'] || '',
+      taxPercentage: (data as any)['Tax Percentage'] ?? data.taxPercentage,
+      ...data, // Spread to include any other fields
+    };
+  };
+
+  // Normalize initial data - use useMemo to avoid recalculating on every render
+  const normalizedData = useMemo(() => normalizeProductData(initialData), [initialData]);
+
   // Store photo files and previews separately
   // photos array contains: File objects for new uploads, or string URLs for existing images
   const [photoFiles, setPhotoFiles] = useState<(File | string)[]>(
-    initialData?.images || []
+    normalizedData?.images || []
   );
   // Initialize previews with existing URLs if in edit mode
   const [photoPreviews, setPhotoPreviews] = useState<string[]>(
-    initialData?.images || []
+    normalizedData?.images || []
   );
 
   // Initialize form data from initialData if in edit mode
   const [formData, setFormData] = useState({
     photos: [] as string[], // Will be populated with URLs after upload
-    title: initialData?.title || '',
-    description: initialData?.description || '',
-    price: initialData?.price?.toString() || '',
-    originalPrice: initialData?.originalPrice?.toString() || '',
+    title: normalizedData?.title || '',
+    description: normalizedData?.description || '',
+    price: normalizedData?.price?.toString() || '',
+    originalPrice: normalizedData?.originalPrice?.toString() || '',
     currency: 'SAR', // Default to SAR
-    category: initialData?.category || '',
+    category: normalizedData?.category || '',
     gender: 'Unisex', // Default
-    subCategory: initialData?.subcategory || '',
-    size: initialData?.size || '',
-    color: initialData?.color || '',
+    subCategory: normalizedData?.subcategory || '',
+    size: normalizedData?.size || '',
+    color: normalizedData?.color || '',
     customSize: '',
-    condition: initialData?.condition 
-      ? (reverseConditionMap[initialData.condition] || initialData.condition)
+    condition: normalizedData?.condition 
+      ? (reverseConditionMap[normalizedData.condition] || normalizedData.condition)
       : '',
-    brandName: initialData?.brand || '',
-    quantity: initialData?.quantity?.toString() || '',
+    brandName: normalizedData?.brand || '',
+    quantity: normalizedData?.quantity?.toString() || '',
     hasVariants: false,
     variants: '',
     sku: '',
-    tags: initialData?.tags?.join(', ') || '',
-    shippingCost: initialData?.shippingInfo?.cost?.toString() || '',
-    processingTime: initialData?.shippingInfo?.estimatedDays?.toString() || '',
-    affiliateCode: initialData?.affiliateCode || '',
+    tags: normalizedData?.tags?.join(', ') || '',
+    shippingCost: normalizedData?.shippingInfo?.cost?.toString() || '',
+    processingTime: normalizedData?.shippingInfo?.estimatedDays?.toString() || '',
+    affiliateCode: normalizedData?.affiliateCode || '',
+    isVatRegistered: normalizedData?.taxPercentage ? true : false,
+    taxPercentage: normalizedData?.taxPercentage?.toString() || '',
   });
 
   const [customSizes, setCustomSizes] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>(initialData?.tags || []);
+  const [tags, setTags] = useState<string[]>(normalizedData?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [newSubCategoryInput, setNewSubCategoryInput] = useState('');
   const [customSubCategories, setCustomSubCategories] = useState<string[]>([]);
   const [shippingLocations, setShippingLocations] = useState<string[]>(
-    initialData?.shippingInfo?.locations || ['Saudi Arabia']
+    normalizedData?.shippingInfo?.locations || ['Saudi Arabia']
   );
   const [newShippingLocation, setNewShippingLocation] = useState('');
+
+  // Update form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (isEditMode && normalizedData) {
+      // Update images
+      const images = normalizedData.images || [];
+      setPhotoFiles(images);
+      setPhotoPreviews(images);
+
+      // Update form data
+      setFormData({
+        photos: [],
+        title: normalizedData.title || '',
+        description: normalizedData.description || '',
+        price: normalizedData.price?.toString() || '',
+        originalPrice: normalizedData.originalPrice?.toString() || '',
+        currency: 'SAR',
+        category: normalizedData.category || '',
+        gender: 'Unisex',
+        subCategory: normalizedData.subcategory || '',
+        size: normalizedData.size || '',
+        color: normalizedData.color || '',
+        customSize: '',
+        condition: normalizedData.condition 
+          ? (reverseConditionMap[normalizedData.condition] || normalizedData.condition)
+          : '',
+        brandName: normalizedData.brand || '',
+        quantity: normalizedData.quantity?.toString() || '',
+        hasVariants: false,
+        variants: '',
+        sku: '',
+        tags: normalizedData.tags?.join(', ') || '',
+        shippingCost: normalizedData.shippingInfo?.cost?.toString() || '',
+        processingTime: normalizedData.shippingInfo?.estimatedDays?.toString() || '',
+        affiliateCode: normalizedData.affiliateCode || '',
+        isVatRegistered: normalizedData.taxPercentage ? true : false,
+        taxPercentage: normalizedData.taxPercentage?.toString() || '',
+      });
+
+      // Update tags
+      setTags(normalizedData.tags || []);
+
+      // Update shipping locations
+      setShippingLocations(normalizedData.shippingInfo?.locations || ['Saudi Arabia']);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, isEditMode]);
 
   // Generate preview URLs for File objects
   useEffect(() => {
@@ -362,6 +465,14 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
       
       if (formData.affiliateCode) {
         apiData['Affiliate Code (Optional)'] = formData.affiliateCode;
+      }
+      
+      // Add tax percentage if VAT registered
+      if (formData.isVatRegistered && formData.taxPercentage) {
+        const taxPercent = parseFloat(formData.taxPercentage);
+        if (!isNaN(taxPercent) && taxPercent > 0) {
+          apiData['Tax Percentage'] = taxPercent;
+        }
       }
 
       if (isEditMode && productId) {
@@ -1115,6 +1226,59 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
             style={{ textTransform: 'uppercase' }}
           />
+        </div>
+
+        {/* VAT Registration and Tax Percentage */}
+        <div className='bg-rich-sand/10 rounded-lg p-4 border border-rich-sand/20'>
+          <h3 className='text-sm font-semibold text-deep-charcoal mb-3 uppercase tracking-wide'>
+            {locale === 'en' ? 'Tax Information' : 'معلومات الضريبة'}
+          </h3>
+          <div className='space-y-4'>
+            <div>
+              <label className='flex items-center gap-2 mb-2'>
+                <input
+                  type='checkbox'
+                  checked={formData.isVatRegistered}
+                  onChange={e =>
+                    setFormData(prev => ({
+                      ...prev,
+                      isVatRegistered: e.target.checked,
+                      taxPercentage: e.target.checked ? prev.taxPercentage : '',
+                    }))
+                  }
+                  className='w-4 h-4 text-saudi-green focus:ring-saudi-green rounded'
+                />
+                <span className='text-sm font-medium text-deep-charcoal'>
+                  {locale === 'en' ? 'Are you VAT registered?' : 'هل أنت مسجل في ضريبة القيمة المضافة؟'}
+                </span>
+              </label>
+            </div>
+            {formData.isVatRegistered && (
+              <div>
+                <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
+                  {locale === 'en' ? 'Tax Percentage' : 'نسبة الضريبة'}
+                </label>
+                <div className='flex items-center gap-2'>
+                  <input
+                    type='number'
+                    step='0.01'
+                    min='0'
+                    max='100'
+                    value={formData.taxPercentage}
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        taxPercentage: e.target.value,
+                      }))
+                    }
+                    placeholder={locale === 'en' ? '15.0' : '15.0'}
+                    className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+                  />
+                  <span className='text-sm text-deep-charcoal/70 whitespace-nowrap'>%</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Form Actions */}

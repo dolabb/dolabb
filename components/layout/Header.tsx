@@ -2,7 +2,7 @@
 
 import { useGetProfileQuery } from '@/lib/api/authApi';
 import { useCreateOfferMutation } from '@/lib/api/offersApi';
-import { useGetCartQuery } from '@/lib/api/productsApi';
+import { useGetCartQuery, useGetProductsQuery } from '@/lib/api/productsApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { logout, updateUser } from '@/lib/store/slices/authSlice';
 import { toast } from '@/utils/toast';
@@ -14,6 +14,7 @@ import {
   startTransition,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -60,17 +61,70 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState(false);
   const [offerAmounts, setOfferAmounts] = useState<Record<string, string>>({});
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const cartDropdownRef = useRef<HTMLDivElement>(null);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch cart data when authenticated
   const { data: cartData, refetch: refetchCart } = useGetCartQuery(undefined, {
     skip: !isAuthenticated,
     pollingInterval: 30000, // Poll every 30 seconds to keep cart updated
   });
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch search results
+  const { 
+    data: searchResults, 
+    isLoading: isSearching,
+    error: searchError 
+  } = useGetProductsQuery(
+    { search: debouncedSearchQuery.trim() },
+    {
+      skip: !debouncedSearchQuery || debouncedSearchQuery.trim().length < 2,
+    }
+  );
+
+  // Normalize search results - handle both array and object with products property
+  const normalizedSearchResults = Array.isArray(searchResults) 
+    ? searchResults 
+    : (searchResults as any)?.products || [];
+
+  // Debug: Log search query and results
+  useEffect(() => {
+    if (debouncedSearchQuery.trim().length >= 2) {
+      console.log('🔍 Search Debug:', {
+        query: debouncedSearchQuery,
+        results: searchResults,
+        normalizedResults: normalizedSearchResults,
+        resultsCount: normalizedSearchResults?.length || 0,
+        error: searchError,
+        isSearching,
+      });
+    }
+  }, [debouncedSearchQuery, searchResults, normalizedSearchResults, searchError, isSearching]);
+
+  // Show/hide search dropdown based on query (show immediately when typing, not waiting for results)
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      setIsSearchDropdownOpen(true);
+    } else {
+      setIsSearchDropdownOpen(false);
+    }
+  }, [searchQuery]);
 
   // Fetch profile data to check for address fields and get updated role
   const { data: profileData } = useGetProfileQuery(undefined, {
@@ -133,28 +187,48 @@ export default function Header() {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
       if (
         profileDropdownRef.current &&
-        !profileDropdownRef.current.contains(event.target as Node)
+        !profileDropdownRef.current.contains(target)
       ) {
         setIsProfileDropdownOpen(false);
       }
       if (
         cartDropdownRef.current &&
-        !cartDropdownRef.current.contains(event.target as Node)
+        !cartDropdownRef.current.contains(target)
       ) {
         setIsCartDropdownOpen(false);
       }
+      // For search dropdown, only close if clicking outside both input and dropdown
+      // Don't close if clicking inside the dropdown (including on result items)
+      if (isSearchDropdownOpen) {
+        const isClickInInput = searchInputRef.current?.contains(target);
+        const isClickInDropdown = searchDropdownRef.current?.contains(target);
+        
+        // Also check if clicking on a child element of the dropdown
+        const clickedElement = target.closest('[data-search-result]');
+        const isClickOnResult = clickedElement && searchDropdownRef.current?.contains(clickedElement);
+        
+        if (!isClickInInput && !isClickInDropdown && !isClickOnResult) {
+          setIsSearchDropdownOpen(false);
+        }
+      }
     };
 
-    if (isProfileDropdownOpen || isCartDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+    if (isProfileDropdownOpen || isCartDropdownOpen || isSearchDropdownOpen) {
+      // Use a delay to allow clicks inside dropdown to process first
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleClickOutside);
+      };
     }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isProfileDropdownOpen, isCartDropdownOpen]);
+  }, [isProfileDropdownOpen, isCartDropdownOpen, isSearchDropdownOpen]);
 
   const handleCreateOffer = async (productId: string) => {
     const offerAmount = parseFloat(offerAmounts[productId] || '0');
@@ -294,10 +368,18 @@ export default function Header() {
             <div className='hidden md:flex flex-1 max-w-xl mx-8'>
               <div className='relative w-full'>
                 <input
+                  ref={searchInputRef}
                   type='text'
                   placeholder={t('search')}
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                  }}
+                  onFocus={() => {
+                    if (searchQuery.trim().length >= 2) {
+                      setIsSearchDropdownOpen(true);
+                    }
+                  }}
                   className={`w-full py-2 rounded-full border border-saudi-green/30 hover:border-saudi-green bg-white focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${
                     isRTL ? 'px-4 pr-10 pl-4' : 'px-4 pl-10 pr-4'
                   }`}
@@ -308,6 +390,83 @@ export default function Header() {
                     isRTL ? 'right-3' : 'left-3'
                   }`}
                 />
+                {/* Search Results Dropdown */}
+                {isSearchDropdownOpen && (
+                  <div
+                    ref={searchDropdownRef}
+                    className={`absolute ${
+                      isRTL ? 'right-0' : 'left-0'
+                    } top-full mt-2 w-full bg-white rounded-lg shadow-lg border border-rich-sand/30 z-[100] max-h-96 overflow-y-auto`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isSearching || (debouncedSearchQuery.trim().length < 2 && searchQuery.trim().length >= 2) ? (
+                      <div className='p-4 text-center text-deep-charcoal/70'>
+                        {locale === 'en' ? 'Searching...' : 'جاري البحث...'}
+                      </div>
+                    ) : normalizedSearchResults && normalizedSearchResults.length > 0 ? (
+                      <div className='py-2'>
+                        {normalizedSearchResults.map((product: any) => {
+                          // Handle both title and itemtitle fields from API
+                          const productTitle = (product as any).itemtitle || product.title || 'Untitled Product';
+                          const productId = product.id;
+                          
+                          if (!productId) {
+                            return null;
+                          }
+                          
+                          const productUrl = `/${locale}/product/${productId}`;
+                          
+                          const handleClick = (e: React.MouseEvent) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            console.log('🔗 Clicked product:', { productId, productTitle, productUrl });
+                            
+                            // Close dropdown and clear search
+                            setSearchQuery('');
+                            setIsSearchDropdownOpen(false);
+                            
+                            // Navigate using router
+                            router.push(productUrl);
+                          };
+                          
+                          return (
+                            <div
+                              key={productId}
+                              data-search-result
+                              onClick={handleClick}
+                              className='block px-4 py-3 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                            >
+                              <div className='text-sm font-medium text-deep-charcoal'>
+                                {productTitle}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : debouncedSearchQuery.trim().length >= 2 && !isSearching ? (
+                      <div className='p-4 text-center'>
+                        <p className='text-deep-charcoal/70 mb-1'>
+                          {locale === 'en'
+                            ? 'No products found'
+                            : 'لم يتم العثور على منتجات'}
+                        </p>
+                        <p className='text-xs text-deep-charcoal/50'>
+                          {locale === 'en'
+                            ? `Searching for: "${debouncedSearchQuery}"`
+                            : `البحث عن: "${debouncedSearchQuery}"`}
+                        </p>
+                        {searchError && (
+                          <p className='text-xs text-red-500 mt-2'>
+                            {locale === 'en'
+                              ? 'Search error occurred'
+                              : 'حدث خطأ في البحث'}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -577,10 +736,18 @@ export default function Header() {
           <div className='md:hidden pb-4'>
             <div className='relative'>
               <input
+                ref={searchInputRef}
                 type='text'
                 placeholder={t('search')}
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim().length >= 2) {
+                    setIsSearchDropdownOpen(true);
+                  }
+                }}
                 className={`w-full py-2 rounded-full border border-saudi-green/30 hover:border-saudi-green bg-white focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${
                   isRTL ? 'px-4 pr-10 pl-4' : 'px-4 pl-10 pr-4'
                 }`}
@@ -591,6 +758,84 @@ export default function Header() {
                   isRTL ? 'right-3' : 'left-3'
                 }`}
               />
+              {/* Search Results Dropdown - Mobile */}
+              {isSearchDropdownOpen && (
+                <div
+                  ref={searchDropdownRef}
+                  className={`absolute ${
+                    isRTL ? 'right-0' : 'left-0'
+                  } top-full mt-2 w-full bg-white rounded-lg shadow-lg border border-rich-sand/30 z-[100] max-h-96 overflow-y-auto`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isSearching || (debouncedSearchQuery.trim().length < 2 && searchQuery.trim().length >= 2) ? (
+                    <div className='p-4 text-center text-deep-charcoal/70'>
+                      {locale === 'en' ? 'Searching...' : 'جاري البحث...'}
+                    </div>
+                  ) : normalizedSearchResults && normalizedSearchResults.length > 0 ? (
+                    <div className='py-2'>
+                      {normalizedSearchResults.map((product: any) => {
+                        // Handle both title and itemtitle fields from API
+                        const productTitle = (product as any).itemtitle || product.title || 'Untitled Product';
+                        const productId = product.id;
+                        
+                        if (!productId) {
+                          return null;
+                        }
+                        
+                        const productUrl = `/${locale}/product/${productId}`;
+                        
+                        const handleClick = (e: React.MouseEvent) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          
+                          console.log('🔗 Clicked product (mobile):', { productId, productTitle, productUrl });
+                          
+                          // Close dropdown and clear search
+                          setSearchQuery('');
+                          setIsSearchDropdownOpen(false);
+                          setIsMobileMenuOpen(false);
+                          
+                          // Navigate using router
+                          router.push(productUrl);
+                        };
+                        
+                        return (
+                          <div
+                            key={productId}
+                            data-search-result
+                            onClick={handleClick}
+                            className='block px-4 py-3 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                          >
+                            <div className='text-sm font-medium text-deep-charcoal'>
+                              {productTitle}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : debouncedSearchQuery.trim().length >= 2 && !isSearching ? (
+                    <div className='p-4 text-center'>
+                      <p className='text-deep-charcoal/70 mb-1'>
+                        {locale === 'en'
+                          ? 'No products found'
+                          : 'لم يتم العثور على منتجات'}
+                      </p>
+                      <p className='text-xs text-deep-charcoal/50'>
+                        {locale === 'en'
+                          ? `Searching for: "${debouncedSearchQuery}"`
+                          : `البحث عن: "${debouncedSearchQuery}"`}
+                      </p>
+                      {searchError && (
+                        <p className='text-xs text-red-500 mt-2'>
+                          {locale === 'en'
+                            ? 'Search error occurred'
+                            : 'حدث خطأ في البحث'}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         )}

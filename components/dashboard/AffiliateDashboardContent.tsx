@@ -6,7 +6,9 @@ import { HiUser, HiCreditCard, HiCurrencyDollar, HiChartBar, HiDocumentText, HiC
 import { 
   useGetAffiliateTransactionsQuery, 
   useGetPayoutRequestsQuery,
-  useRequestCashoutMutation 
+  useRequestCashoutMutation,
+  useGetAffiliateProfileQuery,
+  useGetEarningsBreakdownQuery
 } from '@/lib/api/affiliatesApi';
 import { toast } from '@/utils/toast';
 import { handleApiErrorWithToast } from '@/utils/errorHandler';
@@ -47,39 +49,104 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer');
   const [transactionsPage, setTransactionsPage] = useState(1);
   const transactionsLimit = 20;
+  const [earningsPeriod, setEarningsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [earningsLimit, setEarningsLimit] = useState(12);
 
-  // API hooks
+  // API hooks - Get affiliate profile with earnings data
+  const { data: profileData, isLoading: isLoadingProfile, refetch: refetchProfile } = useGetAffiliateProfileQuery();
+
+  // API hooks - Get earnings breakdown for charts
+  const { data: earningsBreakdownData, isLoading: isLoadingBreakdown, refetch: refetchBreakdown } = useGetEarningsBreakdownQuery({
+    period: earningsPeriod,
+    limit: earningsLimit,
+  });
+
+  // API hooks - Get transactions
   const { data: transactionsData, isLoading: isLoadingTransactions, refetch: refetchTransactions } = useGetAffiliateTransactionsQuery(
     { 
-      affiliateId: affiliate?.id || '', 
       page: transactionsPage, 
       limit: transactionsLimit 
     },
     { 
-      skip: !affiliate?.id || activeTab !== 'earnings' 
+      skip: activeTab !== 'earnings' 
     }
   );
 
-  const { data: payoutData, isLoading: isLoadingPayouts } = useGetPayoutRequestsQuery(
+  const { data: payoutData, isLoading: isLoadingPayouts, refetch: refetchCashoutRequests } = useGetPayoutRequestsQuery(
     { page: 1, limit: 20 },
-    { skip: !affiliate?.id || activeTab !== 'cashout' }
+    { skip: activeTab !== 'cashout' }
   );
 
   const [requestCashout, { isLoading: isRequestingCashout }] = useRequestCashoutMutation();
 
-  // Calculate earnings from affiliate data
+  // Update affiliate data when profile API returns data
+  useEffect(() => {
+    if (profileData?.affiliate) {
+      setAffiliate(profileData.affiliate);
+    }
+  }, [profileData]);
+
+  // Calculate earnings from API profile data (prioritize API data over initial affiliate)
+  const apiAffiliate = profileData?.affiliate || affiliate;
   const earnings = {
-    totalEarnings: affiliate?.totalEarnings || 0,
-    totalCommissions: affiliate?.totalCommissions || 0,
-    codeUsageCount: affiliate?.codeUsageCount || 0,
-    pendingEarnings: affiliate?.pendingEarnings || 0,
-    paidEarnings: affiliate?.paidEarnings || 0,
-    availableBalance: affiliate?.availableBalance || 0,
+    totalEarnings: apiAffiliate?.totalEarnings || 0,
+    totalCommissions: apiAffiliate?.totalCommissions || 0,
+    codeUsageCount: apiAffiliate?.codeUsageCount || 0,
+    pendingEarnings: apiAffiliate?.pendingEarnings || 0,
+    paidEarnings: apiAffiliate?.paidEarnings || 0,
+    availableBalance: apiAffiliate?.availableBalance || apiAffiliate?.pendingEarnings || 0,
+    commissionRate: apiAffiliate?.commission_rate || 0,
+    status: apiAffiliate?.status || 'pending',
   };
 
-  const cashoutRequests = payoutData?.payoutRequests || [];
+  // Normalize cashout requests from API response (support both old and new field names)
+  const cashoutRequests = payoutData?.cashoutRequests || payoutData?.payoutRequests || [];
+  
+  // Helper function to normalize cashout request data
+  const normalizeCashoutRequest = (request: any) => {
+    return {
+      id: request.id || '',
+      affiliateId: request.affiliateId || '',
+      affiliateName: request.affiliateName || '',
+      amount: request.amount || 0,
+      status: request.status || 'pending',
+      paymentMethod: request.paymentMethod || 'Bank Transfer',
+      requestedAt: request.requestedDate || request.requestedAt || new Date().toISOString(),
+      processedAt: request.reviewedAt || request.processedAt || undefined,
+      accountDetails: request.accountDetails || undefined,
+      rejectionReason: request.rejectionReason || undefined,
+      reviewedBy: request.reviewedBy || undefined,
+      notes: request.notes || request.rejectionReason || undefined,
+    };
+  };
   const transactions = transactionsData?.transactions || [];
   const transactionsPagination = transactionsData?.pagination;
+  
+  // Extract stats from first transaction if available (stats are in each transaction)
+  const firstTransaction = transactions.length > 0 ? transactions[0] : null;
+  const transactionsStats = firstTransaction?.stats || {};
+  
+  // Overall stats from transactions API or transaction stats
+  const overallStats = {
+    totalReferrals: transactionsStats?.totalReferrals || transactionsData?.totalReferrals || 0,
+    totalEarnings: transactionsStats?.totalEarnings || transactionsData?.totalEarnings || earnings.totalEarnings,
+    totalSales: transactionsStats?.['Total Sales'] || transactionsData?.totalSales || 0,
+    commissionRate: transactionsStats?.['Commission Rate'] || transactionsStats?.commissionRate || transactionsData?.commissionRate || earnings.commissionRate,
+  };
+  
+  // Helper function to normalize transaction data
+  const normalizeTransaction = (transaction: any) => {
+    return {
+      id: transaction._id || transaction.id || '',
+      orderId: transaction['Transaction ID'] || transaction.orderId || transaction.id || '',
+      orderNumber: transaction['Transaction ID'] || transaction.orderNumber || transaction.orderId || '',
+      referredUserName: transaction['Referred User Name'] || transaction.referredUserName || 'N/A',
+      commission: transaction['Referred User Commission'] || transaction.commission || 0,
+      commissionRate: transaction['Commission Rate'] || transaction.commissionRate || 0,
+      status: transaction.status || 'pending',
+      created_at: transaction.date || transaction.created_at || new Date().toISOString(),
+    };
+  };
 
   // Reset to page 1 when switching to earnings tab
   useEffect(() => {
@@ -110,18 +177,49 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
         paymentMethod,
       }).unwrap();
 
-      if (result.success) {
+      if (result.success && result.cashoutRequest) {
         toast.success(
           locale === 'en'
-            ? 'Cashout request submitted! Waiting for admin approval.'
-            : 'تم إرسال طلب السحب! في انتظار موافقة المسؤول.'
+            ? `Cashout request of ${amount.toFixed(2)} SAR submitted successfully! Waiting for admin approval.`
+            : `تم إرسال طلب السحب بقيمة ${amount.toFixed(2)} ر.س بنجاح! في انتظار موافقة المسؤول.`
         );
         setCashoutAmount('');
-        // Refetch payout requests
-        window.location.reload();
+        // Refetch profile to update available balance and cashout requests
+        refetchProfile();
+        refetchCashoutRequests();
+      } else {
+        const errorMessage = result.error || 
+          (locale === 'en' ? 'Failed to submit cashout request' : 'فشل إرسال طلب السحب');
+        toast.error(errorMessage);
       }
     } catch (error: any) {
-      handleApiErrorWithToast(error);
+      console.error('Cashout request error:', error);
+      
+      // Extract error details from API response
+      const errorResponse = error?.data || {};
+      const errorMessage = errorResponse.error || errorResponse.message || error.message;
+      
+      // Handle specific error messages
+      if (errorMessage?.toLowerCase().includes('insufficient')) {
+        toast.error(
+          locale === 'en'
+            ? 'Insufficient pending earnings. Please check your available balance.'
+            : 'الأرباح المعلقة غير كافية. يرجى التحقق من رصيدك المتاح.'
+        );
+      } else if (error?.status === 404 || errorMessage?.toLowerCase().includes('not found')) {
+        toast.error(
+          locale === 'en'
+            ? 'Affiliate account not found. Please contact support.'
+            : 'لم يتم العثور على حساب الشريك. يرجى الاتصال بالدعم.'
+        );
+      } else {
+        toast.error(
+          errorMessage ||
+            (locale === 'en'
+              ? 'Failed to submit cashout request. Please try again.'
+              : 'فشل إرسال طلب السحب. يرجى المحاولة مرة أخرى.')
+        );
+      }
     }
   };
 
@@ -241,19 +339,26 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
         {/* Content */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-deep-charcoal/70">
-                    {locale === 'en' ? 'Total Earnings' : 'إجمالي الأرباح'}
-                  </h3>
-                  <HiCurrencyDollar className="w-5 h-5 text-saudi-green" />
-                </div>
-                <p className="text-2xl font-bold text-deep-charcoal">
-                  {earnings.totalEarnings.toFixed(2)} SAR
-                </p>
+            {isLoadingProfile ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-saudi-green mx-auto mb-4"></div>
+                <p className="text-deep-charcoal/70">{locale === 'en' ? 'Loading earnings data...' : 'جاري تحميل بيانات الأرباح...'}</p>
               </div>
+            ) : (
+              <>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-deep-charcoal/70">
+                        {locale === 'en' ? 'Total Earnings' : 'إجمالي الأرباح'}
+                      </h3>
+                      <HiCurrencyDollar className="w-5 h-5 text-saudi-green" />
+                    </div>
+                    <p className="text-2xl font-bold text-deep-charcoal">
+                      {earnings.totalEarnings.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                    </p>
+                  </div>
 
               <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
@@ -296,175 +401,204 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Earnings Breakdown Chart */}
               <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
-                <h3 className="text-lg font-semibold text-deep-charcoal mb-4">
-                  {locale === 'en' ? 'Earnings Breakdown' : 'تفصيل الأرباح'}
-                </h3>
-                <Bar
-                  data={{
-                    labels: [
-                      locale === 'en' ? 'Total Earnings' : 'إجمالي الأرباح',
-                      locale === 'en' ? 'Pending Earnings' : 'الأرباح المعلقة',
-                      locale === 'en' ? 'Paid Earnings' : 'الأرباح المدفوعة',
-                      locale === 'en' ? 'Available Balance' : 'الرصيد المتاح',
-                    ],
-                    datasets: [
-                      {
-                        label: locale === 'en' ? 'Amount (SAR)' : 'المبلغ (ريال)',
-                        data: [
-                          earnings.totalEarnings,
-                          earnings.pendingEarnings,
-                          earnings.paidEarnings,
-                          earnings.availableBalance,
-                        ],
-                        backgroundColor: [
-                          'rgba(0, 103, 71, 0.8)', // saudi-green
-                          'rgba(234, 179, 8, 0.8)', // yellow-500
-                          'rgba(16, 185, 129, 0.8)', // green-500
-                          'rgba(37, 99, 235, 0.8)', // blue-600
-                        ],
-                        borderColor: [
-                          '#006747', // saudi-green
-                          '#eab308', // yellow-500
-                          '#10b981', // green-500
-                          '#2563eb', // blue-600
-                        ],
-                        borderWidth: 2,
-                        borderRadius: 8,
-                      },
-                    ],
-                  }}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 1.5,
-                    plugins: {
-                      legend: {
-                        display: false,
-                      },
-                      tooltip: {
-                        backgroundColor: 'rgba(51, 51, 51, 0.9)',
-                        padding: 12,
-                        titleFont: {
-                          size: 14,
-                          weight: 'bold',
-                        },
-                        bodyFont: {
-                          size: 13,
-                        },
-                        callbacks: {
-                          label: function (context) {
-                            return `${context.parsed.y.toFixed(2)} SAR`;
-                          },
-                        },
-                      },
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        max: 50000,
-                        ticks: {
-                          callback: function (value) {
-                            return value.toFixed(0) + ' SAR';
-                          },
-                          color: '#666',
-                          font: {
-                            size: 11,
-                          },
-                          stepSize: 10000,
-                        },
-                        grid: {
-                          color: 'rgba(232, 212, 176, 0.2)',
-                        },
-                      },
-                      x: {
-                        ticks: {
-                          color: '#666',
-                          font: {
-                            size: 11,
-                          },
-                        },
-                        grid: {
-                          display: false,
-                        },
-                      },
-                    },
-                  }}
-                />
-              </div>
-
-              {/* Performance Metrics Chart - Gauge Style */}
-              <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
-                <div className="text-center mb-2">
-                  <p className="text-xs text-deep-charcoal/60 mb-1">
-                    {locale === 'en' ? 'CODE USAGE PROGRESS' : 'تقدم استخدام الرمز'}
-                  </p>
-                  <h3 className="text-lg font-bold text-deep-charcoal">
-                    {locale === 'en' ? 'Code Usage' : 'استخدام الرمز'}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-deep-charcoal">
+                    {locale === 'en' ? 'Earnings Breakdown' : 'تفصيل الأرباح'}
                   </h3>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={earningsPeriod}
+                      onChange={(e) => setEarningsPeriod(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
+                      className="text-xs px-2 py-1 border border-rich-sand rounded-md text-deep-charcoal focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                    >
+                      <option value="daily">{locale === 'en' ? 'Daily' : 'يومي'}</option>
+                      <option value="weekly">{locale === 'en' ? 'Weekly' : 'أسبوعي'}</option>
+                      <option value="monthly">{locale === 'en' ? 'Monthly' : 'شهري'}</option>
+                      <option value="yearly">{locale === 'en' ? 'Yearly' : 'سنوي'}</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="flex items-center justify-center py-4">
-                  <div style={{ width: '220px', height: '220px', position: 'relative' }}>
-                    <Doughnut
-                      data={{
-                        labels: [
-                          locale === 'en' ? 'Used' : 'مستخدم',
-                          locale === 'en' ? 'Remaining' : 'متبقي',
-                        ],
-                        datasets: [
-                          {
-                            data: [
-                              earnings.codeUsageCount,
-                              Math.max(0, 100 - earnings.codeUsageCount), // Target of 100
-                            ],
-                            backgroundColor: [
-                              '#006747', // saudi-green
-                              '#E8D4B0', // rich-sand
-                            ],
-                            borderWidth: 0,
-                            cutout: '75%',
+                {isLoadingBreakdown ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-saudi-green"></div>
+                  </div>
+                ) : earningsBreakdownData?.breakdown && earningsBreakdownData.breakdown.length > 0 ? (
+                  <Bar
+                    data={{
+                      labels: earningsBreakdownData.breakdown.map(item => item.label),
+                      datasets: [
+                        {
+                          label: locale === 'en' ? 'Total Earnings' : 'إجمالي الأرباح',
+                          data: earningsBreakdownData.breakdown.map(item => item.totalEarnings),
+                          backgroundColor: 'rgba(0, 103, 71, 0.8)', // saudi-green
+                          borderColor: '#006747',
+                          borderWidth: 2,
+                          borderRadius: 8,
+                        },
+                        {
+                          label: locale === 'en' ? 'Pending Earnings' : 'الأرباح المعلقة',
+                          data: earningsBreakdownData.breakdown.map(item => item.pendingEarnings),
+                          backgroundColor: 'rgba(234, 179, 8, 0.8)', // yellow-500
+                          borderColor: '#eab308',
+                          borderWidth: 2,
+                          borderRadius: 8,
+                        },
+                        {
+                          label: locale === 'en' ? 'Paid Earnings' : 'الأرباح المدفوعة',
+                          data: earningsBreakdownData.breakdown.map(item => item.paidEarnings),
+                          backgroundColor: 'rgba(16, 185, 129, 0.8)', // green-500
+                          borderColor: '#10b981',
+                          borderWidth: 2,
+                          borderRadius: 8,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: true,
+                      aspectRatio: 1.5,
+                      plugins: {
+                        legend: {
+                          display: true,
+                          position: 'top',
+                          labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                              size: 11,
+                            },
                           },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        rotation: -90,
-                        circumference: 180,
-                        plugins: {
-                          legend: {
+                        },
+                        tooltip: {
+                          backgroundColor: 'rgba(51, 51, 51, 0.9)',
+                          padding: 12,
+                          titleFont: {
+                            size: 14,
+                            weight: 'bold',
+                          },
+                          bodyFont: {
+                            size: 13,
+                          },
+                          callbacks: {
+                            label: function (context) {
+                              return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} ${locale === 'ar' ? 'ر.س' : 'SAR'}`;
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            callback: function (value) {
+                              return value.toFixed(0) + (locale === 'ar' ? ' ر.س' : ' SAR');
+                            },
+                            color: '#666',
+                            font: {
+                              size: 11,
+                            },
+                          },
+                          grid: {
+                            color: 'rgba(232, 212, 176, 0.2)',
+                          },
+                        },
+                        x: {
+                          ticks: {
+                            color: '#666',
+                            font: {
+                              size: 10,
+                            },
+                            maxRotation: 45,
+                            minRotation: 45,
+                          },
+                          grid: {
                             display: false,
                           },
-                          tooltip: {
-                            enabled: false,
-                          },
                         },
-                      }}
-                    />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <div className="text-3xl font-bold text-deep-charcoal mb-1">
+                      },
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-64 text-deep-charcoal/60">
+                    <p>{locale === 'en' ? 'No earnings data available' : 'لا توجد بيانات أرباح متاحة'}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Code Usage Progress - Modern Design */}
+              <div className="bg-white rounded-lg p-4 border border-rich-sand/30 shadow-sm">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-deep-charcoal mb-0.5">
+                    {locale === 'en' ? 'Code Usage Progress' : 'تقدم استخدام الرمز'}
+                  </h3>
+                  <p className="text-xs text-deep-charcoal/60">
+                    {locale === 'en' ? 'Track your affiliate code performance' : 'تتبع أداء رمز الشريك الخاص بك'}
+                  </p>
+                </div>
+
+                {/* Main Progress Display */}
+                <div className="mb-4">
+                  <div className="flex items-end justify-between mb-2">
+                    <div>
+                      <div className="text-3xl font-bold text-saudi-green mb-0.5">
                         {earnings.codeUsageCount.toLocaleString('en-US')}
                       </div>
-                      <div className="text-xs text-deep-charcoal/60 font-medium">
-                        {locale === 'en' ? 'Uses' : 'استخدام'}
+                      <div className="text-xs text-deep-charcoal/70">
+                        {locale === 'en' ? 'Total Uses' : 'إجمالي الاستخدامات'}
                       </div>
-                      <div className="mt-2 text-xs text-deep-charcoal/50">
-                        {locale === 'en' ? 'Target: 100' : 'الهدف: 100'}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-semibold text-deep-charcoal/50 mb-0.5">
+                        100
                       </div>
+                      <div className="text-xs text-deep-charcoal/60">
+                        {locale === 'en' ? 'Target' : 'الهدف'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="relative w-full h-7 bg-rich-sand/30 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-saudi-green via-emerald-500 to-saudi-green rounded-full transition-all duration-1000 ease-out shadow-sm"
+                      style={{
+                        width: `${Math.min(100, (earnings.codeUsageCount / 100) * 100)}%`,
+                        backgroundSize: '200% 100%',
+                      }}
+                    ></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-semibold text-deep-charcoal z-10 drop-shadow-sm">
+                        {Math.min(100, Math.round((earnings.codeUsageCount / 100) * 100))}%
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-between items-center mt-4 pt-4 border-t border-rich-sand/30">
-                  <div className="text-center flex-1">
-                    <div className="text-xs text-deep-charcoal/60 mb-1">
-                      {locale === 'en' ? 'Starting Point' : 'نقطة البداية'}
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-3 pt-3 border-t border-rich-sand/30">
+                  <div className="text-center">
+                    <div className="text-base font-bold text-deep-charcoal mb-0.5">
+                      {earnings.codeUsageCount}
                     </div>
-                    <div className="text-sm font-semibold text-deep-charcoal">0</div>
+                    <div className="text-xs text-deep-charcoal/60">
+                      {locale === 'en' ? 'Current' : 'الحالي'}
+                    </div>
                   </div>
-                  <div className="text-center flex-1">
-                    <div className="text-xs text-deep-charcoal/60 mb-1">
-                      {locale === 'en' ? 'Target' : 'الهدف'}
+                  <div className="text-center">
+                    <div className="text-base font-bold text-saudi-green mb-0.5">
+                      {Math.max(0, 100 - earnings.codeUsageCount)}
                     </div>
-                    <div className="text-sm font-semibold text-deep-charcoal">100</div>
+                    <div className="text-xs text-deep-charcoal/60">
+                      {locale === 'en' ? 'Remaining' : 'متبقي'}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-base font-bold text-deep-charcoal mb-0.5">
+                      {earnings.codeUsageCount > 0 ? Math.round((earnings.codeUsageCount / 100) * 100) : 0}%
+                    </div>
+                    <div className="text-xs text-deep-charcoal/60">
+                      {locale === 'en' ? 'Complete' : 'مكتمل'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -493,6 +627,8 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                 </button>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
 
@@ -501,9 +637,95 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
             <h3 className="text-lg font-semibold text-deep-charcoal mb-4">
               {locale === 'en' ? 'Earnings History' : 'سجل الأرباح'}
             </h3>
+            
+            {/* Overall Stats from Transactions API */}
+            {transactionsData && (overallStats.totalReferrals > 0 || overallStats.totalSales > 0) && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-rich-sand/10 rounded-lg">
+                <div className="text-center">
+                  <div className="text-xs text-deep-charcoal/60 mb-1">
+                    {locale === 'en' ? 'Total Referrals' : 'إجمالي الإحالات'}
+                  </div>
+                  <div className="text-lg font-semibold text-deep-charcoal">
+                    {overallStats.totalReferrals.toLocaleString()}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-deep-charcoal/60 mb-1">
+                    {locale === 'en' ? 'Total Earnings' : 'إجمالي الأرباح'}
+                  </div>
+                  <div className="text-lg font-semibold text-saudi-green">
+                    {overallStats.totalEarnings.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-deep-charcoal/60 mb-1">
+                    {locale === 'en' ? 'Total Sales' : 'إجمالي المبيعات'}
+                  </div>
+                  <div className="text-lg font-semibold text-deep-charcoal">
+                    {overallStats.totalSales.toLocaleString()}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-deep-charcoal/60 mb-1">
+                    {locale === 'en' ? 'Commission Rate' : 'معدل العمولة'}
+                  </div>
+                  <div className="text-lg font-semibold text-deep-charcoal">
+                    {overallStats.commissionRate.toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {isLoadingTransactions ? (
-              <div className="text-center py-8">
-                <p className="text-deep-charcoal/70">{locale === 'en' ? 'Loading...' : 'جاري التحميل...'}</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-rich-sand/30">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Date' : 'التاريخ'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Order Number' : 'رقم الطلب'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Referred User' : 'المستخدم المشار إليه'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Commission' : 'العمولة'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Commission Rate' : 'معدل العمولة'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Status' : 'الحالة'}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <tr key={i} className="border-b border-rich-sand/20">
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-rich-sand/30 rounded w-24 animate-pulse"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-rich-sand/30 rounded w-32 animate-pulse"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-rich-sand/30 rounded w-28 animate-pulse"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-rich-sand/30 rounded w-20 animate-pulse"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-rich-sand/30 rounded w-16 animate-pulse"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-6 bg-rich-sand/30 rounded-full w-20 animate-pulse"></div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : transactions.length > 0 ? (
               <>
@@ -532,32 +754,35 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.map((transaction) => (
-                        <tr key={transaction.id} className="border-b border-rich-sand/20 hover:bg-rich-sand/5 transition-colors">
-                          <td className="py-3 px-4 text-sm text-deep-charcoal">
-                            {new Date(transaction.created_at).toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-deep-charcoal font-mono">
-                            {transaction.orderNumber}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-deep-charcoal">
-                            {transaction.referredUserName}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-medium text-saudi-green">
-                            {transaction.commission.toFixed(2)} SAR
-                          </td>
-                          <td className="py-3 px-4 text-sm text-deep-charcoal/70">
-                            {transaction.commissionRate}%
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {getTransactionStatusBadge(transaction.status)}
-                          </td>
-                        </tr>
-                      ))}
+                      {transactions.map((transaction) => {
+                        const normalized = normalizeTransaction(transaction);
+                        return (
+                          <tr key={normalized.id} className="border-b border-rich-sand/20 hover:bg-rich-sand/5 transition-colors">
+                            <td className="py-3 px-4 text-sm text-deep-charcoal">
+                              {new Date(normalized.created_at).toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-deep-charcoal font-mono">
+                              {normalized.orderNumber}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-deep-charcoal">
+                              {normalized.referredUserName}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-medium text-saudi-green">
+                              {normalized.commission.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-deep-charcoal/70">
+                              {normalized.commissionRate.toFixed(1)}%
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {getTransactionStatusBadge(normalized.status)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -642,8 +867,43 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                 {locale === 'en' ? 'Cashout Requests' : 'طلبات السحب'}
               </h3>
               {isLoadingPayouts ? (
-                <div className="text-center py-8">
-                  <p className="text-deep-charcoal/70">{locale === 'en' ? 'Loading...' : 'جاري التحميل...'}</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-rich-sand/30">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                          {locale === 'en' ? 'Date' : 'التاريخ'}
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                          {locale === 'en' ? 'Amount' : 'المبلغ'}
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                          {locale === 'en' ? 'Payment Method' : 'طريقة الدفع'}
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                          {locale === 'en' ? 'Status' : 'الحالة'}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <tr key={i} className="border-b border-rich-sand/20">
+                          <td className="py-3 px-4">
+                            <div className="h-4 bg-rich-sand/30 rounded w-24 animate-pulse"></div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="h-4 bg-rich-sand/30 rounded w-20 animate-pulse"></div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="h-4 bg-rich-sand/30 rounded w-28 animate-pulse"></div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="h-6 bg-rich-sand/30 rounded-full w-20 animate-pulse"></div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : cashoutRequests.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -665,22 +925,29 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                       </tr>
                     </thead>
                     <tbody>
-                      {cashoutRequests.map((request) => (
-                        <tr key={request.id} className="border-b border-rich-sand/20">
-                          <td className="py-3 px-4 text-sm text-deep-charcoal">
-                            {new Date(request.requestedAt).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-medium text-deep-charcoal">
-                            {request.amount.toFixed(2)} SAR
-                          </td>
-                          <td className="py-3 px-4 text-sm text-deep-charcoal">
-                            {request.paymentMethod}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {getStatusBadge(request.status)}
-                          </td>
-                        </tr>
-                      ))}
+                      {cashoutRequests.map((request) => {
+                        const normalized = normalizeCashoutRequest(request);
+                        return (
+                          <tr key={normalized.id} className="border-b border-rich-sand/20 hover:bg-rich-sand/5 transition-colors">
+                            <td className="py-3 px-4 text-sm text-deep-charcoal">
+                              {new Date(normalized.requestedAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-medium text-saudi-green">
+                              {normalized.amount.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-deep-charcoal">
+                              {normalized.paymentMethod}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {getStatusBadge(normalized.status)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

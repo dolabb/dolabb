@@ -30,6 +30,7 @@ export interface Product {
   affiliateCode?: string;
   status?: 'pending' | 'approved' | 'rejected' | 'active';
   quantity?: number;
+  taxPercentage?: number;
   createdAt?: string;
   updatedAt?: string;
 }

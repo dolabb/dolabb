@@ -5,8 +5,9 @@ import { apiClient } from '@/lib/api/client';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { HiCreditCard, HiLockClosed } from 'react-icons/hi2';
+import { HiCreditCard, HiLockClosed, HiShieldCheck } from 'react-icons/hi2';
 import { toast } from '@/utils/toast';
+import ThreeDSAuthenticationModal from '@/components/payment/ThreeDSAuthenticationModal';
 
 export default function PaymentPage() {
   const locale = useLocale();
@@ -16,6 +17,10 @@ export default function PaymentPage() {
   const isRTL = locale === 'ar';
   const [isProcessing, setIsProcessing] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [show3DSModal, setShow3DSModal] = useState(false);
+  const [transactionUrl, setTransactionUrl] = useState<string>('');
+  const [orderSummary, setOrderSummary] = useState<any>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   // Get offer data from URL params
   const offerId = searchParams.get('offerId');
@@ -347,7 +352,7 @@ export default function PaymentPage() {
       // Check if payment requires 3DS authentication
       if (paymentStatus === 'initiated' && transactionUrl) {
         console.log(
-          'Payment requires 3DS authentication, redirecting to transaction URL'
+          'Payment requires 3DS authentication, opening modal with transaction URL'
         );
 
         // Store payment info in sessionStorage for callback to retrieve
@@ -369,9 +374,9 @@ export default function PaymentPage() {
         );
         setIsProcessing(false);
 
-        // Redirect directly to 3DS authentication page
-        // After 3DS completion, Moyasar will redirect to our callback URL
-        window.location.href = transactionUrl;
+        // Open 3DS authentication modal instead of redirecting
+        setTransactionUrl(transactionUrl);
+        setShow3DSModal(true);
         return; // Don't continue with success flow
       }
 
@@ -590,6 +595,28 @@ export default function PaymentPage() {
     }
   }, [offerId, product, offerPrice, locale, router]);
 
+  // Fetch order summary from API to get tax percentage and platform fee
+  useEffect(() => {
+    const fetchOrderSummary = async () => {
+      if (!offerId) return;
+
+      setIsLoadingSummary(true);
+      try {
+        const response = await apiClient.get(`/api/offers/${offerId}/order-summary/`);
+        if (response.data.success && response.data.orderSummary) {
+          setOrderSummary(response.data.orderSummary);
+        }
+      } catch (error: any) {
+        console.error('Error fetching order summary:', error);
+        // Don't show error toast, just use fallback data from URL params
+      } finally {
+        setIsLoadingSummary(false);
+      }
+    };
+
+    fetchOrderSummary();
+  }, [offerId]);
+
   useEffect(() => {
     // Check for error parameters from callback
     const error = searchParams.get('error');
@@ -615,10 +642,18 @@ export default function PaymentPage() {
     return null;
   }
 
-  // Calculate subtotal (offer price + shipping)
-  const subtotal = parseFloat(offerPrice || '0') + parseFloat(shipping || '0');
-  // Calculate tax (15% VAT in Saudi Arabia)
-  const tax = subtotal * 0.15;
+  // Use order summary data if available, otherwise fall back to URL params
+  const displayOfferPrice = orderSummary?.offerPrice || parseFloat(offerPrice || '0');
+  const displayShipping = orderSummary?.shippingPrice || parseFloat(shipping || '0');
+  const displayPlatformFee = orderSummary?.platformFee || 0;
+  const taxPercentage = orderSummary?.productTaxPercentage || (orderSummary?.platformTax?.percentage) || 0;
+
+  // Calculate subtotal (offer price + shipping + platform fee)
+  const subtotal = displayOfferPrice + displayShipping + displayPlatformFee;
+  
+  // Calculate tax based on product's tax percentage (if set)
+  const tax = taxPercentage > 0 ? subtotal * (taxPercentage / 100) : 0;
+  
   // Calculate total including tax
   const totalPrice = (subtotal + tax).toFixed(2);
 
@@ -628,7 +663,6 @@ export default function PaymentPage() {
         <h1 className='text-3xl font-bold text-deep-charcoal mb-8'>
           {locale === 'en' ? 'Payment' : 'الدفع'}
         </h1>
-
         <div className='max-w-2xl mx-auto'>
           {/* Payment Form */}
           <div className='bg-white rounded-lg border border-rich-sand/30 p-6 mb-6'>
@@ -829,6 +863,66 @@ export default function PaymentPage() {
           </div>
         </div>
       </div>
+
+      {/* 3DS Authentication Modal */}
+      <ThreeDSAuthenticationModal
+        isOpen={show3DSModal}
+        onClose={() => {
+          setShow3DSModal(false);
+          // Optionally redirect to callback to check payment status
+          const pendingPayment = JSON.parse(
+            sessionStorage.getItem('pendingPayment') || '{}'
+          );
+          if (pendingPayment.paymentId) {
+            const callbackParams = new URLSearchParams({
+              id: pendingPayment.paymentId,
+              offerId: pendingPayment.offerId || '',
+              product: pendingPayment.product || '',
+              offerPrice: pendingPayment.offerPrice || '',
+              shipping: pendingPayment.shipping || '',
+            });
+            router.push(`/${locale}/payment/callback?${callbackParams.toString()}`);
+          }
+        }}
+        transactionUrl={transactionUrl}
+        onSuccess={() => {
+          setShow3DSModal(false);
+          // Redirect to callback URL to verify payment
+          const pendingPayment = JSON.parse(
+            sessionStorage.getItem('pendingPayment') || '{}'
+          );
+          if (pendingPayment.paymentId) {
+            const callbackParams = new URLSearchParams({
+              id: pendingPayment.paymentId,
+              offerId: pendingPayment.offerId || '',
+              product: pendingPayment.product || '',
+              offerPrice: pendingPayment.offerPrice || '',
+              shipping: pendingPayment.shipping || '',
+            });
+            router.push(`/${locale}/payment/callback?${callbackParams.toString()}`);
+          } else {
+            // Fallback: construct callback URL from stored data
+            const callbackParams = new URLSearchParams({
+              offerId: offerId || '',
+              product: product || '',
+              offerPrice: offerPrice || '',
+              shipping: shipping || '',
+            });
+            router.push(`/${locale}/payment/callback?${callbackParams.toString()}`);
+          }
+        }}
+        onError={(error) => {
+          console.error('3DS Authentication error:', error);
+          toast.error(
+            locale === 'en'
+              ? 'Authentication failed. Please try again.'
+              : 'فشلت المصادقة. يرجى المحاولة مرة أخرى.',
+            { duration: 5000 }
+          );
+        }}
+        amount={totalPrice}
+        productName={product || ''}
+      />
     </div>
   );
 }
