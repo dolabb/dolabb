@@ -130,7 +130,7 @@ export default function PaymentsTab() {
     if (payment.product && typeof payment.product === 'object' && 'title' in payment.product) {
       return {
         title: payment.product.title,
-        image: payment.product.images?.[0] || payment.product.image || 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&h=500&fit=crop&auto=format',
+        image: payment.product.images?.[0] || 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&h=500&fit=crop&auto=format',
         id: payment.product.id || '',
       };
     }
