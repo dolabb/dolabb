@@ -88,7 +88,7 @@ export default function PaymentsTab() {
       await shipOrder({
         orderId,
         trackingNumber: tracking,
-        shipmentProof: method === 'file' ? file : undefined,
+        shipmentProof: method === 'file' ? (file || undefined) : undefined,
         shipmentProofUrl: method === 'url' ? url : undefined,
       }).unwrap();
       toast.success(
