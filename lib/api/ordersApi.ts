@@ -24,7 +24,7 @@ export interface Order {
     profileImage?: string;
   };
   orderDate: string;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'paid' | 'cancelled' | 'ready' | 'shipped' | 'reached_at_courier' | 'out_for_delivery' | 'delivered';
   totalPrice: number;
   shippingAddress: ShippingAddress;
   trackingNumber?: string;
