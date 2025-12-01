@@ -481,7 +481,8 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                           },
                           callbacks: {
                             label: function (context) {
-                              return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} ${locale === 'ar' ? 'ر.س' : 'SAR'}`;
+                              const value = context.parsed.y ?? 0;
+                              return `${context.dataset.label}: ${value.toFixed(2)} ${locale === 'ar' ? 'ر.س' : 'SAR'}`;
                             },
                           },
                         },
