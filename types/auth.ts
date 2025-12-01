@@ -91,6 +91,7 @@ export interface Affiliate {
   phone: string;
   affiliate_code: string;
   profile_image?: string;
+  country_code?: string;
   totalEarnings?: number;
   totalCommissions?: number;
   pendingEarnings?: number;
