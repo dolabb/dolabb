@@ -110,7 +110,7 @@ export function useBrowseFilters(locale: string) {
       size?: string;
       color?: string;
       condition?: string;
-      sortBy?: string;
+      sortBy?: 'newest' | 'price: low to high' | 'price: high to low' | 'relevance';
     } = {
       page: filters.page,
       limit: filters.limit,
@@ -138,9 +138,18 @@ export function useBrowseFilters(locale: string) {
       };
       params.condition = conditionMap[filters.condition] || filters.condition;
     }
-    // Always include sortBy when it's set
+    // Always include sortBy when it's set - map display values to API values
     if (filters.sortBy) {
-      params.sortBy = filters.sortBy;
+      const sortByMap: Record<string, 'newest' | 'price: low to high' | 'price: high to low' | 'relevance'> = {
+        'Relevance': 'relevance',
+        'Low to High': 'price: low to high',
+        'High to Low': 'price: high to low',
+        'Newly Listed': 'newest',
+      };
+      const apiSortBy = sortByMap[filters.sortBy];
+      if (apiSortBy) {
+        params.sortBy = apiSortBy;
+      }
     }
 
     return params;
