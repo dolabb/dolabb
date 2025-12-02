@@ -273,8 +273,8 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
           receiverId: sellerId,
           text:
             locale === 'en'
-              ? `I've made an offer of ${locale === 'ar' ? 'ر.س' : 'SAR'} ${offerAmount.toFixed(2)} for "${product?.title || 'this product'}".`
-              : `لقد قدمت عرضاً بقيمة ${locale === 'ar' ? 'ر.س' : 'SAR'} ${offerAmount.toFixed(2)} على "${product?.title || 'هذا المنتج'}".`,
+              ? `I've made an offer of SAR ${offerAmount.toFixed(2)} for "${product?.title || 'this product'}".`
+              : `لقد قدمت عرضاً بقيمة ر.س ${offerAmount.toFixed(2)} على "${product?.title || 'هذا المنتج'}".`,
           productId: productId,
           attachments: [],
           offerId: offerId,
