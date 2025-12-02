@@ -165,8 +165,8 @@ export default function OfferModal({
                   )}
                   <p className='mt-2 text-xs text-deep-charcoal/60'>
                     {locale === 'en'
-                      ? `Maximum offer: ${locale === 'ar' ? 'ر.س' : 'SAR'} ${productPrice.toFixed(2)}`
-                      : `الحد الأقصى للعرض: ${locale === 'ar' ? 'ر.س' : 'SAR'} ${productPrice.toFixed(2)}`}
+                      ? `Maximum offer: SAR ${productPrice.toFixed(2)}`
+                      : `الحد الأقصى للعرض: ر.س ${productPrice.toFixed(2)}`}
                   </p>
                 </div>
 
