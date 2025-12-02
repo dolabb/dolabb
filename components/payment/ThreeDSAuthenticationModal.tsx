@@ -53,7 +53,6 @@ export default function ThreeDSAuthenticationModal({
     if (!isOpen || !iframeRef.current) return;
 
     const iframe = iframeRef.current;
-    let checkInterval: NodeJS.Timeout;
     let pollInterval: NodeJS.Timeout;
 
     // Listen for postMessage from iframe (if Moyasar supports it)
@@ -123,7 +122,6 @@ export default function ThreeDSAuthenticationModal({
 
     return () => {
       window.removeEventListener('message', handleMessage);
-      if (checkInterval) clearInterval(checkInterval);
       if (pollInterval) clearInterval(pollInterval);
       iframe.removeEventListener('load', handleIframeLoad);
     };
