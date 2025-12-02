@@ -4,7 +4,7 @@ interface ToastOptions {
   duration?: number;
   progress?: boolean;
   position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-  transition?: 'topBounce' | 'bottomBounce' | 'fade' | 'slide';
+  transition?: 'topBounce' | 'fadeIn' | 'swingInverted' | 'bounceIn' | 'popUp' | 'bounceInDown' | 'slideInUp';
   icon?: string;
   sound?: boolean;
 }
