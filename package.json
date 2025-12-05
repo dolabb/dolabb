@@ -14,7 +14,7 @@
     "chart.js": "^4.5.1",
     "framer-motion": "^12.23.24",
     "gsap": "^3.13.0",
-    "next": "16.0.1",
+    "next": "^16.0.7",
     "next-intl": "^4.5.0",
     "nextjs-toast-notify": "^1.57.0",
     "react": "19.2.0",
@@ -29,7 +29,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.0.1",
+    "eslint-config-next": "^16.0.7",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
