@@ -13,7 +13,7 @@ export function generateStaticParams() {
 }
 
 export const metadata: Metadata = {
-  title: 'Depop Clone - Buy and Sell Unique Fashion',
+  title: 'Dolabb - Buy and Sell Unique Fashion',
   description: 'Buy and sell unique fashion from independent creators',
 };
 

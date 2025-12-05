@@ -1,30 +1,54 @@
+import type {
+  CategoriesResponse,
+  CategoryDetailsResponse,
+  CategoryFiltersResponse,
+  PaginationMeta,
+  Product,
+  ProductFilters,
+  ProductsResponse,
+} from '@/types/products';
 import { baseApi } from './baseApi';
-import type { Product, ProductFilters, PaginationMeta } from '@/types/products';
 
 export const productsApi = baseApi.injectEndpoints({
-  endpoints: (builder) => ({
-    // Get Products
-    getProducts: builder.query<Product[], ProductFilters>({
-      query: (params) => ({
-        url: '/api/products/',
-        method: 'GET',
-        params,
-      }),
+  endpoints: builder => ({
+    // Get Products (Updated with new format)
+    getProducts: builder.query<
+      ProductsResponse | Product[],
+      ProductFilters & { format?: 'legacy' }
+    >({
+      query: params => {
+        const { format, ...queryParams } = params;
+        return {
+          url: '/api/products/',
+          method: 'GET',
+          params:
+            format === 'legacy'
+              ? { ...queryParams, format: 'legacy' }
+              : queryParams,
+        };
+      },
       providesTags: ['Product'],
+      // Cache for 30 seconds to improve performance
+      keepUnusedDataFor: 30,
     }),
 
     // Get Product Detail
     getProductDetail: builder.query<Product, string>({
-      query: (productId) => ({
+      query: productId => ({
         url: `/api/products/${productId}/`,
         method: 'GET',
       }),
-      providesTags: (result, error, productId) => [{ type: 'Product', id: productId }],
+      providesTags: (result, error, productId) => [
+        { type: 'Product', id: productId },
+      ],
     }),
 
     // Create Product
-    createProduct: builder.mutation<{ success: boolean; product: Product }, any>({
-      query: (data) => ({
+    createProduct: builder.mutation<
+      { success: boolean; product: Product },
+      any
+    >({
+      query: data => ({
         url: '/api/products/create/',
         method: 'POST',
         data,
@@ -42,12 +66,17 @@ export const productsApi = baseApi.injectEndpoints({
         method: 'PUT',
         data,
       }),
-      invalidatesTags: (result, error, { productId }) => [{ type: 'Product', id: productId }],
+      invalidatesTags: (result, error, { productId }) => [
+        { type: 'Product', id: productId },
+      ],
     }),
 
     // Delete Product
-    deleteProduct: builder.mutation<{ success: boolean; message: string }, string>({
-      query: (productId) => ({
+    deleteProduct: builder.mutation<
+      { success: boolean; message: string },
+      string
+    >({
+      query: productId => ({
         url: `/api/products/${productId}/delete/`,
         method: 'DELETE',
       }),
@@ -55,8 +84,11 @@ export const productsApi = baseApi.injectEndpoints({
     }),
 
     // Get Seller Products
-    getSellerProducts: builder.query<Product[], { page?: number; limit?: number; status?: string }>({
-      query: (params) => ({
+    getSellerProducts: builder.query<
+      Product[],
+      { page?: number; limit?: number; status?: string }
+    >({
+      query: params => ({
         url: '/api/products/seller/',
         method: 'GET',
         params,
@@ -65,8 +97,11 @@ export const productsApi = baseApi.injectEndpoints({
     }),
 
     // Save Product (Add to Wishlist/Cart)
-    saveProduct: builder.mutation<{ success: boolean; isSaved: boolean }, string>({
-      query: (productId) => ({
+    saveProduct: builder.mutation<
+      { success: boolean; isSaved: boolean },
+      string
+    >({
+      query: productId => ({
         url: `/api/products/${productId}/save/`,
         method: 'POST',
       }),
@@ -77,8 +112,11 @@ export const productsApi = baseApi.injectEndpoints({
     }),
 
     // Unsave Product (Remove from Wishlist/Cart)
-    unsaveProduct: builder.mutation<{ success: boolean; isSaved: boolean }, string>({
-      query: (productId) => ({
+    unsaveProduct: builder.mutation<
+      { success: boolean; isSaved: boolean },
+      string
+    >({
+      query: productId => ({
         url: `/api/products/${productId}/unsave/`,
         method: 'DELETE',
       }),
@@ -93,7 +131,7 @@ export const productsApi = baseApi.injectEndpoints({
       { products: Product[]; pagination: PaginationMeta },
       { limit?: number; page?: number }
     >({
-      query: (params) => ({
+      query: params => ({
         url: '/api/products/featured/',
         method: 'GET',
         params,
@@ -105,14 +143,51 @@ export const productsApi = baseApi.injectEndpoints({
       { products: Product[]; pagination: PaginationMeta },
       { limit?: number; page?: number }
     >({
-      query: (params) => ({
+      query: params => ({
         url: '/api/products/trending/',
         method: 'GET',
         params,
       }),
     }),
 
-    // Get Categories, Brands, Colors, and Sizes
+    // Get All Categories (New endpoint)
+    getAllCategories: builder.query<CategoriesResponse, void>({
+      query: () => ({
+        url: '/api/categories/',
+        method: 'GET',
+      }),
+      // Cache for 5 minutes as categories don't change frequently
+      keepUnusedDataFor: 300,
+      providesTags: ['Product'],
+    }),
+
+    // Get Category Details
+    getCategoryDetails: builder.query<CategoryDetailsResponse, string>({
+      query: categoryKey => ({
+        url: `/api/categories/${categoryKey}/`,
+        method: 'GET',
+      }),
+      // Cache for 2 minutes
+      keepUnusedDataFor: 120,
+      providesTags: ['Product'],
+    }),
+
+    // Get Category Filters
+    getCategoryFilters: builder.query<
+      CategoryFiltersResponse,
+      { categoryKey: string; subcategory?: string }
+    >({
+      query: ({ categoryKey, subcategory }) => ({
+        url: `/api/categories/${categoryKey}/filters/`,
+        method: 'GET',
+        params: subcategory ? { subcategory } : {},
+      }),
+      // Cache for 1 minute
+      keepUnusedDataFor: 60,
+      providesTags: ['Product'],
+    }),
+
+    // Get Categories, Brands, Colors, and Sizes (Legacy - kept for backward compatibility)
     getCategories: builder.query<
       {
         success: boolean;
@@ -130,6 +205,7 @@ export const productsApi = baseApi.injectEndpoints({
         url: '/api/products/categories/',
         method: 'GET',
       }),
+      keepUnusedDataFor: 300,
     }),
 
     // Get Cart Items
@@ -153,6 +229,37 @@ export const productsApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Cart'],
     }),
+
+    // Get Hero Section
+    getHeroSection: builder.query<
+      {
+        success: boolean;
+        heroSection: {
+          id: string;
+          backgroundType: 'gradient' | 'image' | 'single';
+          imageUrl?: string;
+          singleColor?: string;
+          gradientColors?: string[];
+          gradientDirection?: string;
+          title: string;
+          subtitle: string;
+          buttonText?: string;
+          buttonLink?: string;
+          textColor: string;
+          isActive: boolean;
+          createdAt?: string;
+          updatedAt?: string;
+        };
+      },
+      void
+    >({
+      query: () => ({
+        url: '/api/products/hero-section/',
+        method: 'GET',
+      }),
+      // Cache for 5 minutes as hero section doesn't change frequently
+      keepUnusedDataFor: 300,
+    }),
   }),
 });
 
@@ -168,6 +275,9 @@ export const {
   useGetFeaturedProductsQuery,
   useGetTrendingProductsQuery,
   useGetCategoriesQuery,
+  useGetAllCategoriesQuery,
+  useGetCategoryDetailsQuery,
+  useGetCategoryFiltersQuery,
   useGetCartQuery,
+  useGetHeroSectionQuery,
 } = productsApi;
-

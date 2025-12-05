@@ -1,11 +1,12 @@
 'use client';
 
-import { useGetProfileQuery } from '@/lib/api/authApi';
+import { useGetProfileQuery, useUpdateLanguageMutation } from '@/lib/api/authApi';
 import { useCreateOfferMutation } from '@/lib/api/offersApi';
 import { useGetCartQuery, useGetProductsQuery } from '@/lib/api/productsApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { logout, updateUser } from '@/lib/store/slices/authSlice';
 import { toast } from '@/utils/toast';
+import { formatPrice } from '@/utils/formatPrice';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -153,6 +154,8 @@ export default function Header() {
 
   const [createOffer, { isLoading: isCreatingOffer }] =
     useCreateOfferMutation();
+  
+  const [updateLanguage, { isLoading: isUpdatingLanguage }] = useUpdateLanguageMutation();
 
   // Mark component as mounted to prevent hydration mismatch
   useLayoutEffect(() => {
@@ -305,8 +308,28 @@ export default function Header() {
     }
   };
 
-  const toggleLanguage = () => {
+  const toggleLanguage = async () => {
     const newLocale = locale === 'en' ? 'ar' : 'en';
+    
+    try {
+      // Update language preference on backend
+      if (isAuthenticated || isAffiliate) {
+        // User is authenticated - update with token
+        await updateLanguage({ language: newLocale, skipAuth: false }).unwrap();
+      } else {
+        // User is not authenticated - update without token
+        await updateLanguage({ language: newLocale, skipAuth: true }).unwrap();
+        // Store language preference in localStorage for guests
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('guest_language', newLocale);
+        }
+      }
+    } catch (error) {
+      // Log error but don't block language change
+      console.error('Failed to update language preference:', error);
+    }
+    
+    // Update the UI language regardless of API call result
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
     router.push(newPath);
   };
@@ -327,7 +350,7 @@ export default function Header() {
             <div className='flex items-center gap-2 group cursor-default'>
               <Image
                 src='/Logo.svg'
-                alt='Depop Logo'
+                alt='Dolabb Logo'
                 width={100}
                 height={100}
                 className='hidden md:block h-50 w-auto'
@@ -335,7 +358,7 @@ export default function Header() {
               />
               <Image
                 src='/Reslogo.svg'
-                alt='Depop Logo'
+                alt='Dolabb Logo'
                 width={100}
                 height={100}
                 className='md:hidden h-6 w-auto'
@@ -346,7 +369,7 @@ export default function Header() {
             <Link href={`/${locale}`} className='flex items-center gap-2 group'>
               <Image
                 src='/Logo.svg'
-                alt='Depop Logo'
+                alt='Dolabb Logo'
                 width={100}
                 height={100}
                 className='hidden md:block h-50 w-auto'
@@ -354,7 +377,7 @@ export default function Header() {
               />
               <Image
                 src='/Reslogo.svg'
-                alt='Depop Logo'
+                alt='Dolabb Logo'
                 width={100}
                 height={100}
                 className='md:hidden h-6 w-auto'
@@ -583,8 +606,7 @@ export default function Header() {
                                   {locale === 'en' ? 'Total' : 'الإجمالي'}
                                 </span>
                                 <span className='font-bold text-saudi-green'>
-                                  {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                                  {cartData.totalAmount.toFixed(2)}
+                                  {formatPrice(cartData.totalAmount, locale)}
                                 </span>
                               </div>
                               <Link

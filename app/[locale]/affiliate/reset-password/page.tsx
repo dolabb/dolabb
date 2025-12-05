@@ -176,7 +176,7 @@ export default function AffiliateResetPasswordPage() {
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="inline-block">
             <h1 className="text-4xl font-bold text-saudi-green font-display mb-2">
-              <img src="/Logo.svg" alt="Depop" className='w-20 h-20' />
+              <img src="/Logo.svg" alt="Dolabb" className='w-20 h-20' />
             </h1>
           </Link>
           <h2 className="text-2xl font-semibold text-deep-charcoal font-display mb-2">

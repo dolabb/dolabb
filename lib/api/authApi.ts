@@ -50,7 +50,7 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     // Forgot Password
-    forgotPassword: builder.mutation<{ success: boolean; message: string; otp: string }, { email: string }>({
+    forgotPassword: builder.mutation<{ success: boolean; message: string; otp: string }, { email: string; language?: string }>({
       query: (data) => ({
         url: '/api/auth/forgot-password/',
         method: 'POST',
@@ -125,7 +125,7 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     // Affiliate Forgot Password
-    affiliateForgotPassword: builder.mutation<{ success: boolean; message: string; otp: string }, { email: string }>({
+    affiliateForgotPassword: builder.mutation<{ success: boolean; message: string; otp: string }, { email: string; language?: string }>({
       query: (data) => ({
         url: '/api/auth/affiliate/forget-password/',
         method: 'POST',
@@ -139,6 +139,20 @@ export const authApi = baseApi.injectEndpoints({
         url: '/api/auth/affiliate/reset-password/',
         method: 'POST',
         data,
+      }),
+    }),
+
+    // Update Language Preference (works with or without token)
+    updateLanguage: builder.mutation<
+      { success: boolean; message: string; language: string; authenticated: boolean },
+      { language: string; skipAuth?: boolean }
+    >({
+      query: ({ language, skipAuth }) => ({
+        url: '/api/auth/language/update/',
+        method: 'PUT',
+        data: { language },
+        // If skipAuth is true, we'll handle removing the token in the base query
+        skipAuth,
       }),
     }),
   }),
@@ -159,5 +173,6 @@ export const {
   useAffiliateVerifyOtpMutation,
   useAffiliateForgotPasswordMutation,
   useAffiliateResetPasswordMutation,
+  useUpdateLanguageMutation,
 } = authApi;
 

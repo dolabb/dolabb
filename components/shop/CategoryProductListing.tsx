@@ -2,12 +2,17 @@
 
 import Pagination from '@/components/shared/Pagination';
 import ProductCard from '@/components/shared/ProductCard';
-import { getCategoryData } from '@/data/categoryProducts';
+import {
+  useGetCategoryDetailsQuery,
+  useGetCategoryFiltersQuery,
+  useGetProductsQuery,
+} from '@/lib/api/productsApi';
 import { navigationCategories } from '@/data/navigation';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HiChevronDown, HiXMark } from 'react-icons/hi2';
+import type { Product } from '@/types/products';
 
 interface CategoryProductListingProps {
   slug: string[];
@@ -23,15 +28,30 @@ export default function CategoryProductListing({
   const category = slug[0] || '';
   const subCategory = slug.slice(1).join('-') || '';
 
-  // Get category data (will generate if not found)
-  const categoryData = getCategoryData(category, subCategory || category);
+  // Fetch category details
+  const {
+    data: categoryDetails,
+    isLoading: categoryLoading,
+  } = useGetCategoryDetailsQuery(category, {
+    skip: !category,
+  });
+
+  // Fetch filter options
+  const {
+    data: filtersData,
+    isLoading: filtersLoading,
+  } = useGetCategoryFiltersQuery(
+    {
+      categoryKey: category,
+      subcategory: subCategory || undefined,
+    },
+    {
+      skip: !category,
+    }
+  );
 
   // Filter states
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(
-    []
-  );
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedCondition, setSelectedCondition] = useState<string>('');
@@ -41,7 +61,178 @@ export default function CategoryProductListing({
   const [currentPage, setCurrentPage] = useState(1);
   const filterRef = useRef<HTMLDivElement>(null);
 
-  const itemsPerPage = 20;
+  // Initialize price range from API filters
+  const priceRange = useMemo(() => {
+    if (filtersData?.filters?.priceRange) {
+      return [
+        filtersData.filters.priceRange.min,
+        filtersData.filters.priceRange.max,
+      ] as [number, number];
+    }
+    return [0, 1000] as [number, number];
+  }, [filtersData]);
+
+  const [minPrice, setMinPrice] = useState(priceRange[0]);
+  const [maxPrice, setMaxPrice] = useState(priceRange[1]);
+
+  // Update price range when filters data loads
+  useEffect(() => {
+    if (filtersData?.filters?.priceRange) {
+      setMinPrice(filtersData.filters.priceRange.min);
+      setMaxPrice(filtersData.filters.priceRange.max);
+    }
+  }, [filtersData]);
+
+  // Build API query parameters
+  const productFilters = useMemo(() => {
+    const params: any = {
+      category,
+      page: currentPage,
+      limit: 20,
+    };
+
+    if (subCategory) {
+      params.subcategory = subCategory;
+    }
+
+    if (selectedBrands.length > 0) {
+      params.brand = selectedBrands.join(',');
+    }
+
+    if (minPrice > priceRange[0]) {
+      params.minPrice = minPrice;
+    }
+
+    if (maxPrice < priceRange[1]) {
+      params.maxPrice = maxPrice;
+    }
+
+    if (selectedSizes.length > 0) {
+      params.size = selectedSizes.join(',');
+    }
+
+    if (selectedColors.length > 0) {
+      params.color = selectedColors.join(',');
+    }
+
+    if (selectedCondition) {
+      params.condition = selectedCondition;
+    }
+
+    if (onSaleOnly) {
+      params.onSale = true;
+    }
+
+    // Map sortBy to API format
+    const sortMap: Record<string, string> = {
+      relevance: 'relevance',
+      'price-low': 'price: low to high',
+      'price-high': 'price: high to low',
+      newest: 'newest',
+    };
+    params.sortBy = sortMap[sortBy] || 'relevance';
+
+    return params;
+  }, [
+    category,
+    subCategory,
+    selectedBrands,
+    minPrice,
+    maxPrice,
+    priceRange,
+    selectedSizes,
+    selectedColors,
+    selectedCondition,
+    onSaleOnly,
+    sortBy,
+    currentPage,
+  ]);
+
+  // Fetch products
+  const {
+    data: productsResponse,
+    isLoading: productsLoading,
+    error: productsError,
+  } = useGetProductsQuery(productFilters);
+
+  // Extract products and pagination from response
+  const products = useMemo(() => {
+    if (!productsResponse) return [];
+    // Handle both new format (ProductsResponse) and legacy format (Product[])
+    if (Array.isArray(productsResponse)) {
+      return productsResponse;
+    }
+    return productsResponse.products || [];
+  }, [productsResponse]);
+
+  const pagination = useMemo(() => {
+    if (!productsResponse || Array.isArray(productsResponse)) {
+      return null;
+    }
+    return productsResponse.pagination;
+  }, [productsResponse]);
+
+  // Find category info from navigation (fallback)
+  const categoryInfo = useMemo(() => {
+    if (categoryDetails?.category) {
+      return categoryDetails.category;
+    }
+    return navigationCategories.find(cat => cat.key === category);
+  }, [categoryDetails, category]);
+
+  const subCategoryInfo = useMemo(() => {
+    if (categoryDetails?.category) {
+      return categoryDetails.category.subCategories.find(
+        sub => sub.key === subCategory || sub.href.includes(subCategory)
+      );
+    }
+    return categoryInfo?.subCategories?.find(
+      sub => sub.href.includes(subCategory) || sub.key === subCategory
+    );
+  }, [categoryDetails, categoryInfo, subCategory]);
+
+  const featuredInfo = useMemo(() => {
+    if (categoryDetails?.category) {
+      return categoryDetails.category.featured.find(
+        feat => feat.key === subCategory || feat.href.includes(subCategory)
+      );
+    }
+    return categoryInfo?.featured?.find(
+      feat => feat.href.includes(subCategory) || feat.key === subCategory
+    );
+  }, [categoryDetails, categoryInfo, subCategory]);
+
+  // Determine display name
+  const displayName =
+    featuredInfo?.name ||
+    subCategoryInfo?.name ||
+    categoryInfo?.name ||
+    category;
+
+  // Build breadcrumbs
+  const breadcrumbs = useMemo(() => {
+    const crumbs = [
+      { name: locale === 'en' ? 'Home' : 'الرئيسية', href: `/${locale}` },
+      {
+        name: categoryInfo?.name || category,
+        href: `/${locale}${categoryInfo?.href || `/${category}`}`,
+      },
+    ];
+
+    if (featuredInfo) {
+      crumbs.push({
+        name: featuredInfo.name,
+        href: `/${locale}${featuredInfo.href}`,
+      });
+    } else if (subCategoryInfo) {
+      crumbs.push({
+        name: subCategoryInfo.name,
+        href: `/${locale}${subCategoryInfo.href}`,
+      });
+    }
+
+    return crumbs;
+  }, [locale, categoryInfo, featuredInfo, subCategoryInfo, category]);
 
   // Close filter dropdowns when clicking outside
   useEffect(() => {
@@ -61,185 +252,74 @@ export default function CategoryProductListing({
     }
   }, [openFilter]);
 
-  // Find category info from navigation
-  const categoryInfo = navigationCategories.find(cat => cat.key === category);
-  const subCategoryInfo = categoryInfo?.subCategories.find(
-    sub => sub.href.includes(subCategory) || sub.key === subCategory
-  );
-  const featuredInfo = categoryInfo?.featured.find(
-    feat => feat.href.includes(subCategory) || feat.key === subCategory
-  );
-
-  // Determine display name
-  const displayName =
-    featuredInfo?.name ||
-    subCategoryInfo?.name ||
-    categoryInfo?.name ||
-    category;
-
-  // Build breadcrumbs
-  const breadcrumbs = [
-    { name: locale === 'en' ? 'Home' : 'الرئيسية', href: `/${locale}` },
-    {
-      name: categoryInfo?.name || category,
-      href: `/${locale}${categoryInfo?.href || `/${category}`}`,
-    },
-  ];
-
-  if (featuredInfo) {
-    breadcrumbs.push({
-      name: featuredInfo.name,
-      href: `/${locale}${featuredInfo.href}`,
-    });
-  } else if (subCategoryInfo) {
-    breadcrumbs.push({
-      name: subCategoryInfo.name,
-      href: `/${locale}${subCategoryInfo.href}`,
-    });
-  }
-
-  // Filter products
-  const filteredProducts = useMemo(() => {
-    const productsToFilter = categoryData?.products;
-    if (!productsToFilter || !productsToFilter.length) return [];
-
-    let products = [...productsToFilter];
-
-    // Filter by brands
-    if (selectedBrands.length > 0) {
-      products = products.filter(p => selectedBrands.includes(p.brand));
-    }
-
-    // Filter by subcategories
-    if (selectedSubCategories.length > 0) {
-      products = products.filter(p =>
-        selectedSubCategories.some(sc =>
-          p.subCategory
-            .toLowerCase()
-            .includes(sc.toLowerCase().replace(/\s+/g, '-'))
-        )
-      );
-    }
-
-    // Filter by price
-    products = products.filter(
-      p => p.price >= priceRange[0] && p.price <= priceRange[1]
-    );
-
-    // Filter by sizes
-    if (selectedSizes.length > 0) {
-      products = products.filter(p => p.size && selectedSizes.includes(p.size));
-    }
-
-    // Filter by colors
-    if (selectedColors.length > 0) {
-      products = products.filter(
-        p => p.color && selectedColors.includes(p.color)
-      );
-    }
-
-    // Filter by condition
-    if (selectedCondition) {
-      products = products.filter(p => p.condition === selectedCondition);
-    }
-
-    // Filter by sale
-    if (onSaleOnly) {
-      products = products.filter(p => p.onSale);
-    }
-
-    // Sort products
-    switch (sortBy) {
-      case 'price-low':
-        products.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        products.sort((a, b) => b.price - a.price);
-        break;
-      case 'newest':
-        products.sort(
-          (a, b) =>
-            parseInt(b.id.split('-').pop() || '0') -
-            parseInt(a.id.split('-').pop() || '0')
-        );
-        break;
-      default:
-        break;
-    }
-
-    return products;
-  }, [
-    categoryData,
-    selectedBrands,
-    selectedSubCategories,
-    priceRange,
-    selectedSizes,
-    selectedColors,
-    selectedCondition,
-    onSaleOnly,
-    sortBy,
-  ]);
-
-  // Paginate products
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-
   // Reset to page 1 when filters change
   const prevFiltersRef = useRef<string>('');
   useEffect(() => {
     const currentFilters = JSON.stringify({
       selectedBrands,
-      selectedSubCategories,
-      priceRange,
       selectedSizes,
       selectedColors,
       selectedCondition,
       onSaleOnly,
       sortBy,
+      minPrice,
+      maxPrice,
     });
 
     if (prevFiltersRef.current && prevFiltersRef.current !== currentFilters) {
-      // Use setTimeout to defer state update outside of effect
-      setTimeout(() => setCurrentPage(1), 0);
+      setCurrentPage(1);
     }
     prevFiltersRef.current = currentFilters;
   }, [
     selectedBrands,
-    selectedSubCategories,
-    priceRange,
     selectedSizes,
     selectedColors,
     selectedCondition,
     onSaleOnly,
     sortBy,
+    minPrice,
+    maxPrice,
   ]);
 
   // Scroll to top when page changes
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [currentPage]);
 
   // Active filters
-  const activeFilters = [
-    ...selectedBrands.map(b => ({ type: 'brand', value: b })),
-    ...selectedSubCategories.map(s => ({ type: 'subcategory', value: s })),
-    ...selectedSizes.map(s => ({ type: 'size', value: s })),
-    ...selectedColors.map(c => ({ type: 'color', value: c })),
-    ...(selectedCondition
-      ? [{ type: 'condition', value: selectedCondition }]
-      : []),
-    ...(onSaleOnly ? [{ type: 'sale', value: 'On sale' }] : []),
-  ];
+  const activeFilters = useMemo(() => {
+    const filters: Array<{ type: string; value: string }> = [];
+    selectedBrands.forEach(b => filters.push({ type: 'brand', value: b }));
+    selectedSizes.forEach(s => filters.push({ type: 'size', value: s }));
+    selectedColors.forEach(c => filters.push({ type: 'color', value: c }));
+    if (selectedCondition) {
+      filters.push({ type: 'condition', value: selectedCondition });
+    }
+    if (onSaleOnly) {
+      filters.push({ type: 'sale', value: 'On sale' });
+    }
+    if (minPrice > priceRange[0] || maxPrice < priceRange[1]) {
+      filters.push({
+        type: 'price',
+        value: `${minPrice} - ${maxPrice}`,
+      });
+    }
+    return filters;
+  }, [
+    selectedBrands,
+    selectedSizes,
+    selectedColors,
+    selectedCondition,
+    onSaleOnly,
+    minPrice,
+    maxPrice,
+    priceRange,
+  ]);
 
   const removeFilter = (type: string, value: string) => {
     switch (type) {
       case 'brand':
         setSelectedBrands(prev => prev.filter(b => b !== value));
-        break;
-      case 'subcategory':
-        setSelectedSubCategories(prev => prev.filter(s => s !== value));
         break;
       case 'size':
         setSelectedSizes(prev => prev.filter(s => s !== value));
@@ -253,18 +333,25 @@ export default function CategoryProductListing({
       case 'sale':
         setOnSaleOnly(false);
         break;
+      case 'price':
+        setMinPrice(priceRange[0]);
+        setMaxPrice(priceRange[1]);
+        break;
     }
   };
 
   const clearAllFilters = () => {
     setSelectedBrands([]);
-    setSelectedSubCategories([]);
-    setPriceRange([0, 1000]);
     setSelectedSizes([]);
     setSelectedColors([]);
     setSelectedCondition('');
     setOnSaleOnly(false);
+    setMinPrice(priceRange[0]);
+    setMaxPrice(priceRange[1]);
   };
+
+  const isLoading = categoryLoading || filtersLoading || productsLoading;
+  const totalItems = pagination?.totalItems || products.length;
 
   return (
     <div className='bg-off-white min-h-screen' dir={isRTL ? 'rtl' : 'ltr'}>
@@ -277,7 +364,7 @@ export default function CategoryProductListing({
                 {index > 0 && <span>/</span>}
                 <Link
                   href={crumb.href}
-                  className='hover:text-saudi-green transition-colors'
+                  className='hover:text-saudi-green'
                 >
                   {crumb.name}
                 </Link>
@@ -291,10 +378,12 @@ export default function CategoryProductListing({
           <h1 className='text-3xl md:text-4xl font-bold text-deep-charcoal mb-2 font-display flex items-center gap-2'>
             {displayName}
           </h1>
-          <p className='text-deep-charcoal/70'>
-            ({filteredProducts.length.toLocaleString()}{' '}
-            {locale === 'en' ? 'results' : 'نتيجة'})
-          </p>
+          {!isLoading && (
+            <p className='text-deep-charcoal/70'>
+              ({totalItems.toLocaleString()}{' '}
+              {locale === 'en' ? 'results' : 'نتيجة'})
+            </p>
+          )}
         </div>
 
         {/* Filter Bar */}
@@ -303,339 +392,254 @@ export default function CategoryProductListing({
           ref={filterRef}
         >
           <div className='flex items-center gap-2 md:gap-4 overflow-x-auto scrollbar-hide pb-2 md:pb-0'>
-            {/* Category Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(openFilter === 'category' ? null : 'category')
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Category' : 'الفئة'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'category' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'category' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
-                  <div className='space-y-2'>
-                    {categoryInfo?.subCategories.map(sub => (
-                      <label
-                        key={sub.key}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
-                          checked={selectedSubCategories.includes(sub.name)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedSubCategories(prev => [
-                                ...prev,
-                                sub.name,
-                              ]);
-                            } else {
-                              setSelectedSubCategories(prev =>
-                                prev.filter(s => s !== sub.name)
-                              );
-                            }
-                          }}
-                          className=''
-                        />
-                        <span className='text-sm text-deep-charcoal'>
-                          {sub.name}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Subcategory Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(
-                    openFilter === 'subcategory' ? null : 'subcategory'
-                  )
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Subcategory' : 'الفئة الفرعية'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'subcategory' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'subcategory' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
-                  <div className='space-y-2'>
-                    {categoryData?.subCategories.map(sub => (
-                      <label
-                        key={sub}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
-                          checked={selectedSubCategories.includes(sub)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedSubCategories(prev => [...prev, sub]);
-                            } else {
-                              setSelectedSubCategories(prev =>
-                                prev.filter(s => s !== sub)
-                              );
-                            }
-                          }}
-                          className=''
-                        />
-                        <span className='text-sm text-deep-charcoal'>
-                          {sub}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Brand Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(openFilter === 'brand' ? null : 'brand')
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Brand' : 'العلامة التجارية'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'brand' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'brand' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
-                  <div className='space-y-2'>
-                    {categoryData?.popularBrands.map(brand => (
-                      <label
-                        key={brand}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
-                          checked={selectedBrands.includes(brand)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedBrands(prev => [...prev, brand]);
-                            } else {
-                              setSelectedBrands(prev =>
-                                prev.filter(b => b !== brand)
-                              );
-                            }
-                          }}
-                          className=''
-                        />
-                        <span className='text-sm text-deep-charcoal'>
-                          {brand}
-                        </span>
-                      </label>
-                    ))}
+            {filtersData?.filters?.brands && filtersData.filters.brands.length > 0 && (
+              <div className='relative flex-shrink-0'>
+                <button
+                  onClick={() =>
+                    setOpenFilter(openFilter === 'brand' ? null : 'brand')
+                  }
+                  className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green text-xs md:text-sm whitespace-nowrap'
+                >
+                  {locale === 'en' ? 'Brand' : 'العلامة التجارية'}
+                  <HiChevronDown
+                    className={`w-3 h-3 md:w-4 md:h-4 ${
+                      openFilter === 'brand' ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {openFilter === 'brand' && (
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
+                    <div className='space-y-2'>
+                      {filtersData.filters.brands.map(brand => (
+                        <label
+                          key={brand.name}
+                          className='flex items-center gap-2 cursor-pointer'
+                        >
+                          <input
+                            type='checkbox'
+                            checked={selectedBrands.includes(brand.name)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setSelectedBrands(prev => [...prev, brand.name]);
+                              } else {
+                                setSelectedBrands(prev =>
+                                  prev.filter(b => b !== brand.name)
+                                );
+                              }
+                            }}
+                            className=''
+                          />
+                          <span className='text-sm text-deep-charcoal'>
+                            {brand.name} ({brand.count})
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Price Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(openFilter === 'price' ? null : 'price')
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Price' : 'السعر'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'price' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'price' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[300px] max-w-[320px] md:max-w-none p-3 md:p-4'>
-                  <div className='space-y-3 md:space-y-4'>
-                    <div className='flex items-center gap-2 md:gap-4'>
+            {filtersData?.filters?.priceRange && (
+              <div className='relative flex-shrink-0'>
+                <button
+                  onClick={() =>
+                    setOpenFilter(openFilter === 'price' ? null : 'price')
+                  }
+                  className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green text-xs md:text-sm whitespace-nowrap'
+                >
+                  {locale === 'en' ? 'Price' : 'السعر'}
+                  <HiChevronDown
+                    className={`w-3 h-3 md:w-4 md:h-4 ${
+                      openFilter === 'price' ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {openFilter === 'price' && (
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[300px] max-w-[320px] md:max-w-none p-3 md:p-4'>
+                    <div className='space-y-3 md:space-y-4'>
+                      <div className='flex items-center gap-2 md:gap-4'>
+                        <input
+                          type='number'
+                          value={minPrice}
+                          onChange={e =>
+                            setMinPrice(Number(e.target.value))
+                          }
+                          min={priceRange[0]}
+                          max={priceRange[1]}
+                          className='w-20 md:w-24 px-2 md:px-3 py-1.5 md:py-2 text-sm border border-rich-sand rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green'
+                          placeholder='Min'
+                        />
+                        <span className='text-deep-charcoal/70 text-sm'>-</span>
+                        <input
+                          type='number'
+                          value={maxPrice}
+                          onChange={e =>
+                            setMaxPrice(Number(e.target.value))
+                          }
+                          min={priceRange[0]}
+                          max={priceRange[1]}
+                          className='w-20 md:w-24 px-2 md:px-3 py-1.5 md:py-2 text-sm border border-rich-sand rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green'
+                          placeholder='Max'
+                        />
+                      </div>
                       <input
-                        type='number'
-                        value={priceRange[0]}
+                        type='range'
+                        min={priceRange[0]}
+                        max={priceRange[1]}
+                        value={maxPrice}
                         onChange={e =>
-                          setPriceRange([Number(e.target.value), priceRange[1]])
+                          setMaxPrice(Number(e.target.value))
                         }
-                        className='w-20 md:w-24 px-2 md:px-3 py-1.5 md:py-2 text-sm border border-rich-sand rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green'
-                        placeholder='Min'
-                      />
-                      <span className='text-deep-charcoal/70 text-sm'>-</span>
-                      <input
-                        type='number'
-                        value={priceRange[1]}
-                        onChange={e =>
-                          setPriceRange([priceRange[0], Number(e.target.value)])
-                        }
-                        className='w-20 md:w-24 px-2 md:px-3 py-1.5 md:py-2 text-sm border border-rich-sand rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green'
-                        placeholder='Max'
+                        className='w-full'
                       />
                     </div>
-                    <input
-                      type='range'
-                      min='0'
-                      max='1000'
-                      value={priceRange[1]}
-                      onChange={e =>
-                        setPriceRange([priceRange[0], Number(e.target.value)])
-                      }
-                      className='w-full'
-                    />
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Size Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(openFilter === 'size' ? null : 'size')
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Size' : 'المقاس'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'size' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'size' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
-                  <div className='grid grid-cols-3 md:grid-cols-3 gap-2'>
-                    {categoryData?.sizes.map(size => (
-                      <label
-                        key={size}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
-                          checked={selectedSizes.includes(size)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedSizes(prev => [...prev, size]);
-                            } else {
-                              setSelectedSizes(prev =>
-                                prev.filter(s => s !== size)
-                              );
-                            }
-                          }}
-                          className=''
-                        />
-                        <span className='text-sm text-deep-charcoal'>
-                          {size}
-                        </span>
-                      </label>
-                    ))}
+            {filtersData?.filters?.sizes && filtersData.filters.sizes.length > 0 && (
+              <div className='relative flex-shrink-0'>
+                <button
+                  onClick={() =>
+                    setOpenFilter(openFilter === 'size' ? null : 'size')
+                  }
+                  className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green text-xs md:text-sm whitespace-nowrap'
+                >
+                  {locale === 'en' ? 'Size' : 'المقاس'}
+                  <HiChevronDown
+                    className={`w-3 h-3 md:w-4 md:h-4 ${
+                      openFilter === 'size' ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {openFilter === 'size' && (
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
+                    <div className='grid grid-cols-3 md:grid-cols-3 gap-2'>
+                      {filtersData.filters.sizes.map(size => (
+                        <label
+                          key={size.name}
+                          className='flex items-center gap-2 cursor-pointer'
+                        >
+                          <input
+                            type='checkbox'
+                            checked={selectedSizes.includes(size.name)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setSelectedSizes(prev => [...prev, size.name]);
+                              } else {
+                                setSelectedSizes(prev =>
+                                  prev.filter(s => s !== size.name)
+                                );
+                              }
+                            }}
+                            className=''
+                          />
+                          <span className='text-sm text-deep-charcoal'>
+                            {size.name} ({size.count})
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Color Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(openFilter === 'color' ? null : 'color')
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Color' : 'اللون'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'color' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'color' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
-                  <div className='grid grid-cols-2 gap-2'>
-                    {categoryData?.colors.map(color => (
-                      <label
-                        key={color}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='checkbox'
-                          checked={selectedColors.includes(color)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedColors(prev => [...prev, color]);
-                            } else {
-                              setSelectedColors(prev =>
-                                prev.filter(c => c !== color)
-                              );
-                            }
-                          }}
-                          className=''
-                        />
-                        <span className='text-sm text-deep-charcoal'>
-                          {color}
-                        </span>
-                      </label>
-                    ))}
+            {filtersData?.filters?.colors && filtersData.filters.colors.length > 0 && (
+              <div className='relative flex-shrink-0'>
+                <button
+                  onClick={() =>
+                    setOpenFilter(openFilter === 'color' ? null : 'color')
+                  }
+                  className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green text-xs md:text-sm whitespace-nowrap'
+                >
+                  {locale === 'en' ? 'Color' : 'اللون'}
+                  <HiChevronDown
+                    className={`w-3 h-3 md:w-4 md:h-4 ${
+                      openFilter === 'color' ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {openFilter === 'color' && (
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
+                    <div className='grid grid-cols-2 gap-2'>
+                      {filtersData.filters.colors.map(color => (
+                        <label
+                          key={color.name}
+                          className='flex items-center gap-2 cursor-pointer'
+                        >
+                          <input
+                            type='checkbox'
+                            checked={selectedColors.includes(color.name)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setSelectedColors(prev => [...prev, color.name]);
+                              } else {
+                                setSelectedColors(prev =>
+                                  prev.filter(c => c !== color.name)
+                                );
+                              }
+                            }}
+                            className=''
+                          />
+                          <span className='text-sm text-deep-charcoal'>
+                            {color.name} ({color.count})
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Condition Filter */}
-            <div className='relative flex-shrink-0'>
-              <button
-                onClick={() =>
-                  setOpenFilter(openFilter === 'condition' ? null : 'condition')
-                }
-                className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green transition-colors text-xs md:text-sm whitespace-nowrap'
-              >
-                {locale === 'en' ? 'Condition' : 'الحالة'}
-                <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
-                    openFilter === 'condition' ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {openFilter === 'condition' && (
-                <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
-                  <div className='space-y-2'>
-                    {['new', 'like-new', 'good', 'fair'].map(condition => (
-                      <label
-                        key={condition}
-                        className='flex items-center gap-2 cursor-pointer'
-                      >
-                        <input
-                          type='radio'
-                          name='condition'
-                          checked={selectedCondition === condition}
-                          onChange={() => setSelectedCondition(condition)}
-                          className=''
-                        />
-                        <span className='text-sm text-deep-charcoal capitalize'>
-                          {condition.replace('-', ' ')}
-                        </span>
-                      </label>
-                    ))}
+            {filtersData?.filters?.conditions && filtersData.filters.conditions.length > 0 && (
+              <div className='relative flex-shrink-0'>
+                <button
+                  onClick={() =>
+                    setOpenFilter(openFilter === 'condition' ? null : 'condition')
+                  }
+                  className='flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-rich-sand rounded-lg hover:border-saudi-green text-xs md:text-sm whitespace-nowrap'
+                >
+                  {locale === 'en' ? 'Condition' : 'الحالة'}
+                  <HiChevronDown
+                    className={`w-3 h-3 md:w-4 md:h-4 ${
+                      openFilter === 'condition' ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {openFilter === 'condition' && (
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-rich-sand rounded-lg shadow-lg z-50 w-[calc(100vw-2rem)] md:w-auto md:min-w-[200px] max-w-[280px] md:max-w-none p-3 md:p-4 max-h-[60vh] md:max-h-[400px] overflow-y-auto'>
+                    <div className='space-y-2'>
+                      {filtersData.filters.conditions.map(condition => (
+                        <label
+                          key={condition.name}
+                          className='flex items-center gap-2 cursor-pointer'
+                        >
+                          <input
+                            type='radio'
+                            name='condition'
+                            checked={selectedCondition === condition.name}
+                            onChange={() => setSelectedCondition(condition.name)}
+                            className=''
+                          />
+                          <span className='text-sm text-deep-charcoal capitalize'>
+                            {condition.name.replace('-', ' ')} ({condition.count})
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* On Sale Checkbox */}
             <label className='flex items-center gap-1.5 md:gap-2 cursor-pointer flex-shrink-0 whitespace-nowrap'>
@@ -664,7 +668,7 @@ export default function CategoryProductListing({
               >
                 {locale === 'en' ? 'Sort' : 'ترتيب'}
                 <HiChevronDown
-                  className={`w-3 h-3 md:w-4 md:h-4 transition-transform ${
+                  className={`w-3 h-3 md:w-4 md:h-4 ${
                     openFilter === 'sort' ? 'rotate-180' : ''
                   }`}
                 />
@@ -741,21 +745,53 @@ export default function CategoryProductListing({
             ))}
             <button
               onClick={clearAllFilters}
-              className='text-xs md:text-sm text-deep-charcoal/70 hover:text-saudi-green transition-colors whitespace-nowrap'
+              className='text-xs md:text-sm text-deep-charcoal/70 hover:text-saudi-green whitespace-nowrap'
             >
               {locale === 'en' ? 'Clear all' : 'مسح الكل'}
             </button>
           </div>
         )}
 
-        {/* Products Grid */}
-        <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
-          {paginatedProducts.map(product => (
-            <ProductCard key={product.id} {...product} locale={locale} />
-          ))}
-        </div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className='bg-white rounded-lg overflow-hidden shadow-sm'
+              >
+                <div className='relative aspect-square overflow-hidden bg-rich-sand/20' />
+                <div className='p-4'>
+                  <div className='h-4 bg-rich-sand/30 rounded w-3/4 mb-1' />
+                  <div className='h-3 bg-rich-sand/30 rounded w-1/2 mb-2' />
+                  <div className='h-5 bg-rich-sand/30 rounded w-20' />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {filteredProducts.length === 0 && (
+        {/* Products Grid */}
+        {!isLoading && products.length > 0 && (
+          <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
+            {products.map((product: Product) => (
+              <ProductCard
+                key={product.id}
+                id={product.id}
+                image={product.images?.[0] || ''}
+                title={product.title}
+                price={product.price}
+                seller={product.seller?.username || 'Unknown'}
+                isLiked={product.isLiked}
+                locale={locale}
+                priority={false}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && products.length === 0 && (
           <div className='text-center py-12'>
             <p className='text-deep-charcoal/70 text-lg'>
               {locale === 'en'
@@ -765,11 +801,22 @@ export default function CategoryProductListing({
           </div>
         )}
 
+        {/* Error State */}
+        {productsError && (
+          <div className='text-center py-12'>
+            <p className='text-red-500 text-lg'>
+              {locale === 'en'
+                ? 'Error loading products. Please try again.'
+                : 'خطأ في تحميل المنتجات. يرجى المحاولة مرة أخرى.'}
+            </p>
+          </div>
+        )}
+
         {/* Pagination */}
-        {filteredProducts.length > 0 && (
+        {!isLoading && pagination && pagination.totalPages > 1 && (
           <Pagination
             currentPage={currentPage}
-            totalPages={totalPages}
+            totalPages={pagination.totalPages}
             onPageChange={setCurrentPage}
           />
         )}

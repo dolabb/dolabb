@@ -1,6 +1,7 @@
 'use client';
 
 import { useForgotPasswordMutation } from '@/lib/api/authApi';
+import { useAppSelector } from '@/lib/store/hooks';
 import { handleApiErrorWithToast } from '@/utils/errorHandler';
 import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
@@ -13,6 +14,7 @@ export default function ForgotPasswordPage() {
   const locale = useLocale();
   const router = useRouter();
   const isRTL = locale === 'ar';
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -55,8 +57,21 @@ export default function ForgotPasswordPage() {
     }
 
     try {
+      // Get language preference: from localStorage (guest) or current locale
+      let language = locale;
+      if (typeof window !== 'undefined') {
+        const guestLanguage = localStorage.getItem('guest_language');
+        if (guestLanguage) {
+          language = guestLanguage;
+        } else if (isAuthenticated) {
+          // For authenticated users, use current locale (their preference should be saved)
+          language = locale;
+        }
+      }
+
       const result = await forgotPassword({
         email: formData.email,
+        language,
       }).unwrap();
 
       if (result.success) {
@@ -93,7 +108,7 @@ export default function ForgotPasswordPage() {
         <div className='text-center mb-8'>
           <Link href={`/${locale}`} className='inline-block'>
             <h1 className='text-4xl font-bold text-saudi-green font-display mb-2'>
-              <img src="/Logo.svg" alt="Depop" className='w-20 h-20' />
+              <img src="/Logo.svg" alt="Dolabb" className='w-20 h-20' />
             </h1>
           </Link>
           <h2 className='text-2xl font-semibold text-deep-charcoal font-display mb-2'>

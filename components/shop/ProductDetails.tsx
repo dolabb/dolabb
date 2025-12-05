@@ -8,6 +8,7 @@ import { useCreateOfferMutation } from '@/lib/api/offersApi';
 import { useSendMessageMutation } from '@/lib/api/chatApi';
 import OfferModal from '@/components/shared/OfferModal';
 import { toast } from '@/utils/toast';
+import { formatPrice } from '@/utils/formatPrice';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/store/hooks';
@@ -563,7 +564,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
 
               {/* Price */}
               <div className='text-2xl font-semibold text-deep-charcoal'>
-                {locale === 'ar' ? 'ر.س' : 'SAR'} {product.price.toFixed(2)}
+                {formatPrice(product.price, locale)}
               </div>
 
               {/* Product Attributes */}
@@ -671,7 +672,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 <p>
                   {locale === 'en' ? (
                     <>
-                      All purchases through Depop are covered by Buyer
+                      All purchases through Dolabb are covered by Buyer
                       Protection.{' '}
                       <Link
                         href='#'
@@ -682,7 +683,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                     </>
                   ) : (
                     <>
-                      جميع المشتريات من خلال Depop مغطاة بحماية المشتري.{' '}
+                      جميع المشتريات من خلال Dolabb مغطاة بحماية المشتري.{' '}
                       <Link
                         href='#'
                         className='text-deep-charcoal underline hover:text-saudi-green'
@@ -1019,12 +1020,12 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           {locale === 'en' ? 'Price' : 'السعر'}
                         </span>
                         <span className='text-deep-charcoal font-medium'>
-                          {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                          {(
+                          {formatPrice(
                             product.shippingInfo?.cost ||
                             (product as any)['Shipping Cost'] ||
-                            0
-                          ).toFixed(2)}
+                            0,
+                            locale
+                          )}
                         </span>
                       </div>
                       <div className='flex justify-between'>

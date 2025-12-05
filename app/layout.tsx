@@ -10,7 +10,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <ReduxProvider>
           <AuthRestore />
           <LocaleHtml>

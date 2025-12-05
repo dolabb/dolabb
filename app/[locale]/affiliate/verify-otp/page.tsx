@@ -3,7 +3,7 @@
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAffiliateVerifyOtpMutation, useResendOtpMutation } from '@/lib/api/authApi';
+import { useAffiliateVerifyOtpMutation, useResendOtpMutation, useUpdateLanguageMutation } from '@/lib/api/authApi';
 import { toast } from '@/utils/toast';
 import { handleApiErrorWithToast } from '@/utils/errorHandler';
 import { HiEnvelope } from 'react-icons/hi2';
@@ -22,6 +22,7 @@ export default function AffiliateVerifyOtpPage() {
 
   const [affiliateVerifyOtp, { isLoading: isVerifying }] = useAffiliateVerifyOtpMutation();
   const [resendOtp, { isLoading: isResending }] = useResendOtpMutation();
+  const [updateLanguage] = useUpdateLanguageMutation();
 
   useEffect(() => {
     // Get email from localStorage if not in params
@@ -97,6 +98,23 @@ export default function AffiliateVerifyOtpPage() {
           localStorage.setItem('affiliate_token', result.token);
           localStorage.removeItem('affiliate_signup_email');
           localStorage.removeItem('affiliate_otp');
+
+          // Check if there's a stored guest language preference
+          const guestLanguage = localStorage.getItem('guest_language');
+          if (guestLanguage && guestLanguage !== locale) {
+            // Update affiliate's language preference on backend
+            try {
+              await updateLanguage({ language: guestLanguage, skipAuth: false }).unwrap();
+              // Clear guest language preference after applying it
+              localStorage.removeItem('guest_language');
+              // Redirect to the preferred language
+              router.push(`/${guestLanguage}/affiliate/dashboard`);
+              return;
+            } catch (error) {
+              // If language update fails, continue with normal flow
+              console.error('Failed to update language preference:', error);
+            }
+          }
         }
 
         // Show success toast

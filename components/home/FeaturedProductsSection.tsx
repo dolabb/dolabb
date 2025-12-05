@@ -71,11 +71,11 @@ export default function FeaturedProductsSection() {
             href={`/${locale}/browse`}
             className='text-saudi-green hover:text-saudi-green/80 font-semibold transition-colors font-display flex items-center gap-1'
           >
-            {t('viewAll')} <span>→</span>
+            {t('viewAll')} <span>{locale === 'ar' ? '←' : '→'}</span>
           </Link>
         </div>
         <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
-          {data.products.map(product => {
+          {data.products.map((product, index) => {
             // Get first valid image, clean any spaces in URL
             const firstImage =
               product.images?.find(img => img && img.trim() !== '') ||
@@ -85,6 +85,9 @@ export default function FeaturedProductsSection() {
             const productImage = firstImage
               ? firstImage.replace(/\s+/g, '')
               : '';
+
+            // Prioritize first 4 items (above the fold)
+            const isPriority = index < 4;
 
             return (
               <ProductCard
@@ -96,6 +99,7 @@ export default function FeaturedProductsSection() {
                 seller={product.seller?.username || 'Unknown'}
                 isLiked={product.isLiked}
                 locale={locale}
+                priority={isPriority}
               />
             );
           })}

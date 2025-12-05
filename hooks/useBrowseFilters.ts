@@ -156,7 +156,17 @@ export function useBrowseFilters(locale: string) {
   }, [filters]);
 
   // Fetch products
-  const { data: products, isLoading, error } = useGetProductsQuery(apiParams);
+  const { data: productsResponse, isLoading, error } = useGetProductsQuery(apiParams);
+
+  // Extract products from response (handle both new and legacy formats)
+  const products = useMemo(() => {
+    if (!productsResponse) return [];
+    // Handle both new format (ProductsResponse) and legacy format (Product[])
+    if (Array.isArray(productsResponse)) {
+      return productsResponse;
+    }
+    return productsResponse.products || [];
+  }, [productsResponse]);
 
   // Filter options from API
   const apiCategories = useMemo(
@@ -362,7 +372,7 @@ export function useBrowseFilters(locale: string) {
     brandOptions,
     colorOptions,
     sizeOptions,
-    products: products || [],
+    products,
     isLoading,
     error,
     apiCategories,

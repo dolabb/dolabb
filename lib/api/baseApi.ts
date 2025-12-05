@@ -6,7 +6,7 @@ import { apiClient } from './client';
 const axiosBaseQuery =
   ({ baseUrl }: { baseUrl: string }) =>
   async (
-    args: string | { url: string; method?: string; data?: any; params?: any; timeout?: number }
+    args: string | { url: string; method?: string; data?: any; params?: any; timeout?: number; skipAuth?: boolean }
   ) => {
     try {
       // Handle both string URL and object format
@@ -15,6 +15,7 @@ const axiosBaseQuery =
       let data: any;
       let params: any;
       let timeout: number | undefined;
+      let skipAuth = false;
 
       if (typeof args === 'string') {
         // If args is a string, it's just the URL
@@ -26,6 +27,7 @@ const axiosBaseQuery =
         data = args.data;
         params = args.params;
         timeout = args.timeout;
+        skipAuth = args.skipAuth || false;
       } else {
         throw new Error('Invalid query arguments');
       }
@@ -38,13 +40,18 @@ const axiosBaseQuery =
       // If timeout is 0, pass 0 to axios (no timeout)
       // If timeout is provided, use it, otherwise default to 60 seconds
       const axiosTimeout = timeout !== undefined ? timeout : 60000;
-      const result = await apiClient({
+      
+      // Create request config
+      const requestConfig: any = {
         url: finalUrl,
         method,
         data,
         params,
         timeout: axiosTimeout,
-      });
+        skipAuth, // Pass skipAuth flag to interceptor
+      };
+
+      const result = await apiClient(requestConfig);
       return { data: result.data };
     } catch (axiosError: any) {
       const err = axiosError as AxiosError;

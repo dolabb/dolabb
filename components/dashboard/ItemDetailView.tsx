@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/productsApi';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { toast } from '@/utils/toast';
+import { formatPrice } from '@/utils/formatPrice';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -310,13 +311,11 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                   </div>
                 </div>
                 <p className='text-2xl font-bold text-saudi-green mb-4'>
-                  {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                  {product.price?.toFixed(2) || '0.00'}
+                  {formatPrice(product.price, locale)}
                   {product.originalPrice &&
                     product.originalPrice > product.price && (
                       <span className='text-lg text-deep-charcoal/60 line-through ml-2'>
-                        {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                        {product.originalPrice.toFixed(2)}
+                        {formatPrice(product.originalPrice, locale)}
                       </span>
                     )}
                 </p>
@@ -470,8 +469,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                           {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'}
                         </span>
                         <p className='font-medium text-deep-charcoal'>
-                          {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                          {product.shippingInfo.cost?.toFixed(2) || '0.00'}
+                          {formatPrice(product.shippingInfo.cost, locale)}
                         </p>
                       </div>
                       <div>

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { HiEye } from 'react-icons/hi2';
 import { useGetSellerProductsQuery } from '@/lib/api/productsApi';
 import { useState } from 'react';
+import { formatPrice } from '@/utils/formatPrice';
 
 export default function ListedItems() {
   const locale = useLocale();
@@ -107,8 +108,7 @@ export default function ListedItems() {
                 </h3>
                 <div className='flex justify-between items-center mb-3'>
                   <span className='text-lg font-bold text-saudi-green'>
-                    {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                    {product.price?.toFixed(2) || '0.00'}
+                    {formatPrice(product.price, locale)}
                   </span>
                   {product.quantity !== undefined && (
                     <span className='text-xs text-deep-charcoal/60'>

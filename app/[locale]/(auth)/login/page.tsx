@@ -2,16 +2,17 @@
 
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HiEnvelope, HiEye, HiEyeSlash, HiLockClosed } from 'react-icons/hi2';
-import { useLoginMutation } from '@/lib/api/authApi';
+import { useLoginMutation, useUpdateLanguageMutation } from '@/lib/api/authApi';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { setCredentials } from '@/lib/store/slices/authSlice';
 import { toast } from '@/utils/toast';
 import { handleApiErrorWithToast } from '@/utils/errorHandler';
 export default function LoginPage() {
   const locale = useLocale();
+  const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const isRTL = locale === 'ar';
@@ -24,6 +25,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [rememberMe, setRememberMe] = useState(false);
   const [login, { isLoading }] = useLoginMutation();
+  const [updateLanguage] = useUpdateLanguageMutation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -75,6 +77,30 @@ export default function LoginPage() {
           user: result.user,
           token: result.token,
         }));
+
+        // Check if there's a stored guest language preference
+        if (typeof window !== 'undefined') {
+          const guestLanguage = localStorage.getItem('guest_language');
+          if (guestLanguage && guestLanguage !== locale) {
+            // Update user's language preference on backend
+            try {
+              await updateLanguage({ language: guestLanguage, skipAuth: false }).unwrap();
+              // Clear guest language preference after applying it
+              localStorage.removeItem('guest_language');
+              // Redirect to the preferred language
+              const newPath = pathname.replace(`/${locale}`, `/${guestLanguage}`);
+              if (result.user.role === 'seller') {
+                router.push(`/${guestLanguage}/my-store`);
+              } else {
+                router.push(`/${guestLanguage}`);
+              }
+              return;
+            } catch (error) {
+              // If language update fails, continue with normal flow
+              console.error('Failed to update language preference:', error);
+            }
+          }
+        }
 
         // Show success toast
         toast.success(

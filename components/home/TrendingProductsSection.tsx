@@ -65,7 +65,7 @@ export default function TrendingProductsSection() {
           {t('title')}
         </h2>
         <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
-          {data.products.map(product => {
+          {data.products.map((product, index) => {
             // Get first valid image, clean any spaces in URL
             const firstImage =
               product.images?.find(img => img && img.trim() !== '') ||
@@ -75,6 +75,9 @@ export default function TrendingProductsSection() {
             const productImage = firstImage
               ? firstImage.replace(/\s+/g, '')
               : '';
+
+            // Prioritize first 4 items (above the fold)
+            const isPriority = index < 4;
 
             return (
               <ProductCard
@@ -86,6 +89,7 @@ export default function TrendingProductsSection() {
                 seller={product.seller?.username || 'Unknown'}
                 isLiked={product.isLiked}
                 locale={locale}
+                priority={isPriority}
               />
             );
           })}

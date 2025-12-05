@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { formatPrice } from '@/utils/formatPrice';
 
 interface ProductCardProps {
   id?: string;
@@ -12,6 +13,7 @@ interface ProductCardProps {
   seller: string;
   isLiked?: boolean;
   locale?: string;
+  priority?: boolean;
 }
 
 export default function ProductCard({
@@ -22,6 +24,7 @@ export default function ProductCard({
   seller,
   isLiked = false,
   locale = 'en',
+  priority = false,
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
   const isRTL = locale === 'ar';
@@ -53,10 +56,12 @@ export default function ProductCard({
             src={image}
             alt={title || 'Product image'}
             fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className='object-cover group-hover:scale-105 transition-transform duration-300'
             onError={() => setImageError(true)}
             unoptimized={shouldUnoptimize}
-            priority={false}
+            priority={priority}
+            loading={priority ? 'eager' : 'lazy'}
           />
         ) : (
           <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
@@ -76,7 +81,7 @@ export default function ProductCard({
           {seller}
         </p>
         <p className='text-base md:text-lg font-bold text-saudi-green font-display'>
-          {locale === 'ar' ? 'ر.س' : 'SAR'} {price.toFixed(2)}
+          {formatPrice(price, locale)}
         </p>
       </div>
     </Link>

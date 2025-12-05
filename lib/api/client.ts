@@ -13,10 +13,15 @@ export const apiClient = axios.create({
 
 // Request interceptor - Add token to requests
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig & { skipAuth?: boolean }) => {
     // If FormData is being sent, remove Content-Type header to let browser set it with boundary
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
+    }
+    
+    // Skip adding token if skipAuth flag is set
+    if (config.skipAuth) {
+      return config;
     }
     
     // Get token from localStorage (check for affiliate token first, then user token)

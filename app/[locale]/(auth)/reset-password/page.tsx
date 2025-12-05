@@ -175,7 +175,9 @@ export default function ResetPasswordPage() {
         {/* Logo/Title */}
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="inline-block">
-            <h1 className="text-4xl font-bold text-saudi-green font-display mb-2">Depop</h1>
+            <h1 className='text-4xl font-bold text-saudi-green font-display mb-2'>
+              <img src="/Logo.svg" alt="Dolabb" className='w-20 h-20' />
+            </h1>
           </Link>
           <h2 className="text-2xl font-semibold text-deep-charcoal font-display mb-2">
             {locale === 'en' ? 'Create New Password' : 'إنشاء كلمة مرور جديدة'}

@@ -404,14 +404,13 @@ export default function BuyerContent() {
       setSelectedOffer(null);
       
       // Wait a bit for backend to process, then refetch offers and redirect to chat
-      setTimeout(async () => {
-        await refetchOffers();
-        
-        // Redirect to messages page with buyer ID to auto-select conversation
-        if (buyerId) {
-          router.push(`/${locale}/messages?buyerId=${buyerId}&offerId=${offerIdToRedirect}`);
-        }
-      }, 500);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await refetchOffers();
+      
+      // Redirect to messages page with buyer ID to auto-select conversation
+      if (buyerId) {
+        router.push(`/${locale}/messages?buyerId=${buyerId}&offerId=${offerIdToRedirect}`);
+      }
     } catch (error: any) {
       toast.error(
         error?.data?.message || 
@@ -701,12 +700,16 @@ export default function BuyerContent() {
                   try {
                     // Call the accept offer API: /api/offers/{offer_id}/accept/
                     await acceptOffer(offer.id).unwrap();
+                    
                     toast.success(
                       locale === 'en' 
                         ? 'Offer accepted successfully!' 
                         : 'تم قبول العرض بنجاح!'
                     );
-                    // Refetch offers to get the latest data
+                    
+                    // Refetch offers to get the latest data after acceptance
+                    // Add a small delay to ensure backend has processed the acceptance
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     await refetchOffers();
                   } catch (error: any) {
                     toast.error(
@@ -720,18 +723,22 @@ export default function BuyerContent() {
                   try {
                     // Call the reject offer API: /api/offers/{offer_id}/reject/
                     await rejectOffer(offer.id).unwrap();
-                      toast.success(
-                        locale === 'en' 
+                    
+                    toast.success(
+                      locale === 'en' 
                         ? 'Offer rejected successfully!' 
                         : 'تم رفض العرض بنجاح!'
-                      );
-                    // Refetch offers to get the latest data
+                    );
+                    
+                    // Refetch offers to get the latest data after rejection
+                    // Add a small delay to ensure backend has processed the rejection
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     await refetchOffers();
-                    } catch (error: any) {
-                      toast.error(
-                        error?.data?.message || 
+                  } catch (error: any) {
+                    toast.error(
+                      error?.data?.message || 
                       (locale === 'en' ? 'Failed to reject offer' : 'فشل رفض العرض')
-                      );
+                    );
                   }
                 };
 
