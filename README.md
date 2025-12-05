@@ -122,7 +122,6 @@ dolabb/
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 
-
 ## 🎨 Styling
 
 The application uses Tailwind CSS with custom color palette:
