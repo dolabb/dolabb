@@ -1,7 +1,16 @@
-import './globals.css';
 import LocaleHtml from '@/components/LocaleHtml';
-import ReduxProvider from '@/providers/ReduxProvider';
 import AuthRestore from '@/components/shared/AuthRestore';
+import ReduxProvider from '@/providers/ReduxProvider';
+import type { Metadata } from 'next';
+import './globals.css';
+
+export const metadata: Metadata = {
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
+};
 
 export default function RootLayout({
   children,
@@ -9,13 +18,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning>
+    <html lang='en' dir='ltr' suppressHydrationWarning>
       <body suppressHydrationWarning>
         <ReduxProvider>
           <AuthRestore />
-          <LocaleHtml>
-            {children}
-          </LocaleHtml>
+          <LocaleHtml>{children}</LocaleHtml>
         </ReduxProvider>
       </body>
     </html>
