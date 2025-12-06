@@ -509,17 +509,34 @@ export default function ProfileContent() {
                 profileUser.profile_image !== 'undefined' &&
                 profileUser.profile_image !== 'null' &&
                 !imageError ? (
-                  <Image
-                    key={profileUser.profile_image}
-                    src={normalizeImageUrl(profileUser.profile_image)}
-                    alt={profileUser.username || 'User'}
-                    fill
-                    className='object-cover'
-                    unoptimized
-                    onError={() => {
-                      setImageError(true);
-                    }}
-                  />
+                  (() => {
+                    const imageUrl = normalizeImageUrl(profileUser.profile_image);
+                    // Use regular img tag for proxied cdn.dolabb.com images due to SSL certificate issues
+                    return imageUrl?.startsWith('/api/cdn') ? (
+                      <img
+                        key={profileUser.profile_image}
+                        src={imageUrl}
+                        alt={profileUser.username || 'User'}
+                        className='w-full h-full object-cover'
+                        onError={() => {
+                          setImageError(true);
+                        }}
+                        referrerPolicy='no-referrer'
+                      />
+                    ) : (
+                      <Image
+                        key={profileUser.profile_image}
+                        src={imageUrl}
+                        alt={profileUser.username || 'User'}
+                        fill
+                        className='object-cover'
+                        unoptimized
+                        onError={() => {
+                          setImageError(true);
+                        }}
+                      />
+                    );
+                  })()
                 ) : (
                   <div className='w-full h-full flex items-center justify-center text-3xl font-bold text-saudi-green'>
                     {profileUser?.username?.[0]?.toUpperCase() ||
