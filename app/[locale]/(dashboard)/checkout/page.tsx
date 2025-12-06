@@ -260,6 +260,38 @@ export default function CheckoutPage() {
     }
   };
 
+  // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
+  const normalizeImageUrl = (url: string | undefined | null): string => {
+    if (!url || url.trim() === '' || url === 'undefined' || url === 'null') {
+      return '';
+    }
+    const trimmed = url.trim().replace(/\s+/g, '');
+    
+    // If URL starts with http://, convert to https://
+    let normalized = trimmed.startsWith('http://')
+      ? trimmed.replace('http://', 'https://')
+      : trimmed;
+
+    // If URL is relative (starts with /), prepend base URL
+    if (normalized.startsWith('/') && !normalized.startsWith('//')) {
+      normalized = `https://dolabb-backend-2vsj.onrender.com${normalized}`;
+    }
+
+    // Convert cdn.dolabb.com URLs to use Next.js proxy to bypass SSL issues
+    if (normalized.includes('cdn.dolabb.com')) {
+      try {
+        const urlObj = new URL(normalized);
+        const path = urlObj.pathname + urlObj.search;
+        return `/api/cdn${path}`;
+      } catch {
+        // If URL parsing fails, try simple string replacement
+        const path = normalized.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+        return `/api/cdn${path}`;
+      }
+    }
+    return normalized;
+  };
+
   // Use API data if available, otherwise fall back to URL params
   const displayProduct = orderSummary?.productTitle || product;
   const displayOriginalPrice = orderSummary?.originalPrice?.toFixed(2) || price;
@@ -269,6 +301,10 @@ export default function CheckoutPage() {
   const displayTax = orderSummary?.platformTax?.amount?.toFixed(2) || '0.00';
   const displayTotal = orderSummary?.finalTotal?.toFixed(2) || 
     (parseFloat(offerPrice || '0') + parseFloat(shipping || '0')).toFixed(2);
+  
+  const normalizedProductImage = orderSummary?.productImage 
+    ? normalizeImageUrl(orderSummary.productImage) 
+    : '';
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
@@ -521,11 +557,15 @@ export default function CheckoutPage() {
                 <div className='space-y-4 mb-6'>
                   {/* Product Info */}
                   <div>
-                    {orderSummary?.productImage && (
+                    {normalizedProductImage && (
                       <img
-                        src={orderSummary.productImage}
+                        src={normalizedProductImage}
                         alt={displayProduct}
                         className='w-full h-48 object-cover rounded-lg mb-3'
+                        onError={(e) => {
+                          console.error('Product image failed to load:', normalizedProductImage);
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
                     )}
                     <p className='text-sm text-deep-charcoal/70 mb-1'>
