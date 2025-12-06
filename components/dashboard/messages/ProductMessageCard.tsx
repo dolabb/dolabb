@@ -54,6 +54,7 @@ export default function ProductMessageCard({
   const [showCounterModal, setShowCounterModal] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isCountering, setIsCountering] = useState(false);
 
   // Use offer.product if available, otherwise fetch product details
   const offerProduct = message.offer?.product;
@@ -297,26 +298,31 @@ export default function ProductMessageCard({
       return;
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📤 Preparing to send counter offer:', {
-        offerId: offerId,
-        messageOfferId: message.offerId,
-        offerObjectId: message.offer?.id,
-        counterAmount: counterAmount,
-        receiverId: selectedConversation.otherUser.id,
-        hasOriginalOffer: !!message.offer,
-        offerStatus: message.offer?.status,
-      });
-    }
+    setIsCountering(true);
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📤 Preparing to send counter offer:', {
+          offerId: offerId,
+          messageOfferId: message.offerId,
+          offerObjectId: message.offer?.id,
+          counterAmount: counterAmount,
+          receiverId: selectedConversation.otherUser.id,
+          hasOriginalOffer: !!message.offer,
+          offerStatus: message.offer?.status,
+        });
+      }
 
-    await onCounterOffer(
-      offerId, // Use the resolved offerId (from message.offerId or message.offer.id)
-      counterAmount,
-      selectedConversation.otherUser.id,
-      message.text,
-      message.offer
-    );
-    setShowCounterModal(false);
+      await onCounterOffer(
+        offerId, // Use the resolved offerId (from message.offerId or message.offer.id)
+        counterAmount,
+        selectedConversation.otherUser.id,
+        message.text,
+        message.offer
+      );
+      setShowCounterModal(false);
+    } finally {
+      setIsCountering(false);
+    }
   };
 
   const isSeller = user?.role === 'seller';
@@ -553,7 +559,7 @@ export default function ProductMessageCard({
                 <div className='flex gap-2 pt-3 border-t border-rich-sand/20'>
                   <button
                     onClick={handleAccept}
-                    disabled={isAccepting || isRejecting}
+                    disabled={isAccepting || isRejecting || isCountering}
                     className='flex-1 px-4 py-2.5 bg-saudi-green text-white rounded-lg font-medium hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm flex items-center justify-center gap-2'
                   >
                     <HiCheck className='w-4 h-4' />
@@ -568,10 +574,16 @@ export default function ProductMessageCard({
                   {canCounterOffer ? (
                     <button
                       onClick={() => setShowCounterModal(true)}
-                      disabled={isAccepting || isRejecting}
+                      disabled={isAccepting || isRejecting || isCountering}
                       className='flex-1 px-4 py-2.5 bg-deep-charcoal text-white rounded-lg font-medium hover:bg-deep-charcoal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
                     >
-                      {locale === 'en' ? 'Counter' : 'عرض مقابل'}
+                      {isCountering
+                        ? locale === 'en'
+                          ? 'Countering...'
+                          : 'جاري إرسال العرض المقابل...'
+                        : locale === 'en'
+                        ? 'Counter'
+                        : 'عرض مقابل'}
                     </button>
                   ) : lastCounterWasFromMe ? (
                     <div
@@ -587,7 +599,7 @@ export default function ProductMessageCard({
                   ) : null}
                   <button
                     onClick={handleReject}
-                    disabled={isAccepting || isRejecting}
+                    disabled={isAccepting || isRejecting || isCountering}
                     className={`${
                       canCounterOffer ? 'px-4' : 'flex-1'
                     } py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm`}
@@ -612,7 +624,7 @@ export default function ProductMessageCard({
                 <div className='flex gap-2 pt-2 border-t border-white/20'>
                   <button
                     onClick={handleAccept}
-                    disabled={isAccepting || isRejecting}
+                    disabled={isAccepting || isRejecting || isCountering}
                     className='flex-1 px-3 py-2 bg-white text-saudi-green rounded-lg font-medium hover:bg-rich-sand/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
                   >
                     {isAccepting
@@ -626,10 +638,16 @@ export default function ProductMessageCard({
                   {canCounterOffer ? (
                     <button
                       onClick={() => setShowCounterModal(true)}
-                      disabled={isAccepting || isRejecting}
+                      disabled={isAccepting || isRejecting || isCountering}
                       className='flex-1 px-3 py-2 bg-deep-charcoal text-white rounded-lg font-medium hover:bg-deep-charcoal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm'
                     >
-                      {locale === 'en' ? 'Counter' : 'عرض مقابل'}
+                      {isCountering
+                        ? locale === 'en'
+                          ? 'Countering...'
+                          : 'جاري إرسال العرض المقابل...'
+                        : locale === 'en'
+                        ? 'Counter'
+                        : 'عرض مقابل'}
                     </button>
                   ) : lastCounterWasFromMe ? (
                     <div
@@ -645,7 +663,7 @@ export default function ProductMessageCard({
                   ) : null}
                   <button
                     onClick={handleReject}
-                    disabled={isAccepting || isRejecting}
+                    disabled={isAccepting || isRejecting || isCountering}
                     className={`${
                       canCounterOffer ? 'flex-1' : 'flex-1'
                     } px-3 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm`}
@@ -746,6 +764,7 @@ export default function ProductMessageCard({
           }
           productTitle={productTitle}
           onSubmit={handleCounterSubmit}
+          isLoading={isCountering}
         />
       )}
     </>
