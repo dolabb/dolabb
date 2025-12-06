@@ -177,6 +177,11 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
     );
   }
 
+  // Type guard: if we reach here and not loading, product must exist
+  if (!product) {
+    return null;
+  }
+
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -263,7 +268,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
               <div>
                 <div className='flex items-start justify-between mb-2'>
                   <h1 className='text-3xl font-bold text-deep-charcoal'>
-                    {product.title}
+                    {product?.title || ''}
                   </h1>
                   <div className='flex items-center gap-2'>
                     <Link
