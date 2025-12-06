@@ -300,35 +300,7 @@ export default function ChatArea({
                 ? 'No messages yet. Start the conversation!'
                 : 'لا توجد رسائل بعد. ابدأ المحادثة!'}
             </p>
-            {error && (
-              <div className='mt-4 space-y-2'>
-                <p className='text-sm text-red-500'>
-                  {locale === 'en'
-                    ? 'Error loading messages. Please try again.'
-                    : 'خطأ في تحميل الرسائل. يرجى المحاولة مرة أخرى.'}
-                </p>
-                {process.env.NODE_ENV === 'development' && (
-                  <div className='mt-2 p-2 bg-red-50 rounded text-xs text-red-700 max-w-md mx-auto'>
-                    <p>
-                      <strong>Error:</strong>{' '}
-                      {JSON.stringify(
-                        (error as any)?.data ||
-                          (error as any)?.status ||
-                          'Unknown error'
-                      )}
-                    </p>
-                    <p>
-                      <strong>User Role:</strong> {user?.role}
-                    </p>
-                    <p>
-                      <strong>Conversation ID:</strong> {conversationId}
-                    </p>
-                    <p>
-                      <strong>User ID:</strong> {user?.id}
-                    </p>
-                  </div>
-                )}
-                {selectedConversation?.lastMessage && (
+            {selectedConversation?.lastMessage && (
                   <div className='mt-4 p-3 bg-rich-sand/20 rounded-lg border border-rich-sand/30'>
                     <p className='text-xs text-deep-charcoal/60 mb-1'>
                       {locale === 'en' ? 'Last message:' : 'آخر رسالة:'}

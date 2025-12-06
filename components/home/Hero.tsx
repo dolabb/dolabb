@@ -56,12 +56,11 @@ export default function Hero() {
       </div>
 
       <div className='relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center'>
-        <h1 className='text-4xl md:text-6xl lg:text-7xl font-bold text-deep-charcoal mb-6 font-display tracking-tight'>
-          {t('title')}
+        <h1 className='text-4xl md:text-6xl lg:text-7xl font-bold text-deep-charcoal mb-6 font-display tracking-tight leading-tight'>
+          <span className='block'>Love</span>
+          <span className='block'>Pre-Loved</span>
+          <span className='block'>Fashion</span>
         </h1>
-        <p className='text-lg md:text-xl lg:text-2xl text-deep-charcoal/80 mb-8 max-w-2xl mx-auto leading-relaxed font-medium'>
-          {t('subtitle')}
-        </p>
       </div>
 
       {/* Decorative Elements */}

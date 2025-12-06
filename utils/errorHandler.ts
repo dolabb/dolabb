@@ -143,7 +143,19 @@ export const handleApiError = (error: unknown): string => {
 
 export const handleApiErrorWithToast = (error: unknown, customMessage?: string) => {
   const errorMessage = customMessage || handleApiError(error);
-  toast.error(errorMessage);
+  
+  // Check if error message contains "temp" or "temporary" (case insensitive)
+  const isTempUserError = 
+    errorMessage.toLowerCase().includes('temp') || 
+    errorMessage.toLowerCase().includes('temporary');
+  
+  // Increase duration for temp_user messages (6 seconds instead of default 4)
+  if (isTempUserError) {
+    toast.error(errorMessage, { duration: 6000 });
+  } else {
+    toast.error(errorMessage);
+  }
+  
   return errorMessage;
 };
 

@@ -220,21 +220,6 @@ export default function ShippingPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-            <p className='text-red-600'>
-              {locale === 'en'
-                ? 'Failed to load orders. Please try again.'
-                : 'فشل تحميل الطلبات. يرجى المحاولة مرة أخرى.'}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>

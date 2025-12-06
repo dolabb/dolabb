@@ -53,6 +53,17 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      // Don't redirect if we're already on a login page or if the request is to login endpoint
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const isLoginPage = currentPath.includes('/login') || currentPath.includes('/affiliate/login');
+      const isLoginRequest = originalRequest.url?.includes('/api/auth/login') || 
+                            originalRequest.url?.includes('/api/auth/affiliate/login');
+      
+      // Skip redirect for login requests or if already on login page
+      if (isLoginRequest || isLoginPage) {
+        return Promise.reject(error);
+      }
+
       // Clear auth data
       if (typeof window !== 'undefined') {
         const isAffiliate = localStorage.getItem('affiliate_token');
@@ -61,16 +72,20 @@ apiClient.interceptors.response.use(
           // Clear affiliate data
           localStorage.removeItem('affiliate_token');
           localStorage.removeItem('affiliate');
-          // Redirect to affiliate login
-          const locale = window.location.pathname.split('/')[1] || 'en';
-          window.location.href = `/${locale}/affiliate/login`;
+          // Redirect to affiliate login only if not already there
+          if (!currentPath.includes('/affiliate/login')) {
+            const locale = window.location.pathname.split('/')[1] || 'en';
+            window.location.href = `/${locale}/affiliate/login`;
+          }
         } else {
           // Clear user data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          // Redirect to user login
-          const locale = window.location.pathname.split('/')[1] || 'en';
-          window.location.href = `/${locale}/login`;
+          // Redirect to user login only if not already there
+          if (!currentPath.includes('/login')) {
+            const locale = window.location.pathname.split('/')[1] || 'en';
+            window.location.href = `/${locale}/login`;
+          }
         }
       }
     }

@@ -4,6 +4,8 @@ import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useVerifyOtpMutation, useResendOtpMutation } from '@/lib/api/authApi';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { setCredentials } from '@/lib/store/slices/authSlice';
 import { toast } from '@/utils/toast';
 import { handleApiErrorWithToast } from '@/utils/errorHandler';
 import { HiEnvelope } from 'react-icons/hi2';
@@ -12,11 +14,14 @@ export default function VerifyOtpPage() {
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const dispatch = useAppDispatch();
   const isRTL = locale === 'ar';
 
-  // Get email from query params or localStorage
+  // Get email and user_type from query params or localStorage
   const emailFromParams = searchParams.get('email');
+  const userTypeFromParams = searchParams.get('user_type') || 'buyer'; // Default to 'buyer' as per API requirement
   const [email, setEmail] = useState(emailFromParams || '');
+  const [userType, setUserType] = useState(userTypeFromParams);
   const [otp, setOtp] = useState(['', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -88,24 +93,55 @@ export default function VerifyOtpPage() {
       const result = await verifyOtp({
         email,
         otp: otpString,
+        user_type: userType,
       }).unwrap();
 
       if (result.success) {
-        toast.success(
-          locale === 'en'
-            ? 'Email verified successfully! Your account is now active.'
-            : 'تم التحقق من البريد الإلكتروني بنجاح! حسابك نشط الآن.'
-        );
+        // If we have user and token, store credentials and redirect appropriately
+        if (result.user && result.token) {
+          // Store credentials in Redux
+          dispatch(setCredentials({
+            user: result.user,
+            token: result.token,
+          }));
 
-        // Clear signup email from localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('signup_email');
+          toast.success(
+            locale === 'en'
+              ? 'Email verified successfully! Your account is now active.'
+              : 'تم التحقق من البريد الإلكتروني بنجاح! حسابك نشط الآن.'
+          );
+
+          // Clear signup email from localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('signup_email');
+          }
+
+          // Redirect based on role
+          setTimeout(() => {
+            if (result.user.role === 'seller') {
+              router.push(`/${locale}/my-store`);
+            } else {
+              router.push(`/${locale}`);
+            }
+          }, 1500);
+        } else {
+          // No token/user in response, redirect to login
+          toast.success(
+            locale === 'en'
+              ? 'Email verified successfully! Please login to continue.'
+              : 'تم التحقق من البريد الإلكتروني بنجاح! يرجى تسجيل الدخول للمتابعة.'
+          );
+
+          // Clear signup email from localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('signup_email');
+          }
+
+          // Redirect to login page
+          setTimeout(() => {
+            router.push(`/${locale}/login`);
+          }, 1500);
         }
-
-        // Redirect to login page
-        setTimeout(() => {
-          router.push(`/${locale}/login`);
-        }, 1500);
       }
     } catch (error) {
       handleApiErrorWithToast(error);
@@ -123,7 +159,7 @@ export default function VerifyOtpPage() {
     try {
       const result = await resendOtp({
         email,
-        user_type: 'user',
+        user_type: userType === 'buyer' ? 'user' : userType, // Map 'buyer' to 'user' for resendOtp API
       }).unwrap();
 
       if (result.success) {

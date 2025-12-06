@@ -1,12 +1,15 @@
 'use client';
 
-import { useGetProfileQuery, useUpdateLanguageMutation } from '@/lib/api/authApi';
+import {
+  useGetProfileQuery,
+  useUpdateLanguageMutation,
+} from '@/lib/api/authApi';
 import { useCreateOfferMutation } from '@/lib/api/offersApi';
 import { useGetCartQuery, useGetProductsQuery } from '@/lib/api/productsApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { logout, updateUser } from '@/lib/store/slices/authSlice';
-import { toast } from '@/utils/toast';
 import { formatPrice } from '@/utils/formatPrice';
+import { toast } from '@/utils/toast';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,7 +18,6 @@ import {
   startTransition,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -27,7 +29,6 @@ import {
   HiPencilSquare,
   HiShoppingBag,
   HiUser,
-  HiUserGroup,
   HiXMark,
 } from 'react-icons/hi2';
 
@@ -88,10 +89,10 @@ export default function Header() {
   }, [searchQuery]);
 
   // Fetch search results
-  const { 
-    data: searchResults, 
+  const {
+    data: searchResults,
     isLoading: isSearching,
-    error: searchError 
+    error: searchError,
   } = useGetProductsQuery(
     { search: debouncedSearchQuery.trim() },
     {
@@ -100,8 +101,8 @@ export default function Header() {
   );
 
   // Normalize search results - handle both array and object with products property
-  const normalizedSearchResults = Array.isArray(searchResults) 
-    ? searchResults 
+  const normalizedSearchResults = Array.isArray(searchResults)
+    ? searchResults
     : (searchResults as any)?.products || [];
 
   // Debug: Log search query and results
@@ -116,7 +117,13 @@ export default function Header() {
         isSearching,
       });
     }
-  }, [debouncedSearchQuery, searchResults, normalizedSearchResults, searchError, isSearching]);
+  }, [
+    debouncedSearchQuery,
+    searchResults,
+    normalizedSearchResults,
+    searchError,
+    isSearching,
+  ]);
 
   // Show/hide search dropdown based on query (show immediately when typing, not waiting for results)
   useEffect(() => {
@@ -154,8 +161,9 @@ export default function Header() {
 
   const [createOffer, { isLoading: isCreatingOffer }] =
     useCreateOfferMutation();
-  
-  const [updateLanguage, { isLoading: isUpdatingLanguage }] = useUpdateLanguageMutation();
+
+  const [updateLanguage, { isLoading: isUpdatingLanguage }] =
+    useUpdateLanguageMutation();
 
   // Mark component as mounted to prevent hydration mismatch
   useLayoutEffect(() => {
@@ -191,7 +199,7 @@ export default function Header() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
+
       if (
         profileDropdownRef.current &&
         !profileDropdownRef.current.contains(target)
@@ -209,11 +217,12 @@ export default function Header() {
       if (isSearchDropdownOpen) {
         const isClickInInput = searchInputRef.current?.contains(target);
         const isClickInDropdown = searchDropdownRef.current?.contains(target);
-        
+
         // Also check if clicking on a child element of the dropdown
         const clickedElement = target.closest('[data-search-result]');
-        const isClickOnResult = clickedElement && searchDropdownRef.current?.contains(clickedElement);
-        
+        const isClickOnResult =
+          clickedElement && searchDropdownRef.current?.contains(clickedElement);
+
         if (!isClickInInput && !isClickInDropdown && !isClickOnResult) {
           setIsSearchDropdownOpen(false);
         }
@@ -288,11 +297,12 @@ export default function Header() {
       await refetchCart();
     } catch (error: unknown) {
       // Check for specific error messages from API
-      const errorData = error && typeof error === 'object' && 'data' in error
-        ? (error as { data?: { error?: string; message?: string } })?.data
+      const errorData =
+        error && typeof error === 'object' && 'data' in error
+          ? (error as { data?: { error?: string; message?: string } })?.data
           : undefined;
       const apiError = errorData?.error || errorData?.message;
-      
+
       if (apiError === 'You cannot make an offer on your own product') {
         toast.error(
           locale === 'en'
@@ -300,17 +310,17 @@ export default function Header() {
             : 'لا يمكنك تقديم عرض على منتجك الخاص'
         );
       } else {
-      toast.error(
+        toast.error(
           apiError ||
-          (locale === 'en' ? 'Failed to create offer' : 'فشل إنشاء العرض')
-      );
+            (locale === 'en' ? 'Failed to create offer' : 'فشل إنشاء العرض')
+        );
       }
     }
   };
 
   const toggleLanguage = async () => {
     const newLocale = locale === 'en' ? 'ar' : 'en';
-    
+
     try {
       // Update language preference on backend
       if (isAuthenticated || isAffiliate) {
@@ -328,7 +338,7 @@ export default function Header() {
       // Log error but don't block language change
       console.error('Failed to update language preference:', error);
     }
-    
+
     // Update the UI language regardless of API call result
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
     router.push(newPath);
@@ -357,7 +367,7 @@ export default function Header() {
                 priority
               />
               <Image
-                src='/Reslogo.svg'
+                src='/Logo.svg'
                 alt='Dolabb Logo'
                 width={100}
                 height={100}
@@ -376,7 +386,7 @@ export default function Header() {
                 priority
               />
               <Image
-                src='/Reslogo.svg'
+                src='/Logo.svg'
                 alt='Dolabb Logo'
                 width={100}
                 height={100}
@@ -420,39 +430,49 @@ export default function Header() {
                     className={`absolute ${
                       isRTL ? 'right-0' : 'left-0'
                     } top-full mt-2 w-full bg-white rounded-lg shadow-lg border border-rich-sand/30 z-[100] max-h-96 overflow-y-auto`}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
                   >
-                    {isSearching || (debouncedSearchQuery.trim().length < 2 && searchQuery.trim().length >= 2) ? (
+                    {isSearching ||
+                    (debouncedSearchQuery.trim().length < 2 &&
+                      searchQuery.trim().length >= 2) ? (
                       <div className='p-4 text-center text-deep-charcoal/70'>
                         {locale === 'en' ? 'Searching...' : 'جاري البحث...'}
                       </div>
-                    ) : normalizedSearchResults && normalizedSearchResults.length > 0 ? (
+                    ) : normalizedSearchResults &&
+                      normalizedSearchResults.length > 0 ? (
                       <div className='py-2'>
                         {normalizedSearchResults.map((product: any) => {
                           // Handle both title and itemtitle fields from API
-                          const productTitle = (product as any).itemtitle || product.title || 'Untitled Product';
+                          const productTitle =
+                            (product as any).itemtitle ||
+                            product.title ||
+                            'Untitled Product';
                           const productId = product.id;
-                          
+
                           if (!productId) {
                             return null;
                           }
-                          
+
                           const productUrl = `/${locale}/product/${productId}`;
-                          
+
                           const handleClick = (e: React.MouseEvent) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            
-                            console.log('🔗 Clicked product:', { productId, productTitle, productUrl });
-                            
+
+                            console.log('🔗 Clicked product:', {
+                              productId,
+                              productTitle,
+                              productUrl,
+                            });
+
                             // Close dropdown and clear search
                             setSearchQuery('');
                             setIsSearchDropdownOpen(false);
-                            
+
                             // Navigate using router
                             router.push(productUrl);
                           };
-                          
+
                           return (
                             <div
                               key={productId}
@@ -467,7 +487,8 @@ export default function Header() {
                           );
                         })}
                       </div>
-                    ) : debouncedSearchQuery.trim().length >= 2 && !isSearching ? (
+                    ) : debouncedSearchQuery.trim().length >= 2 &&
+                      !isSearching ? (
                       <div className='p-4 text-center'>
                         <p className='text-deep-charcoal/70 mb-1'>
                           {locale === 'en'
@@ -710,10 +731,7 @@ export default function Header() {
                       locale === 'en' ? 'Affiliate Login' : 'تسجيل دخول الشريك'
                     }
                   >
-                    <HiUserGroup className='w-4 h-4' />
-                    <span className='hidden lg:inline'>
-                      {locale === 'en' ? 'Affiliate' : 'شريك'}
-                    </span>
+                    <span>{locale === 'en' ? 'Affiliate' : 'شريك'}</span>
                   </Link>
                   <Link
                     href={`/${locale}/login`}
@@ -787,40 +805,50 @@ export default function Header() {
                   className={`absolute ${
                     isRTL ? 'right-0' : 'left-0'
                   } top-full mt-2 w-full bg-white rounded-lg shadow-lg border border-rich-sand/30 z-[100] max-h-96 overflow-y-auto`}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={e => e.stopPropagation()}
                 >
-                  {isSearching || (debouncedSearchQuery.trim().length < 2 && searchQuery.trim().length >= 2) ? (
+                  {isSearching ||
+                  (debouncedSearchQuery.trim().length < 2 &&
+                    searchQuery.trim().length >= 2) ? (
                     <div className='p-4 text-center text-deep-charcoal/70'>
                       {locale === 'en' ? 'Searching...' : 'جاري البحث...'}
                     </div>
-                  ) : normalizedSearchResults && normalizedSearchResults.length > 0 ? (
+                  ) : normalizedSearchResults &&
+                    normalizedSearchResults.length > 0 ? (
                     <div className='py-2'>
                       {normalizedSearchResults.map((product: any) => {
                         // Handle both title and itemtitle fields from API
-                        const productTitle = (product as any).itemtitle || product.title || 'Untitled Product';
+                        const productTitle =
+                          (product as any).itemtitle ||
+                          product.title ||
+                          'Untitled Product';
                         const productId = product.id;
-                        
+
                         if (!productId) {
                           return null;
                         }
-                        
+
                         const productUrl = `/${locale}/product/${productId}`;
-                        
+
                         const handleClick = (e: React.MouseEvent) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          
-                          console.log('🔗 Clicked product (mobile):', { productId, productTitle, productUrl });
-                          
+
+                          console.log('🔗 Clicked product (mobile):', {
+                            productId,
+                            productTitle,
+                            productUrl,
+                          });
+
                           // Close dropdown and clear search
                           setSearchQuery('');
                           setIsSearchDropdownOpen(false);
                           setIsMobileMenuOpen(false);
-                          
+
                           // Navigate using router
                           router.push(productUrl);
                         };
-                        
+
                         return (
                           <div
                             key={productId}
@@ -835,7 +863,8 @@ export default function Header() {
                         );
                       })}
                     </div>
-                  ) : debouncedSearchQuery.trim().length >= 2 && !isSearching ? (
+                  ) : debouncedSearchQuery.trim().length >= 2 &&
+                    !isSearching ? (
                     <div className='p-4 text-center'>
                       <p className='text-deep-charcoal/70 mb-1'>
                         {locale === 'en'
@@ -972,7 +1001,6 @@ export default function Header() {
                       className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold shadow-md hover:shadow-lg font-display'
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <HiUserGroup className='w-5 h-5' />
                       {locale === 'en'
                         ? 'Affiliate Login'
                         : 'تسجيل دخول الشريك'}

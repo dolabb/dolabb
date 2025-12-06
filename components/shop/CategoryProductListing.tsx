@@ -801,16 +801,6 @@ export default function CategoryProductListing({
           </div>
         )}
 
-        {/* Error State */}
-        {productsError && (
-          <div className='text-center py-12'>
-            <p className='text-red-500 text-lg'>
-              {locale === 'en'
-                ? 'Error loading products. Please try again.'
-                : 'خطأ في تحميل المنتجات. يرجى المحاولة مرة أخرى.'}
-            </p>
-          </div>
-        )}
 
         {/* Pagination */}
         {!isLoading && pagination && pagination.totalPages > 1 && (

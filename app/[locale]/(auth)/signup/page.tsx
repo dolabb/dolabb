@@ -5,7 +5,7 @@ import { countries, Country, defaultCountry } from '@/data/countries';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   HiChevronDown,
   HiEnvelope,
@@ -50,8 +50,15 @@ export default function SignupPage() {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
 
-  // Filter countries based on search
-  const filteredCountries = countries.filter(
+  // GCC countries only: Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, UAE
+  const gccCountryCodes = ['BH', 'KW', 'OM', 'QA', 'SA', 'AE'];
+  const gccCountries = useMemo(() => 
+    countries.filter(country => gccCountryCodes.includes(country.code)),
+    []
+  );
+
+  // Filter countries based on search (only GCC countries)
+  const filteredCountries = gccCountries.filter(
     country =>
       country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
       country.dialCode.includes(countrySearch) ||

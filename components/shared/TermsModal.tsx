@@ -36,17 +36,30 @@ export default function TermsModal({
     };
   }, [isOpen]);
 
-  const handleAccept = () => {
+  const handleAccept = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
     onAccept();
     setShowFullTerms(false);
   };
 
-  const handleViewTerms = () => {
+  const handleViewTerms = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
     setShowFullTerms(true);
   };
 
-  const handleBack = () => {
+  const handleBack = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
     setShowFullTerms(false);
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close if clicking directly on the backdrop, not on children
+    if (e.target === e.currentTarget && onClose) {
+      onClose();
+    }
   };
 
   return (
@@ -56,7 +69,7 @@ export default function TermsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={handleBackdropClick}
           className='bg-slate-900/20 backdrop-blur pt-40 p-4 fixed inset-0 z-50 grid place-items-center overflow-y-scroll cursor-pointer'
           dir={isRTL ? 'rtl' : 'ltr'}
         >
@@ -135,6 +148,7 @@ export default function TermsModal({
 
                     <div className='flex gap-2'>
                       <button
+                        type='button'
                         onClick={handleViewTerms}
                         className='bg-transparent hover:bg-white/10 transition-colors text-white font-semibold flex-1 py-2.5 rounded-lg border border-white/30'
                       >
@@ -143,6 +157,7 @@ export default function TermsModal({
                           : 'عرض الشروط الكاملة'}
                       </button>
                       <button
+                        type='button'
                         onClick={handleAccept}
                         className='bg-white hover:opacity-90 transition-opacity text-saudi-green font-semibold flex-1 py-2.5 rounded-lg'
                       >
@@ -160,6 +175,7 @@ export default function TermsModal({
                         {locale === 'en' ? 'Terms of Service' : 'شروط الخدمة'}
                       </h2>
                       <button
+                        type='button'
                         onClick={handleBack}
                         className='p-2 hover:bg-white/10 rounded-lg transition-colors'
                       >
@@ -334,12 +350,14 @@ export default function TermsModal({
 
                     <div className='flex gap-2 mt-4'>
                       <button
+                        type='button'
                         onClick={handleBack}
                         className='bg-transparent hover:bg-white/10 transition-colors text-white font-semibold flex-1 py-2.5 rounded-lg border border-white/30'
                       >
                         {locale === 'en' ? 'Back' : 'رجوع'}
                       </button>
                       <button
+                        type='button'
                         onClick={handleAccept}
                         className='bg-white hover:opacity-90 transition-opacity text-saudi-green font-semibold flex-1 py-2.5 rounded-lg'
                       >

@@ -222,37 +222,7 @@ export default function ThreeDSAuthenticationModal({
               </div>
             )}
 
-            {hasError ? (
-              <div className='absolute inset-0 flex items-center justify-center bg-white z-10 p-6'>
-                <div className='text-center max-w-md'>
-                  <div className='bg-red-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center'>
-                    <HiXMark className='w-8 h-8 text-red-600' />
-                  </div>
-                  <p className='text-deep-charcoal font-semibold mb-2'>
-                    {locale === 'en' 
-                      ? 'Authentication Error' 
-                      : 'خطأ في المصادقة'}
-                  </p>
-                  <p className='text-deep-charcoal/70 text-sm mb-4'>
-                    {locale === 'en' 
-                      ? 'Failed to load the authentication page. Please try again.' 
-                      : 'فشل تحميل صفحة المصادقة. يرجى المحاولة مرة أخرى.'}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setHasError(false);
-                      setIsLoading(true);
-                      if (iframeRef.current) {
-                        iframeRef.current.src = transactionUrl;
-                      }
-                    }}
-                    className='px-6 py-2 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors'
-                  >
-                    {locale === 'en' ? 'Retry' : 'إعادة المحاولة'}
-                  </button>
-                </div>
-              </div>
-            ) : (
+            {!hasError && (
               <iframe
                 ref={iframeRef}
                 src={transactionUrl}

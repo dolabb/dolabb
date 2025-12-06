@@ -162,17 +162,6 @@ export default function PaymentsTab() {
     );
   }
 
-  if (error) {
-    return (
-      <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-        <p className='text-red-600'>
-          {locale === 'en' 
-            ? 'Failed to load payments. Please try again.' 
-            : 'فشل تحميل المدفوعات. يرجى المحاولة مرة أخرى.'}
-        </p>
-      </div>
-    );
-  }
 
   // Filter only orders that are ready to ship or pending (not shipped)
   const ordersToShip = payments.filter(

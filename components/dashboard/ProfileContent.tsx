@@ -387,17 +387,31 @@ export default function ProfileContent() {
       return '';
     }
 
+    const trimmed = url.trim();
+
     // If URL starts with http://, convert to https://
-    if (url.startsWith('http://')) {
-      url = url.replace('http://', 'https://');
-    }
+    let normalized = trimmed.startsWith('http://')
+      ? trimmed.replace('http://', 'https://')
+      : trimmed;
 
     // If URL is relative (starts with /), prepend base URL
-    if (url.startsWith('/')) {
-      url = `https://dolabb-backend-2vsj.onrender.com${url}`;
+    if (normalized.startsWith('/')) {
+      normalized = `https://dolabb-backend-2vsj.onrender.com${normalized}`;
     }
 
-    return url;
+    // Convert cdn.dolabb.com URLs to use Next.js proxy to bypass SSL issues
+    if (normalized.includes('cdn.dolabb.com')) {
+      try {
+        const urlObj = new URL(normalized);
+        const path = urlObj.pathname + urlObj.search;
+        return `/api/cdn${path}`;
+      } catch {
+        // If URL parsing fails, return original
+        return normalized;
+      }
+    }
+
+    return normalized;
   };
 
   // Fetch profile data from API for buyers and sellers
@@ -477,27 +491,6 @@ export default function ProfileContent() {
     return <ProfileSkeleton isRTL={isRTL} />;
   }
 
-  // Show error state
-  if (profileError) {
-    return (
-      <div
-        className='bg-off-white min-h-screen py-8'
-        dir={isRTL ? 'rtl' : 'ltr'}
-      >
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='bg-white rounded-lg border border-rich-sand/30 p-6'>
-            <div className='text-center py-12'>
-              <p className='text-red-600'>
-                {locale === 'en'
-                  ? 'Error loading profile'
-                  : 'خطأ في تحميل الملف الشخصي'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // For buyers: Show only profile details (no shop/reviews tabs)
   if (isBuyer) {
@@ -779,17 +772,34 @@ export default function ProfileContent() {
               profileUser.profile_image !== 'undefined' &&
               profileUser.profile_image !== 'null' &&
               !imageError ? (
-                <Image
-                  key={profileUser.profile_image}
-                  src={normalizeImageUrl(profileUser.profile_image)}
-                  alt={profileUser.username || 'User'}
-                  fill
-                  className='object-cover'
-                  unoptimized
-                  onError={() => {
-                    setImageError(true);
-                  }}
-                />
+                (() => {
+                  const imageUrl = normalizeImageUrl(profileUser.profile_image);
+                  // Use regular img tag for cdn.dolabb.com due to SSL certificate issues
+                  return imageUrl?.includes('cdn.dolabb.com') ? (
+                    <img
+                      key={profileUser.profile_image}
+                      src={imageUrl}
+                      alt={profileUser.username || 'User'}
+                      className='w-full h-full object-cover'
+                      onError={() => {
+                        setImageError(true);
+                      }}
+                      referrerPolicy='no-referrer'
+                    />
+                  ) : (
+                    <Image
+                      key={profileUser.profile_image}
+                      src={imageUrl}
+                      alt={profileUser.username || 'User'}
+                      fill
+                      className='object-cover'
+                      unoptimized
+                      onError={() => {
+                        setImageError(true);
+                      }}
+                    />
+                  );
+                })()
               ) : (
                 <div className='w-full h-full flex items-center justify-center text-3xl font-bold text-saudi-green'>
                   {profileUser?.username?.[0]?.toUpperCase() ||

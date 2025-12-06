@@ -135,12 +135,14 @@ export default function NavigationBar() {
     const isVisible = displayedCategory !== null;
 
     if (isVisible) {
+      // Set display to block immediately before animation
+      dropdown.style.display = 'block';
+      
       gsap.fromTo(
         dropdown,
         {
           opacity: 0,
           y: -20,
-          display: 'block',
         },
         {
           opacity: 1,
@@ -377,20 +379,13 @@ export default function NavigationBar() {
               <div key={category.key} className='relative'>
                 <button
                   onClick={e => handleCategoryClick(category.key, e)}
-                  className={`relative px-3 py-2 font-medium text-sm transition-all duration-300 flex items-center gap-2 ${
+                  className={`relative px-3 py-2 font-medium text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
                     isActive
                       ? 'text-saudi-green'
                       : 'text-deep-charcoal/70 hover:text-saudi-green'
                   }`}
                   onMouseEnter={() => handleCategoryEnter(category.key)}
                 >
-                  {IconComponent && (
-                    <IconComponent
-                      className={`w-4 h-4 transition-transform ${
-                        isActive ? 'scale-110' : ''
-                      }`}
-                    />
-                  )}
                   <span className='font-display'>
                     {t(category.key) || category.name}
                   </span>
@@ -419,19 +414,12 @@ export default function NavigationBar() {
                 <button
                   key={category.key}
                   onClick={e => handleCategoryClick(category.key, e)}
-                  className={`relative flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-1.5 min-w-[60px] sm:min-w-[70px] transition-all duration-300 flex-shrink-0 ${
+                  className={`relative flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-1.5 min-w-[60px] sm:min-w-[70px] transition-all duration-300 flex-shrink-0 cursor-pointer ${
                     isActive
                       ? 'text-saudi-green'
                       : 'text-deep-charcoal/70 active:text-saudi-green'
                   }`}
                 >
-                  {IconComponent && (
-                    <IconComponent
-                      className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform ${
-                        isActive ? 'scale-110' : ''
-                      }`}
-                    />
-                  )}
                   <span className='font-display text-[10px] sm:text-xs font-medium leading-tight text-center whitespace-nowrap'>
                     {t(category.key) || category.name}
                   </span>
@@ -454,7 +442,7 @@ export default function NavigationBar() {
         <div
           ref={dropdownRef}
           className='absolute top-full left-0 right-0 bg-white border-t border-rich-sand/30 shadow-lg z-30'
-          style={{ display: 'none' }}
+          style={{ display: displayedCategory ? 'block' : 'none' }}
           onMouseEnter={() => {
             if (timeoutRef.current) {
               clearTimeout(timeoutRef.current);
@@ -470,22 +458,26 @@ export default function NavigationBar() {
                     {t('shopByCategory') || 'Shop by category'}
                   </h3>
                   <div className='grid grid-cols-2 gap-2'>
-                    {activeCategoryData.subCategories.map(subCat => (
-                      <Link
-                        key={subCat.key}
-                        href={`/${locale}${subCat.href}`}
-                        className='text-deep-charcoal/70 hover:text-saudi-green hover:font-medium transition-all duration-200 text-sm py-1.5 px-2 rounded hover:bg-saudi-green/5'
-                        onClick={handleCloseDropdown}
-                      >
-                        {safeTranslate(
-                          `${activeCategoryData.key}Sub.${subCat.key}`,
-                          subCat.name
-                        )}
-                      </Link>
-                    ))}
+                    {activeCategoryData.subCategories.map(subCat => {
+                      // Build browse URL with category and subcategory filters
+                      const browseUrl = `/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}&subcategory=${encodeURIComponent(subCat.name)}`;
+                      return (
+                        <Link
+                          key={subCat.key}
+                          href={browseUrl}
+                          className='text-deep-charcoal/70 hover:text-saudi-green hover:font-medium transition-all duration-200 text-sm py-1.5 px-2 rounded hover:bg-saudi-green/5'
+                          onClick={handleCloseDropdown}
+                        >
+                          {safeTranslate(
+                            `${activeCategoryData.key}Sub.${subCat.key}`,
+                            subCat.name
+                          )}
+                        </Link>
+                      );
+                    })}
                   </div>
                   <Link
-                    href={`/${locale}${activeCategoryData.href}`}
+                    href={`/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}`}
                     className='mt-4 inline-block w-full text-sm text-saudi-green underline underline-offset-2 hover:underline-offset-4 transition-all duration-200'
                     onClick={handleCloseDropdown}
                   >
@@ -506,10 +498,16 @@ export default function NavigationBar() {
                         translationKey,
                         item.name
                       );
+                      // Extract subcategory from href if it's a category page
+                      // Otherwise redirect to browse with category filter
+                      const isCategoryPage = item.href.startsWith(`/${activeCategoryData.key}`);
+                      const browseUrl = isCategoryPage
+                        ? `/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}&subcategory=${encodeURIComponent(item.name)}`
+                        : `/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}`;
                       return (
                         <Link
                           key={item.key}
-                          href={`/${locale}${item.href}`}
+                          href={browseUrl}
                           className='text-deep-charcoal/70 hover:text-saudi-green hover:font-medium transition-all duration-200 text-sm py-1.5 px-2 rounded hover:bg-saudi-green/5'
                           onClick={handleCloseDropdown}
                         >
@@ -519,7 +517,7 @@ export default function NavigationBar() {
                     })}
                   </div>
                   <Link
-                    href={`/${locale}${activeCategoryData.href}`}
+                    href={`/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}`}
                     className='mt-4 inline-block w-full text-sm text-saudi-green underline underline-offset-2 hover:underline-offset-4 transition-all duration-200'
                     onClick={handleCloseDropdown}
                   >

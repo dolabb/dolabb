@@ -44,18 +44,6 @@ export default function ProductsGrid({
     );
   }
 
-  if (error) {
-    return (
-      <div className='text-center py-12'>
-        <p className='text-deep-charcoal/70'>
-          {locale === 'en'
-            ? 'Error loading products'
-            : 'خطأ في تحميل المنتجات'}
-        </p>
-      </div>
-    );
-  }
-
   if (!products || products.length === 0) {
     return (
       <div className='text-center py-12'>

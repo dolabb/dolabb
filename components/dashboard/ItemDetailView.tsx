@@ -153,34 +153,6 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
     );
   }
 
-  if (error) {
-    console.error('Error fetching product details:', error);
-    return (
-      <div
-        className='bg-off-white min-h-screen py-8'
-        dir={isRTL ? 'rtl' : 'ltr'}
-      >
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-            <p className='text-deep-charcoal/70 mb-2'>
-              {locale === 'en'
-                ? 'Error loading product details'
-                : 'خطأ في تحميل تفاصيل المنتج'}
-            </p>
-            <p className='text-sm text-deep-charcoal/50 mb-4'>
-              {locale === 'en' ? 'Product ID:' : 'معرف المنتج:'} {itemId}
-            </p>
-            <Link
-              href={`/${locale}/my-store`}
-              className='mt-4 inline-block text-saudi-green hover:text-saudi-green/80'
-            >
-              {locale === 'en' ? 'Back to My Store' : 'العودة إلى متجري'}
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!product && !isLoading) {
     return (

@@ -531,14 +531,6 @@ export default function BuyerContent() {
                   {locale === 'en' ? 'Loading orders...' : 'جاري تحميل الطلبات...'}
                 </p>
               </div>
-            ) : ordersError ? (
-              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-                <p className='text-red-600'>
-                  {locale === 'en' 
-                    ? 'Failed to load orders. Please try again.' 
-                    : 'فشل تحميل الطلبات. يرجى المحاولة مرة أخرى.'}
-                </p>
-              </div>
             ) : orders.length === 0 ? (
               <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
                 <p className='text-deep-charcoal/70'>
@@ -679,14 +671,6 @@ export default function BuyerContent() {
                     </div>
                   </div>
                 ))}
-              </div>
-            ) : offersError ? (
-              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-                <p className='text-red-600'>
-                  {locale === 'en' 
-                    ? 'Failed to load offers. Please try again.' 
-                    : 'فشل تحميل العروض. يرجى المحاولة مرة أخرى.'}
-                </p>
               </div>
             ) : offers.length === 0 ? (
               <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>

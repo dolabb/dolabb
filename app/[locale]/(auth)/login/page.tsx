@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HiEnvelope, HiEye, HiEyeSlash, HiLockClosed } from 'react-icons/hi2';
-import { useLoginMutation, useUpdateLanguageMutation } from '@/lib/api/authApi';
+import { useLoginMutation, useUpdateLanguageMutation, useResendOtpMutation } from '@/lib/api/authApi';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { setCredentials } from '@/lib/store/slices/authSlice';
 import { toast } from '@/utils/toast';
@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [login, { isLoading }] = useLoginMutation();
   const [updateLanguage] = useUpdateLanguageMutation();
+  const [resendOtp] = useResendOtpMutation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -70,6 +71,53 @@ export default function LoginPage() {
         email: formData.email,
         password: formData.password,
       }).unwrap();
+
+      // Check if login response has success: false
+      if (result.success === false) {
+        // Extract error message to check if it's verification pending
+        const errorMessage = (result as any).error || '';
+        const isVerificationPending = 
+          errorMessage.toLowerCase().includes('verification pending') ||
+          errorMessage.toLowerCase().includes('verify your email');
+
+        if (isVerificationPending) {
+          // Call resend OTP API
+          try {
+            await resendOtp({
+              email: formData.email,
+              user_type: 'user',
+            }).unwrap();
+
+            // Store email for verify-otp page
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('signup_email', formData.email);
+            }
+
+            // Show info toast
+            toast.info(
+              locale === 'en'
+                ? 'Please verify your email. OTP has been sent to your email address.'
+                : 'يرجى التحقق من بريدك الإلكتروني. تم إرسال رمز التحقق إلى عنوان بريدك الإلكتروني.',
+              { duration: 6000 }
+            );
+
+            // Redirect to verify-otp page after a short delay with user_type
+            setTimeout(() => {
+              router.push(`/${locale}/verify-otp?email=${encodeURIComponent(formData.email)}&user_type=buyer`);
+            }, 1500);
+          } catch (otpError) {
+            // If OTP send fails, show error but still redirect
+            handleApiErrorWithToast(otpError);
+            setTimeout(() => {
+              router.push(`/${locale}/verify-otp?email=${encodeURIComponent(formData.email)}`);
+            }, 2000);
+          }
+        } else {
+          // Other errors, show them
+          handleApiErrorWithToast(new Error(errorMessage));
+        }
+        return;
+      }
 
       if (result.success && result.user && result.token) {
         // Store credentials in Redux
@@ -118,8 +166,56 @@ export default function LoginPage() {
           }
         }, 1000);
       }
-    } catch (error) {
-      handleApiErrorWithToast(error);
+    } catch (error: any) {
+      // Extract error message from RTK Query error structure
+      const errorData = error?.data || error?.error?.data;
+      const errorMessage = 
+        errorData?.error || 
+        errorData?.message || 
+        error?.error || 
+        '';
+      
+      // Check if error is due to verification pending
+      const isVerificationPending = 
+        errorMessage?.toLowerCase().includes('verification pending') ||
+        errorMessage?.toLowerCase().includes('verify your email');
+
+      if (isVerificationPending) {
+        // Call resend OTP API
+        try {
+          await resendOtp({
+            email: formData.email,
+            user_type: 'user',
+          }).unwrap();
+
+          // Store email for verify-otp page
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('signup_email', formData.email);
+          }
+
+          // Show info toast
+          toast.info(
+            locale === 'en'
+              ? 'Please verify your email. OTP has been sent to your email address.'
+              : 'يرجى التحقق من بريدك الإلكتروني. تم إرسال رمز التحقق إلى عنوان بريدك الإلكتروني.',
+            { duration: 6000 }
+          );
+
+          // Redirect to verify-otp page after a short delay
+          setTimeout(() => {
+            router.push(`/${locale}/verify-otp?email=${encodeURIComponent(formData.email)}`);
+          }, 1500);
+        } catch (otpError) {
+          // If OTP send fails, show error but still redirect
+          handleApiErrorWithToast(otpError);
+          setTimeout(() => {
+            router.push(`/${locale}/verify-otp?email=${encodeURIComponent(formData.email)}`);
+          }, 2000);
+        }
+      } else {
+        // Handle other errors normally
+        handleApiErrorWithToast(error);
+      }
     }
   };
 
