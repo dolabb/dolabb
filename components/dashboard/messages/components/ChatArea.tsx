@@ -103,6 +103,28 @@ export default function ChatArea({
     return imageExtensions.some(ext => url.toLowerCase().endsWith(ext));
   };
 
+  // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
+  const normalizeImageUrl = (url: string): string => {
+    if (!url) return '';
+    // Clean any spaces in URL first
+    let trimmed = url.trim().replace(/\s+/g, '');
+    if (trimmed.includes('cdn.dolabb.com')) {
+      try {
+        // Extract the path after cdn.dolabb.com
+        const urlObj = new URL(trimmed);
+        const path = urlObj.pathname + urlObj.search;
+        // Use Next.js proxy route - remove leading slash if present to avoid double slashes
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `/api/cdn${cleanPath}`;
+      } catch (error) {
+        // If URL parsing fails, try simple string replacement
+        const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+        return `/api/cdn${path}`;
+      }
+    }
+    return trimmed;
+  };
+
   // Download file
   const downloadFile = async (url: string, filename?: string) => {
     try {
@@ -464,6 +486,7 @@ export default function ChatArea({
                         const isLastAttachment = idx === attachments.length - 1;
                         const hasTextBelow =
                           message.text && message.text.trim();
+                        const normalizedAttachment = isImageFile ? normalizeImageUrl(attachment) : attachment;
 
                         return (
                           <div key={idx} className='relative'>
@@ -490,15 +513,30 @@ export default function ChatArea({
                                   }}
                                 >
                                   <div className='relative w-full h-full flex items-center justify-center'>
-                                    <Image
-                                      src={attachment}
-                                      alt={`Attachment ${idx + 1}`}
-                                      width={800}
-                                      height={600}
-                                      className='max-w-full max-h-[450px] w-auto h-auto object-contain'
-                                      unoptimized
-                                      sizes='(max-width: 768px) 90vw, 75vw'
-                                    />
+                                    {normalizedAttachment.startsWith('/api/cdn') ? (
+                                      <img
+                                        src={normalizedAttachment}
+                                        alt={`Attachment ${idx + 1}`}
+                                        className='max-w-full max-h-[450px] w-auto h-auto object-contain'
+                                        onError={(e) => {
+                                          console.error('Attachment image failed to load:', normalizedAttachment);
+                                          (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <Image
+                                        src={normalizedAttachment}
+                                        alt={`Attachment ${idx + 1}`}
+                                        width={800}
+                                        height={600}
+                                        className='max-w-full max-h-[450px] w-auto h-auto object-contain'
+                                        unoptimized
+                                        sizes='(max-width: 768px) 90vw, 75vw'
+                                        onError={() => {
+                                          console.error('Attachment image failed to load:', normalizedAttachment);
+                                        }}
+                                      />
+                                    )}
                                   </div>
                                 </div>
                               </div>
