@@ -56,7 +56,10 @@ export async function GET(
         : 'image/jpeg';
 
     // Return the image with proper headers
-    return new NextResponse(imageBuffer, {
+    // Convert Buffer to ArrayBuffer for NextResponse compatibility
+    const arrayBuffer = new ArrayBuffer(imageBuffer.length);
+    new Uint8Array(arrayBuffer).set(imageBuffer);
+    return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         'Content-Type': contentType,
