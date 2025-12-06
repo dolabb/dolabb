@@ -105,7 +105,30 @@ export default function ProductMessageCard({
   };
 
   const productImages = getProductImages();
-  const productImage = productImages[0] || '';
+  
+  // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
+  const normalizeImageUrl = (url: string): string => {
+    if (!url) return '';
+    // Clean any spaces in URL first
+    let trimmed = url.trim().replace(/\s+/g, '');
+    if (trimmed.includes('cdn.dolabb.com')) {
+      try {
+        // Extract the path after cdn.dolabb.com
+        const urlObj = new URL(trimmed);
+        const path = urlObj.pathname + urlObj.search;
+        // Use Next.js proxy route - remove leading slash if present to avoid double slashes
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `/api/cdn${cleanPath}`;
+      } catch (error) {
+        // If URL parsing fails, try simple string replacement
+        const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+        return `/api/cdn${path}`;
+      }
+    }
+    return trimmed;
+  };
+  
+  const productImage = productImages[0] ? normalizeImageUrl(productImages[0]) : '';
 
   // Extract offer data
   const offerAmount = message.offer?.offerAmount || message.offer?.offer || 0;
@@ -344,13 +367,28 @@ export default function ProductMessageCard({
             <div className='flex gap-3'>
               {productImage && (
                 <div className='relative w-20 h-20 rounded-lg overflow-hidden bg-rich-sand/20 flex-shrink-0'>
-                  <Image
-                    src={productImage}
-                    alt={productTitle}
-                    fill
-                    className='object-cover'
-                    unoptimized
-                  />
+                  {productImage.startsWith('/api/cdn') ? (
+                    <img
+                      src={productImage}
+                      alt={productTitle}
+                      className='w-full h-full object-cover'
+                      onError={(e) => {
+                        console.error('Product image failed to load:', productImage);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Image
+                      src={productImage}
+                      alt={productTitle}
+                      fill
+                      className='object-cover'
+                      unoptimized
+                      onError={() => {
+                        console.error('Product image failed to load:', productImage);
+                      }}
+                    />
+                  )}
                 </div>
               )}
 

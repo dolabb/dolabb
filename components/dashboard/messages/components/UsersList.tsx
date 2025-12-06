@@ -80,6 +80,28 @@ export default function UsersList({
               isWebSocketConnected &&
               (onlineUsers.includes(conv.otherUser.id) || conv.otherUser.isOnline);
 
+            // Normalize profile image URL - convert cdn.dolabb.com URLs to use Next.js proxy
+            const normalizeImageUrl = (url: string | undefined | null): string => {
+              if (!url || url.trim() === '' || url === 'undefined' || url === 'null') {
+                return '';
+              }
+              const trimmed = url.trim().replace(/\s+/g, '');
+              if (trimmed.includes('cdn.dolabb.com')) {
+                try {
+                  const urlObj = new URL(trimmed);
+                  const path = urlObj.pathname + urlObj.search;
+                  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+                  return `/api/cdn${cleanPath}`;
+                } catch {
+                  const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+                  return `/api/cdn${path}`;
+                }
+              }
+              return trimmed;
+            };
+
+            const normalizedProfileImage = normalizeImageUrl(displayUser.profileImage);
+
             return (
               <button
                 key={conv.id}
@@ -92,14 +114,28 @@ export default function UsersList({
               >
                 <div className='relative w-12 h-12 rounded-full overflow-visible flex-shrink-0'>
                   <div className='w-12 h-12 rounded-full overflow-hidden bg-rich-sand/20'>
-                    {displayUser.profileImage ? (
-                      <Image
-                        src={displayUser.profileImage}
-                        alt={formattedUsername}
-                        fill
-                        className='object-cover w-12 h-12 rounded-full'
-                        unoptimized
-                      />
+                    {normalizedProfileImage ? (
+                      normalizedProfileImage.startsWith('/api/cdn') ? (
+                        <img
+                          src={normalizedProfileImage}
+                          alt={formattedUsername}
+                          className='w-full h-full object-cover'
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <Image
+                          src={normalizedProfileImage}
+                          alt={formattedUsername}
+                          fill
+                          className='object-cover w-12 h-12 rounded-full'
+                          unoptimized
+                          onError={() => {
+                            console.error('Profile image failed to load:', normalizedProfileImage);
+                          }}
+                        />
+                      )
                     ) : (
                       <div className='w-full h-full flex items-center justify-center bg-saudi-green/20 text-saudi-green font-semibold'>
                         {formattedUsername.charAt(0).toUpperCase()}
