@@ -301,28 +301,26 @@ export default function ChatArea({
                 : 'لا توجد رسائل بعد. ابدأ المحادثة!'}
             </p>
             {selectedConversation?.lastMessage && (
-                  <div className='mt-4 p-3 bg-rich-sand/20 rounded-lg border border-rich-sand/30'>
-                    <p className='text-xs text-deep-charcoal/60 mb-1'>
-                      {locale === 'en' ? 'Last message:' : 'آخر رسالة:'}
-                    </p>
-                    <p className='text-sm text-deep-charcoal'>
-                      {selectedConversation.lastMessage}
-                    </p>
-                    {selectedConversation.lastMessageAt && (
-                      <p className='text-xs text-deep-charcoal/40 mt-1'>
-                        {formatDate(selectedConversation.lastMessageAt)}
-                      </p>
-                    )}
-                  </div>
+              <div className='mt-4 p-3 bg-rich-sand/20 rounded-lg border border-rich-sand/30'>
+                <p className='text-xs text-deep-charcoal/60 mb-1'>
+                  {locale === 'en' ? 'Last message:' : 'آخر رسالة:'}
+                </p>
+                <p className='text-sm text-deep-charcoal'>
+                  {selectedConversation.lastMessage}
+                </p>
+                {selectedConversation.lastMessageAt && (
+                  <p className='text-xs text-deep-charcoal/40 mt-1'>
+                    {formatDate(selectedConversation.lastMessageAt)}
+                  </p>
                 )}
-                <button
-                  onClick={onRetry}
-                  className='mt-4 px-4 py-2 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors text-sm'
-                >
-                  {locale === 'en' ? 'Retry' : 'إعادة المحاولة'}
-                </button>
               </div>
             )}
+            <button
+              onClick={onRetry}
+              className='mt-4 px-4 py-2 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors text-sm'
+            >
+              {locale === 'en' ? 'Retry' : 'إعادة المحاولة'}
+            </button>
           </div>
         </div>
       ) : (
