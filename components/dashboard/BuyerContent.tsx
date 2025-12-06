@@ -77,7 +77,30 @@ function OfferItem({
     return firstImage || '';
   };
 
-  const productImage = getProductImage();
+  // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
+  const normalizeImageUrl = (url: string): string => {
+    if (!url) return '';
+    // Clean any spaces in URL first
+    let trimmed = url.trim().replace(/\s+/g, '');
+    if (trimmed.includes('cdn.dolabb.com')) {
+      try {
+        // Extract the path after cdn.dolabb.com
+        const urlObj = new URL(trimmed);
+        const path = urlObj.pathname + urlObj.search;
+        // Use Next.js proxy route - remove leading slash if present to avoid double slashes
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `/api/cdn${cleanPath}`;
+      } catch (error) {
+        // If URL parsing fails, try simple string replacement
+        const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+        return `/api/cdn${path}`;
+      }
+    }
+    return trimmed;
+  };
+
+  const productImageRaw = getProductImage();
+  const productImage = productImageRaw ? normalizeImageUrl(productImageRaw) : '';
 
   // Helper function to get display status - show "paid" if accepted and payment is paid
   const getDisplayStatus = (): string => {
@@ -113,14 +136,23 @@ function OfferItem({
         className='relative w-full sm:w-24 h-24 bg-rich-sand/20 rounded-lg overflow-hidden flex-shrink-0'
       >
         {productImage && !imageError ? (
-          <Image
-            src={productImage}
-            alt={offer.productTitle || 'Product'}
-            fill
-            className='object-cover'
-            unoptimized
-            onError={() => setImageError(true)}
-          />
+          productImage.startsWith('/api/cdn') ? (
+            <img
+              src={productImage}
+              alt={offer.productTitle || 'Product'}
+              className='w-full h-full object-cover'
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <Image
+              src={productImage}
+              alt={offer.productTitle || 'Product'}
+              fill
+              className='object-cover'
+              unoptimized
+              onError={() => setImageError(true)}
+            />
+          )
         ) : (
           <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
             <span className='text-deep-charcoal/40 text-xs text-center px-2'>
@@ -542,7 +574,31 @@ export default function BuyerContent() {
             <div className='space-y-4 mb-6'>
                   {paginatedOrders.map(order => {
                     const statusBadge = getStatusBadge(order.status);
-                    const firstImage = order.product?.images?.[0] || '';
+                    const firstImageRaw = order.product?.images?.[0] || '';
+                    
+                    // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
+                    const normalizeImageUrl = (url: string): string => {
+                      if (!url) return '';
+                      // Clean any spaces in URL first
+                      let trimmed = url.trim().replace(/\s+/g, '');
+                      if (trimmed.includes('cdn.dolabb.com')) {
+                        try {
+                          // Extract the path after cdn.dolabb.com
+                          const urlObj = new URL(trimmed);
+                          const path = urlObj.pathname + urlObj.search;
+                          // Use Next.js proxy route - remove leading slash if present to avoid double slashes
+                          const cleanPath = path.startsWith('/') ? path : `/${path}`;
+                          return `/api/cdn${cleanPath}`;
+                        } catch (error) {
+                          // If URL parsing fails, try simple string replacement
+                          const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+                          return `/api/cdn${path}`;
+                        }
+                      }
+                      return trimmed;
+                    };
+                    
+                    const firstImage = firstImageRaw ? normalizeImageUrl(firstImageRaw) : '';
                     
                     return (
                 <div
@@ -554,13 +610,27 @@ export default function BuyerContent() {
                     className='relative w-full sm:w-24 h-24 bg-rich-sand/20 rounded-lg overflow-hidden flex-shrink-0'
                   >
                           {firstImage ? (
-                    <Image
-                              src={firstImage}
-                      alt={order.product.title}
-                      fill
-                      className='object-cover'
-                      unoptimized
-                    />
+                            firstImage.startsWith('/api/cdn') ? (
+                              <img
+                                src={firstImage}
+                                alt={order.product.title}
+                                className='w-full h-full object-cover'
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <Image
+                                src={firstImage}
+                                alt={order.product.title}
+                                fill
+                                className='object-cover'
+                                unoptimized
+                                onError={() => {
+                                  console.error('Order product image failed to load:', firstImage);
+                                }}
+                              />
+                            )
                           ) : (
                             <div className='w-full h-full flex items-center justify-center text-deep-charcoal/30'>
                               {locale === 'en' ? 'Product' : 'المنتج'}
