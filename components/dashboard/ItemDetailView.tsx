@@ -230,7 +230,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                         {imageUrl ? (
                           <Image
                             src={imageUrl}
-                            alt={`${product.title} ${index + 1}`}
+                            alt={`${product?.title || 'Product'} ${index + 1}`}
                             fill
                             className='object-cover'
                             unoptimized
