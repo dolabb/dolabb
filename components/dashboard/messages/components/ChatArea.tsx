@@ -6,7 +6,6 @@ import { useEffect, useRef } from 'react';
 import { HiArrowDownTray, HiCheck } from 'react-icons/hi2';
 import ProductMessageCard from '../ProductMessageCard';
 import type { ConversationUser, Message } from '../types';
-import { formatMessageTime } from '../utils';
 
 interface ChatAreaProps {
   messages: Message[];
@@ -647,24 +646,8 @@ export default function ChatArea({
                       </p>
                     </div>
                   )}
-                  <div
-                    className={`flex items-center gap-1.5 mt-2 ${
-                      message.sender === 'me' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <p
-                      className={`text-xs ${
-                        message.sender === 'me'
-                          ? 'text-white/70'
-                          : 'text-deep-charcoal/60'
-                      }`}
-                    >
-                      {message.rawTimestamp
-                        ? formatMessageTime(message.rawTimestamp, locale)
-                        : message.timestamp ||
-                          (locale === 'en' ? 'Just now' : 'الآن')}
-                    </p>
-                    {message.sender === 'me' && (
+                  {message.sender === 'me' && (
+                    <div className='flex items-center justify-end mt-2'>
                       <div className='flex items-center ml-0.5'>
                         {message.isRead ? (
                           <div className='flex items-center -space-x-1'>
@@ -680,8 +663,8 @@ export default function ChatArea({
                           <HiCheck className='w-3.5 h-3.5 text-white/50' />
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );

@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HiBanknotes, HiCheck, HiShoppingCart } from 'react-icons/hi2';
 import type { ConversationUser, Message, ProductInfo } from './types';
-import { formatMessageTime } from './utils';
 
 interface ProductMessageCardProps {
   message: Message;
@@ -732,26 +731,6 @@ export default function ProductMessageCard({
                 </div>
               )}
 
-            <div
-              className={`flex items-center gap-1.5 pt-2 border-t ${
-                message.sender === 'me'
-                  ? 'border-white/20 justify-end'
-                  : 'border-rich-sand/20 justify-start'
-              }`}
-            >
-              <p
-                className={`text-xs ${
-                  message.sender === 'me'
-                    ? 'text-white/70'
-                    : 'text-deep-charcoal/60'
-                }`}
-              >
-                {message.rawTimestamp
-                  ? formatMessageTime(message.rawTimestamp, locale)
-                  : message.timestamp ||
-                    (locale === 'en' ? 'Just now' : 'الآن')}
-              </p>
-            </div>
           </div>
         </div>
       </div>
