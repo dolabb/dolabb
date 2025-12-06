@@ -114,8 +114,8 @@ export default function TermsModal({
                       <ul className='space-y-1.5 text-xs list-disc list-inside text-white/90'>
                         <li>
                           {locale === 'en'
-                            ? 'dalabb is a marketplace platform connecting Buyers and Sellers'
-                            : 'dalabb هي منصة سوق تربط المشترين والبائعين'}
+                            ? 'dوُlabb! is a marketplace platform connecting Buyers and Sellers'
+                            : 'dوُlabb! هي منصة سوق تربط المشترين والبائعين'}
                         </li>
                         <li>
                           {locale === 'en'
@@ -124,8 +124,8 @@ export default function TermsModal({
                         </li>
                         <li>
                           {locale === 'en'
-                            ? 'All sales are final - dalabb does not handle refunds or cancellations'
-                            : 'جميع المبيعات نهائية - dalabb لا تتعامل مع الاسترداد أو الإلغاء'}
+                            ? 'All sales are final - dوُlabb! does not handle refunds or cancellations'
+                            : 'جميع المبيعات نهائية - dوُlabb! لا تتعامل مع الاسترداد أو الإلغاء'}
                         </li>
                         <li>
                           {locale === 'en'
@@ -191,7 +191,7 @@ export default function TermsModal({
 
                         <p className='mb-6 text-white/90'>
                           These Terms of Use (&quot;Terms&quot;) form a binding
-                          agreement between dalabb (&quot;Platform,&quot;
+                          agreement between dوُlabb! (&quot;Platform,&quot;
                           &quot;we,&quot; &quot;our&quot;), a Saudi-registered
                           company operating an online marketplace; Buyers,
                           individuals who register to purchase items; and
@@ -211,7 +211,7 @@ export default function TermsModal({
                             </h3>
                             <ul className='space-y-2 text-sm ml-4 text-white/90'>
                               <li>
-                                • dalabb is an online marketplace connecting
+                                • dوُlabb! is an online marketplace connecting
                                 Buyers and Sellers.
                               </li>
                               <li>
@@ -241,7 +241,7 @@ export default function TermsModal({
                                 <ul className='text-sm space-y-1 ml-4 text-white/90'>
                                   <li>• Purchases are at your own risk.</li>
                                   <li>
-                                    • dalabb does not guarantee authenticity,
+                                    • dوُlabb! does not guarantee authenticity,
                                     quality, condition, or legality of items.
                                   </li>
                                 </ul>
@@ -252,7 +252,7 @@ export default function TermsModal({
                                 </h4>
                                 <ul className='text-sm space-y-1 ml-4 text-white/90'>
                                   <li>
-                                    • All sales are final. dalabb does not
+                                    • All sales are final. dوُlabb! does not
                                     handle refunds or cancellations.
                                   </li>
                                 </ul>
@@ -290,7 +290,7 @@ export default function TermsModal({
                                 approved third-party providers.
                               </li>
                               <li>
-                                • dalabb is not a party to transactions and
+                                • dوُlabb! is not a party to transactions and
                                 cannot refund, reverse, or reimburse payments.
                               </li>
                             </ul>
@@ -307,10 +307,10 @@ export default function TermsModal({
                               </li>
                               <li>
                                 • If unresolved, disputes may be escalated to
-                                dalabb. Response within 30 days.
+                                dوُlabb!. Response within 30 days.
                               </li>
                               <li>
-                                • dalabb cannot provide monetary reimbursement.
+                                • dوُlabb! cannot provide monetary reimbursement.
                               </li>
                             </ul>
                           </section>

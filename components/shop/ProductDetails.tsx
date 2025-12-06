@@ -158,6 +158,28 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
   const [sendMessage, { isLoading: isSendingMessage }] =
     useSendMessageMutation();
 
+  // Normalize image URL (similar to ProductCard)
+  const normalizeImageUrl = (url: string): string => {
+    if (!url) return '';
+    // Clean any spaces in URL first
+    let trimmed = url.trim().replace(/\s+/g, '');
+    if (trimmed.includes('cdn.dolabb.com')) {
+      try {
+        // Extract the path after cdn.dolabb.com
+        const urlObj = new URL(trimmed);
+        const path = urlObj.pathname + urlObj.search;
+        // Use Next.js proxy route - remove leading slash if present to avoid double slashes
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `/api/cdn${cleanPath}`;
+      } catch (error) {
+        // If URL parsing fails, try simple string replacement
+        const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+        return `/api/cdn${path}`;
+      }
+    }
+    return trimmed;
+  };
+
   // Get product images from API response
   const getProductImages = (): string[] => {
     if (!product) return [];
@@ -167,10 +189,12 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
       images?: string[];
     };
     const images = productWithImages.Images || productWithImages.images || [];
-    // Filter out empty/invalid images
-    return images.filter(
-      img => img && img.trim() !== '' && img !== 'undefined' && img !== 'null'
-    );
+    // Filter out empty/invalid images and clean/normalize URLs
+    return images
+      .filter(
+        img => img && img.trim() !== '' && img !== 'undefined' && img !== 'null'
+      )
+      .map(img => normalizeImageUrl(img));
   };
 
   const productImages = getProductImages();
@@ -481,27 +505,55 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 onMouseLeave={handleImageLeave}
               >
                 {productImages.length > 0 ? (
-                  productImages.map((img, index) => (
-                    <Image
-                      key={index}
-                      src={
-                        imageError
-                          ? `https://via.placeholder.com/600/006747/FFFFFF?text=${encodeURIComponent(
-                              product.title || 'Product'
-                            )}`
-                          : img
-                      }
-                      alt={`${product.title || 'Product'} ${index + 1}`}
-                      fill
-                      className={`object-cover transition-opacity duration-500 ${
-                        selectedImage === index
-                          ? 'opacity-100'
-                          : 'opacity-0 absolute'
-                      }`}
-                      onError={() => setImageError(true)}
-                      unoptimized={img.includes('unsplash.com') || imageError}
-                    />
-                  ))
+                  productImages.map((img, index) => {
+                    const isProxied = img.startsWith('/api/cdn');
+                    const shouldUnoptimize = 
+                      imageError ||
+                      img.includes('unsplash.com') ||
+                      img.includes('cloudinary.com') ||
+                      img.includes('onrender.com') ||
+                      isProxied;
+                    
+                    return isProxied ? (
+                      <img
+                        key={index}
+                        src={
+                          imageError
+                            ? `https://via.placeholder.com/600/006747/FFFFFF?text=${encodeURIComponent(
+                                product.title || 'Product'
+                              )}`
+                            : img
+                        }
+                        alt={`${product.title || 'Product'} ${index + 1}`}
+                        className={`w-full h-full object-cover transition-opacity duration-500 ${
+                          selectedImage === index
+                            ? 'opacity-100'
+                            : 'opacity-0 absolute'
+                        }`}
+                        onError={() => setImageError(true)}
+                      />
+                    ) : (
+                      <Image
+                        key={index}
+                        src={
+                          imageError
+                            ? `https://via.placeholder.com/600/006747/FFFFFF?text=${encodeURIComponent(
+                                product.title || 'Product'
+                              )}`
+                            : img
+                        }
+                        alt={`${product.title || 'Product'} ${index + 1}`}
+                        fill
+                        className={`object-cover transition-opacity duration-500 ${
+                          selectedImage === index
+                            ? 'opacity-100'
+                            : 'opacity-0 absolute'
+                        }`}
+                        onError={() => setImageError(true)}
+                        unoptimized={shouldUnoptimize}
+                      />
+                    );
+                  })
                 ) : (
                   <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
                     <span className='text-deep-charcoal/40 text-sm text-center px-4'>
@@ -537,15 +589,29 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           : 'border-rich-sand/30 hover:border-saudi-green/50'
                       }`}
                     >
-                      <Image
-                        src={img}
-                        alt={`${product.title || 'Product'} thumbnail ${
-                          index + 1
-                        }`}
-                        fill
-                        className='object-cover'
-                        unoptimized={img.includes('unsplash.com')}
-                      />
+                      {img.startsWith('/api/cdn') ? (
+                        <img
+                          src={img}
+                          alt={`${product.title || 'Product'} thumbnail ${
+                            index + 1
+                          }`}
+                          className='w-full h-full object-cover'
+                        />
+                      ) : (
+                        <Image
+                          src={img}
+                          alt={`${product.title || 'Product'} thumbnail ${
+                            index + 1
+                          }`}
+                          fill
+                          className='object-cover'
+                          unoptimized={
+                            img.includes('unsplash.com') ||
+                            img.includes('cloudinary.com') ||
+                            img.includes('onrender.com')
+                          }
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

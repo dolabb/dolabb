@@ -41,7 +41,7 @@ export default function Footer() {
               >
                 <Image
                   src='/Logo.svg'
-                  alt='dalabb Logo'
+                  alt='dوُlabb! Logo'
                   width={160}
                   height={120}
                   priority
