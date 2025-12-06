@@ -198,7 +198,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                 {mainImage ? (
                   <Image
                     src={mainImage.replace(/\s+/g, '')}
-                    alt={product.title}
+                    alt={product?.title || 'Product image'}
                     fill
                     className='object-cover'
                     unoptimized
@@ -206,7 +206,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                 ) : (
                   <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
                     <span className='text-deep-charcoal/40 text-xs text-center px-2'>
-                      {product.title || 'No Image'}
+                      {product?.title || 'No Image'}
                     </span>
                   </div>
                 )}
