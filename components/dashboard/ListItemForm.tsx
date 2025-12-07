@@ -106,12 +106,16 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     const estimatedDays = data.shippingInfo?.estimatedDays ?? (data as any)['Processing Time (days)'] ?? 3;
     const shippingLocations = data.shippingInfo?.locations ?? (data as any)['Shipping Locations'] ?? ['Saudi Arabia'];
 
+    // Handle currency - check both "Currency" (capital) and "currency" (lowercase)
+    const currency = (data as any).Currency || (data as any).currency || 'SAR';
+
     return {
       id: data.id || '',
       title: data.itemtitle || data.title || '',
       description: data.description || '',
       price: data.price || 0,
       originalPrice: data.originalPrice,
+      currency: currency,
       images: filteredImages,
       category: data.category || '',
       subcategory: data.subcategory || '',
@@ -153,7 +157,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     description: normalizedData?.description || '',
     price: normalizedData?.price?.toString() || '',
     originalPrice: normalizedData?.originalPrice?.toString() || '',
-    currency: 'SAR', // Default to SAR
+    currency: (normalizedData as any)?.Currency || (normalizedData as any)?.currency || 'SAR', // Use product currency if available, default to SAR
     category: normalizedData?.category || '',
     gender: 'Unisex', // Default
     subCategory: normalizedData?.subcategory || '',
@@ -203,7 +207,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         description: normalizedData.description || '',
         price: normalizedData.price?.toString() || '',
         originalPrice: normalizedData.originalPrice?.toString() || '',
-        currency: 'SAR',
+        currency: (normalizedData as any).Currency || (normalizedData as any).currency || 'SAR',
         category: normalizedData.category || '',
         gender: 'Unisex',
         subCategory: normalizedData.subcategory || '',

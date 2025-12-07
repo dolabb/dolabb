@@ -371,7 +371,7 @@ export default function Header() {
                 alt='Dolabb Logo'
                 width={100}
                 height={100}
-                className='md:hidden h-6 w-auto'
+                className='md:hidden h-10 w-auto'
                 priority
               />
             </div>
@@ -390,7 +390,7 @@ export default function Header() {
                 alt='Dolabb Logo'
                 width={100}
                 height={100}
-                className='md:hidden h-6 w-auto'
+                className='md:hidden h-10 w-auto'
                 priority
               />
             </Link>

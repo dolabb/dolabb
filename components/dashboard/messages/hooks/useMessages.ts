@@ -39,7 +39,11 @@ export function useMessages({
       page: currentPage,
       limit: MESSAGES_PER_PAGE,
     },
-    { skip: !conversationId }
+    { 
+      skip: !conversationId,
+      // Refetch when conversationId changes to ensure we get latest messages
+      refetchOnMountOrArgChange: true,
+    }
   );
 
   // Reset pagination when conversation changes

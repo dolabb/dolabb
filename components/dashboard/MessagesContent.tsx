@@ -302,12 +302,23 @@ export default function MessagesContent() {
     // Set conversationId immediately from conversation data to trigger message loading
     const convId = conversation.conversationId || conversation.id;
     if (convId) {
+      const previousConvId = conversationId;
       setConversationId(convId);
       console.log('💬 [CONVERSATION SELECTED] Setting conversationId:', {
         conversationId: convId,
+        previousConversationId: previousConvId,
         conversation: conversation,
         timestamp: new Date().toISOString(),
       });
+      
+      // Always refetch messages when selecting a conversation to ensure we have the latest messages
+      // This is especially important when coming back to a conversation
+      // Use a small delay to ensure conversationId state is updated
+      if (previousConvId === convId) {
+        // Same conversation - refetch to get latest messages
+        refetchMessages();
+      }
+      // If conversationId changed, the query will automatically refetch due to refetchOnMountOrArgChange
     }
 
     if (!isSameConversation) {
@@ -329,22 +340,66 @@ export default function MessagesContent() {
     
     if (
       (buyerId || sellerId) &&
-      conversations.length > 0 &&
       !selectedConversation &&
       !hasSelectedFromQueryRef.current &&
+      isQueryInitialized &&
+      user
+    ) {
+      const targetUserId = buyerId || sellerId;
+      
+      // First, try to find existing conversation
+      if (conversations.length > 0 && conversationsData) {
+        const conversation = conversations.find(
+          conv => conv.otherUser.id === targetUserId
+        );
+        
+        if (conversation) {
+          hasSelectedFromQueryRef.current = true;
+          hasAutoSelectedRef.current = true;
+          handleUserSelect(conversation);
+          router.replace(`/${locale}/messages`);
+          return;
+        }
+      }
+      
+      // If no conversation exists, create one by initializing it
+      if (targetUserId) {
+        hasSelectedFromQueryRef.current = true;
+        hasAutoSelectedRef.current = true;
+        
+        // Initialize conversation (this will create it if it doesn't exist)
+        initializeConversation(targetUserId).then(() => {
+          // After creating conversation, refetch to get the new conversation
+          refetchConversations();
+        }).catch((error) => {
+          console.error('Error initializing conversation:', error);
+          hasSelectedFromQueryRef.current = false;
+          hasAutoSelectedRef.current = false;
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isQueryInitialized, conversationsData, conversations.length, searchParams, user]);
+
+  // After conversations are refetched, find and select the newly created conversation
+  useEffect(() => {
+    const buyerId = searchParams.get('buyerId');
+    const sellerId = searchParams.get('sellerId');
+    const targetUserId = buyerId || sellerId;
+    
+    if (
+      targetUserId &&
+      hasSelectedFromQueryRef.current &&
+      !selectedConversation &&
+      conversations.length > 0 &&
       conversationsData
     ) {
-      // Find conversation by buyerId (for sellers) or sellerId (for buyers)
-      const targetUserId = buyerId || sellerId;
       const conversation = conversations.find(
         conv => conv.otherUser.id === targetUserId
       );
       
       if (conversation) {
-        hasSelectedFromQueryRef.current = true;
-        hasAutoSelectedRef.current = true; // Prevent auto-selecting first conversation
         handleUserSelect(conversation);
-        // Remove query params from URL
         router.replace(`/${locale}/messages`);
       }
     }
