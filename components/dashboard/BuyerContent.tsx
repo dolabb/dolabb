@@ -18,6 +18,7 @@ import {
 } from '@/lib/api/buyerApi';
 import { useSendMessageMutation } from '@/lib/api/chatApi';
 import { toast } from '@/utils/toast';
+import { formatPrice } from '@/utils/formatPrice';
 import { useAppSelector } from '@/lib/store/hooks';
 import PaymentsTab from './PaymentsTab';
 import CounterOfferModal from '@/components/shared/CounterOfferModal';
@@ -187,16 +188,16 @@ function OfferItem({
           <div className='flex items-center gap-2 mt-2'>
             {offer.originalPrice && (
               <span className='text-deep-charcoal/60 line-through'>
-                {locale === 'ar' ? 'ر.س' : 'SAR'} {offer.originalPrice.toFixed(2)}
+                {formatPrice(offer.originalPrice, locale, 2, offer.product?.currency || 'SAR')}
               </span>
             )}
             <span className='text-lg font-bold text-saudi-green'>
-              {locale === 'ar' ? 'ر.س' : 'SAR'} {offer.offerAmount.toFixed(2)}
+              {formatPrice(offer.offerAmount, locale, 2, offer.product?.currency || 'SAR')}
             </span>
           </div>
           {offer.counterOfferAmount && (
             <p className='text-sm text-blue-600 mt-1'>
-              {locale === 'en' ? 'Counter offer' : 'عرض مقابل'}: {locale === 'ar' ? 'ر.س' : 'SAR'} {offer.counterOfferAmount.toFixed(2)}
+              {locale === 'en' ? 'Counter offer' : 'عرض مقابل'}: {formatPrice(offer.counterOfferAmount, locale, 2, offer.product?.currency || 'SAR')}
             </p>
           )}
         </div>
@@ -407,12 +408,16 @@ export default function BuyerContent() {
       // Send a chat message as backup notification (backend should handle WebSocket)
       if (buyerId) {
         try {
+          const offerCurrency = selectedOffer.product?.currency || 'SAR';
+          const currencySymbol = locale === 'ar' 
+            ? (offerCurrency === 'SAR' ? '﷼' : offerCurrency === 'OMR' ? 'ر.ع' : offerCurrency === 'AED' ? 'د.إ' : offerCurrency === 'KWD' ? 'د.ك' : offerCurrency === 'QAR' ? 'ر.ق' : offerCurrency === 'BHD' ? 'د.ب' : offerCurrency)
+            : offerCurrency;
           await sendMessage({
             receiverId: buyerId,
             text:
               locale === 'en'
-                ? `Counter offer: ${counterAmount} SAR`
-                : `عرض مقابل: ${counterAmount} ريال`,
+                ? `Counter offer: ${currencySymbol} ${counterAmount.toFixed(2)}`
+                : `عرض مقابل: ${counterAmount.toFixed(2)} ${currencySymbol}`,
             offerId: selectedOffer.id,
             productId: productId,
           }).unwrap();
@@ -659,7 +664,7 @@ export default function BuyerContent() {
                               </p>
                             )}
                       <p className='text-lg font-bold text-saudi-green'>
-                              {locale === 'ar' ? 'ر.س' : 'SAR'} {order.totalPrice?.toFixed(2) || '0.00'}
+                              {formatPrice(order.totalPrice || 0, locale, 2, (order as any).currency || offer.product?.currency || 'SAR')}
                       </p>
                     </div>
                   </div>

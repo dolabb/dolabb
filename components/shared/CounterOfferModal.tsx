@@ -13,6 +13,7 @@ interface CounterOfferModalProps {
   productTitle?: string;
   onSubmit: (counterAmount: number) => Promise<void>;
   isLoading?: boolean;
+  currency?: string;
 }
 
 export default function CounterOfferModal({
@@ -23,6 +24,7 @@ export default function CounterOfferModal({
   productTitle,
   onSubmit,
   isLoading = false,
+  currency = 'SAR',
 }: CounterOfferModalProps) {
   const locale = useLocale();
   const isRTL = locale === 'ar';
@@ -142,7 +144,9 @@ export default function CounterOfferModal({
                         isRTL ? 'right-3' : 'left-3'
                       } top-1/2 -translate-y-1/2 text-deep-charcoal/60 text-sm`}
                     >
-                      {locale === 'ar' ? 'ر.س' : 'SAR'}
+                      {locale === 'ar' 
+                        ? (currency === 'SAR' ? '﷼' : currency === 'OMR' ? 'ر.ع' : currency === 'AED' ? 'د.إ' : currency === 'KWD' ? 'د.ك' : currency === 'QAR' ? 'ر.ق' : currency === 'BHD' ? 'د.ب' : currency)
+                        : currency}
                     </span>
                     <input
                       id='counterAmount'

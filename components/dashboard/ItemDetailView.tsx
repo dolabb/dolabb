@@ -288,11 +288,11 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                   </div>
                 </div>
                 <p className='text-2xl font-bold text-saudi-green mb-4'>
-                  {formatPrice(product.price, locale)}
+                  {formatPrice(product.price, locale, 2, product.currency || (product as any).Currency || 'SAR')}
                   {product.originalPrice &&
                     product.originalPrice > product.price && (
                       <span className='text-lg text-deep-charcoal/60 line-through ml-2'>
-                        {formatPrice(product.originalPrice, locale)}
+                        {formatPrice(product.originalPrice, locale, 2, product.currency || (product as any).Currency || 'SAR')}
                       </span>
                     )}
                 </p>
@@ -446,7 +446,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                           {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'}
                         </span>
                         <p className='font-medium text-deep-charcoal'>
-                          {formatPrice(product.shippingInfo.cost, locale)}
+                          {formatPrice(product.shippingInfo.cost, locale, 2, product.currency || (product as any).Currency || 'SAR')}
                         </p>
                       </div>
                       <div>

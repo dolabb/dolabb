@@ -108,7 +108,7 @@ export default function ListedItems() {
                 </h3>
                 <div className='flex justify-between items-center mb-3'>
                   <span className='text-lg font-bold text-saudi-green'>
-                    {formatPrice(product.price, locale)}
+                    {formatPrice(product.price, locale, 2, product.currency || (product as any).Currency || 'SAR')}
                   </span>
                   {product.quantity !== undefined && (
                     <span className='text-xs text-deep-charcoal/60'>

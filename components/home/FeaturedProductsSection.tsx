@@ -100,6 +100,7 @@ export default function FeaturedProductsSection() {
                 isLiked={product.isLiked}
                 locale={locale}
                 priority={isPriority}
+                currency={(product as any).Currency || product.currency}
               />
             );
           })}

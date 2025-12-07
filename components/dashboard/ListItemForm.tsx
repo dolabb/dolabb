@@ -365,11 +365,12 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     cat => cat.key === formData.category
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, skipTermsCheck = false) => {
     e.preventDefault();
     
     // Show terms modal if not accepted (only for create mode)
-    if (!isEditMode && !termsAccepted) {
+    // Skip check if called from handleAcceptTerms
+    if (!skipTermsCheck && !isEditMode && !termsAccepted) {
       setShowTermsModal(true);
       return;
     }
@@ -517,7 +518,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     setTermsAccepted(true);
     setShowTermsModal(false);
     // Automatically submit form after accepting terms
-    await handleSubmit(new Event('submit') as any);
+    // Pass skipTermsCheck=true to avoid checking terms again
+    await handleSubmit(new Event('submit') as any, true);
   };
 
   // Custom dropdown component

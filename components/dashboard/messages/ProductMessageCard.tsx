@@ -765,6 +765,7 @@ export default function ProductMessageCard({
           productTitle={productTitle}
           onSubmit={handleCounterSubmit}
           isLoading={isCountering}
+          currency={productCurrency}
         />
       )}
     </>

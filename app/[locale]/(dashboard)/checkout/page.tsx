@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { HiMapPin, HiPhone, HiUser } from 'react-icons/hi2';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/utils/toast';
+import { formatPrice } from '@/utils/formatPrice';
 
 export default function CheckoutPage() {
   const locale = useLocale();
@@ -302,6 +303,9 @@ export default function CheckoutPage() {
   const displayTotal = orderSummary?.finalTotal?.toFixed(2) || 
     (parseFloat(offerPrice || '0') + parseFloat(shipping || '0')).toFixed(2);
   
+  // Get currency from orderSummary or default to SAR
+  const orderCurrency = orderSummary?.currency || orderSummary?.productCurrency || 'SAR';
+  
   const normalizedProductImage = orderSummary?.productImage 
     ? normalizeImageUrl(orderSummary.productImage) 
     : '';
@@ -586,7 +590,7 @@ export default function CheckoutPage() {
                         {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
                       </span>
                       <span className='text-deep-charcoal line-through'>
-                        {locale === 'ar' ? 'ر.س' : 'SAR'} {displayOriginalPrice}
+                        {formatPrice(parseFloat(displayOriginalPrice), locale, 2, orderCurrency)}
                       </span>
                     </div>
                     <div className='flex justify-between text-sm'>
@@ -594,7 +598,7 @@ export default function CheckoutPage() {
                         {locale === 'en' ? 'Offer Price' : 'سعر العرض'}
                       </span>
                       <span className='font-semibold text-saudi-green'>
-                        {locale === 'ar' ? 'ر.س' : 'SAR'} {displayOfferPrice}
+                        {formatPrice(parseFloat(displayOfferPrice), locale, 2, orderCurrency)}
                       </span>
                     </div>
                     <div className='flex justify-between text-sm'>
@@ -602,7 +606,7 @@ export default function CheckoutPage() {
                         {locale === 'en' ? 'Shipping' : 'الشحن'}
                       </span>
                       <span className='text-deep-charcoal'>
-                        +{locale === 'ar' ? 'ر.س' : 'SAR'} {displayShipping}
+                        +{formatPrice(parseFloat(displayShipping), locale, 2, orderCurrency)}
                       </span>
                     </div>
                     {parseFloat(displayPlatformFee) > 0 && (
@@ -611,7 +615,7 @@ export default function CheckoutPage() {
                           {locale === 'en' ? 'Platform Fee' : 'رسوم المنصة'}
                         </span>
                         <span className='text-deep-charcoal'>
-                          +{locale === 'ar' ? 'ر.س' : 'SAR'} {displayPlatformFee}
+                          +{formatPrice(parseFloat(displayPlatformFee), locale, 2, orderCurrency)}
                         </span>
                       </div>
                     )}
@@ -622,7 +626,7 @@ export default function CheckoutPage() {
                            (locale === 'en' ? 'Tax (VAT 15%)' : 'الضريبة (ضريبة القيمة المضافة 15%)')}
                         </span>
                         <span className='text-deep-charcoal'>
-                          +{locale === 'ar' ? 'ر.س' : 'SAR'} {displayTax}
+                          +{formatPrice(parseFloat(displayTax), locale, 2, orderCurrency)}
                         </span>
                       </div>
                     )}
@@ -635,7 +639,7 @@ export default function CheckoutPage() {
                         {locale === 'en' ? 'Total' : 'الإجمالي'}
                       </span>
                       <span className='text-xl font-bold text-saudi-green'>
-                        {locale === 'ar' ? 'ر.س' : 'SAR'} {displayTotal}
+                        {formatPrice(parseFloat(displayTotal), locale, 2, orderCurrency)}
                       </span>
                     </div>
                   </div>

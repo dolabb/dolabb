@@ -14,6 +14,7 @@ interface ProductCardProps {
   isLiked?: boolean;
   locale?: string;
   priority?: boolean;
+  currency?: string;
 }
 
 export default function ProductCard({
@@ -25,6 +26,7 @@ export default function ProductCard({
   isLiked = false,
   locale = 'en',
   priority = false,
+  currency,
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
   const isRTL = locale === 'ar';
@@ -124,7 +126,7 @@ export default function ProductCard({
           {seller}
         </p>
         <p className='text-base md:text-lg font-bold text-saudi-green font-display'>
-          {formatPrice(price, locale)}
+          {formatPrice(price, locale, 2, currency)}
         </p>
       </div>
     </Link>

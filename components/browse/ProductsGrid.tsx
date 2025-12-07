@@ -78,6 +78,7 @@ export default function ProductsGrid({
               seller={product.seller?.username || 'Unknown'}
               isLiked={product.isLiked}
               locale={locale}
+              currency={(product as any).Currency || product.currency}
             />
           );
         })}

@@ -90,6 +90,7 @@ export default function TrendingProductsSection() {
                 isLiked={product.isLiked}
                 locale={locale}
                 priority={isPriority}
+                currency={(product as any).Currency || product.currency}
               />
             );
           })}

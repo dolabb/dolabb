@@ -630,7 +630,12 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
 
               {/* Price */}
               <div className='text-2xl font-semibold text-deep-charcoal'>
-                {formatPrice(product.price, locale)}
+                {formatPrice(
+                  product.price,
+                  locale,
+                  2,
+                  (product as any).Currency || (product as any).currency || product.currency || 'SAR'
+                )}
               </div>
 
               {/* Product Attributes */}
@@ -1090,7 +1095,9 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             product.shippingInfo?.cost ||
                             (product as any)['Shipping Cost'] ||
                             0,
-                            locale
+                            locale,
+                            2,
+                            (product as any).Currency || (product as any).currency || product.currency || 'SAR'
                           )}
                         </span>
                       </div>

@@ -785,6 +785,7 @@ export default function CategoryProductListing({
                 isLiked={product.isLiked}
                 locale={locale}
                 priority={false}
+                currency={(product as any).Currency || product.currency}
               />
             ))}
           </div>
