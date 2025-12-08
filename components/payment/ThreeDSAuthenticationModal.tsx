@@ -170,7 +170,7 @@ export default function ThreeDSAuthenticationModal({
   }, [isOpen, onSuccess]);
 
   // Handle iframe errors
-  const handleIframeError = (error?: Error) => {
+  const handleIframeError = (event: React.SyntheticEvent<HTMLIFrameElement, Event>) => {
     // On localhost, iframe navigation errors are expected when 3DS tries to redirect to localhost
     // The browser blocks HTTPS -> HTTP redirects for security
     // We'll rely on polling instead to detect payment completion
