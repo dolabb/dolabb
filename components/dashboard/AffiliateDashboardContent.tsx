@@ -386,13 +386,16 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                     </p>
                     {Object.keys(earningsByCurrency).length > 0 && (
                       <div className="mt-2 space-y-1 text-xs text-deep-charcoal/70">
-                        {Object.entries(earningsByCurrency).map(([currency, data]) => (
-                          <div key={currency} className="flex items-center gap-1">
-                            <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
-                            <span>{currency}:</span>
-                            <span className="font-semibold">{data.total.toFixed(2)} {currency}</span>
-                          </div>
-                        ))}
+                        {Object.entries(earningsByCurrency).map(([currency, data]) => {
+                          const currencyData = data as { total: number; pending: number; paid: number };
+                          return (
+                            <div key={currency} className="flex items-center gap-1">
+                              <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
+                              <span>{currency}:</span>
+                              <span className="font-semibold">{currencyData.total.toFixed(2)} {currency}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -421,13 +424,16 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                 </p>
                 {Object.keys(earningsByCurrency).length > 0 && (
                   <div className="mt-2 space-y-1 text-xs text-deep-charcoal/70">
-                    {Object.entries(earningsByCurrency).map(([currency, data]) => (
-                      <div key={currency} className="flex items-center gap-1">
-                        <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
-                        <span>{currency}:</span>
-                        <span className="font-semibold">{data.pending.toFixed(2)} {currency}</span>
-                      </div>
-                    ))}
+                    {Object.entries(earningsByCurrency).map(([currency, data]) => {
+                      const currencyData = data as { total: number; pending: number; paid: number };
+                      return (
+                        <div key={currency} className="flex items-center gap-1">
+                          <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
+                          <span>{currency}:</span>
+                          <span className="font-semibold">{currencyData.pending.toFixed(2)} {currency}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -444,13 +450,16 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                 </p>
                 {Object.keys(earningsByCurrency).length > 0 && (
                   <div className="mt-2 space-y-1 text-xs text-deep-charcoal/70">
-                    {Object.entries(earningsByCurrency).map(([currency, data]) => (
-                      <div key={currency} className="flex items-center gap-1">
-                        <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
-                        <span>{currency}:</span>
-                        <span className="font-semibold">{data.paid.toFixed(2)} {currency}</span>
-                      </div>
-                    ))}
+                    {Object.entries(earningsByCurrency).map(([currency, data]) => {
+                      const currencyData = data as { total: number; pending: number; paid: number };
+                      return (
+                        <div key={currency} className="flex items-center gap-1">
+                          <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
+                          <span>{currency}:</span>
+                          <span className="font-semibold">{currencyData.paid.toFixed(2)} {currency}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
