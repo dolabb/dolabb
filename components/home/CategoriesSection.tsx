@@ -1,6 +1,6 @@
 'use client';
 
-import { navigationCategories, StyleCategory } from '@/data/navigation';
+import { navigationCategories, StyleCategory, SubCategory, FeaturedItem, NavigationCategory } from '@/data/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -372,15 +372,15 @@ function CategoryDropdownWrapper({
   safeTranslate,
   StyleImage,
 }: {
-  category: any;
+  category: NavigationCategory;
   isOpen: boolean;
   hasContent: boolean;
   onToggle: () => void;
   onClose: () => void;
-  t: any;
+  t: (key: string) => string;
   locale: string;
   safeTranslate: (key: string, fallback: string) => string;
-  StyleImage: any;
+  StyleImage: React.ComponentType<{ style: StyleCategory; className?: string }>;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -523,7 +523,7 @@ function CategoryDropdownWrapper({
                       </h4>
                     </div>
                     <div className='space-y-2'>
-                      {category.subCategories.map(subCat => {
+                      {category.subCategories.map((subCat: SubCategory) => {
                         const browseUrl = `/${locale}/browse?category=${encodeURIComponent(
                           category.key
                         )}&subcategory=${encodeURIComponent(subCat.name)}`;
@@ -579,7 +579,7 @@ function CategoryDropdownWrapper({
                       </h4>
                     </div>
                     <div className='space-y-2'>
-                      {category.featured.map(item => {
+                      {category.featured.map((item: FeaturedItem) => {
                         const translationKey = `${category.key}Sub.featured.${item.key}`;
                         const displayName = safeTranslate(
                           translationKey,
@@ -639,7 +639,7 @@ function CategoryDropdownWrapper({
                       </h4>
                     </div>
                     <div className='grid grid-cols-2 gap-3'>
-                      {category.styles.map(style => (
+                      {category.styles.map((style: StyleCategory) => (
                         <Link
                           key={style.key}
                           href={`/${locale}${style.href}`}
