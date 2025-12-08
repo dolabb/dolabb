@@ -664,7 +664,7 @@ export default function BuyerContent() {
                               </p>
                             )}
                       <p className='text-lg font-bold text-saudi-green'>
-                              {formatPrice(order.totalPrice || 0, locale, 2, (order as any).currency || offer.product?.currency)}
+                              {formatPrice(order.totalPrice || 0, locale, 2, (order as any).currency || (order.product as any)?.currency)}
                       </p>
                     </div>
                   </div>
