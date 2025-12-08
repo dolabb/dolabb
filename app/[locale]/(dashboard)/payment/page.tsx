@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api/client';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,10 +7,11 @@ import { useEffect, useState } from 'react';
 import { HiCreditCard, HiLockClosed, HiShieldCheck } from 'react-icons/hi2';
 import { toast } from '@/utils/toast';
 import ThreeDSAuthenticationModal from '@/components/payment/ThreeDSAuthenticationModal';
+import { useAppSelector } from '@/lib/store/hooks';
 
 export default function PaymentPage() {
   const locale = useLocale();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isRTL = locale === 'ar';
@@ -37,7 +37,7 @@ export default function PaymentPage() {
   // For production, use: pk_live_... with sk_live_...
   // Currently using test secret key, so we need test publishable key
   // TODO: Replace with your test publishable key (pk_test_...)
-  const publishableKey = 'pk_test_tMz4XuUi6d2xaV9vQ2FNC78mDe85P3VtJu1EHjkb'; // Test key
+  const publishableKey = 'pk_live_UUEN6v2pZSdxNdmEbMyyGcLw1fvd79CxJbb16BuG'; // Test key
   // Note: Secret key (sk_test_uCbs4YG4Ss71psXWdK3J8z8uZg1ABqSCtbPtCeS7) should ONLY be used on the backend
   // Never expose the secret key in frontend code!
 
@@ -259,6 +259,7 @@ export default function PaymentPage() {
             shipping: shipping || '',
             size: size || '',
             price: price || '',
+            origin: typeof window !== 'undefined' ? window.location.origin : '',
           },
         }),
       });

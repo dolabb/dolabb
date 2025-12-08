@@ -486,8 +486,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         const result = await updateProduct({ productId, data: apiData }).unwrap();
         console.log('Update result:', result);
         toast.success(locale === 'en' ? 'Product updated successfully!' : 'تم تحديث المنتج بنجاح!');
-        // Invalidate and refetch seller products
-        dispatch(productsApi.util.invalidateTags(['Product']));
+        // Invalidate and refetch seller products, featured products, and trending products
+        dispatch(productsApi.util.invalidateTags(['Product', 'FeaturedProducts', 'TrendingProducts']));
         // Small delay to ensure cache is updated before redirect
         setTimeout(() => {
           router.push(`/${locale}/my-store`);
@@ -497,8 +497,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         console.log('Creating product with data:', apiData);
         await createProduct(apiData).unwrap();
         toast.success(locale === 'en' ? 'Product created successfully!' : 'تم إنشاء المنتج بنجاح!');
-        // Invalidate and refetch seller products
-        dispatch(productsApi.util.invalidateTags(['Product']));
+        // Invalidate and refetch seller products, featured products, and trending products
+        dispatch(productsApi.util.invalidateTags(['Product', 'FeaturedProducts', 'TrendingProducts']));
         // Invalidate user profile to refetch updated role (buyer -> seller)
         dispatch(authApi.util.invalidateTags(['User']));
         onCancel();

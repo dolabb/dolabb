@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
 import { navigationCategories, StyleCategory } from '@/data/navigation';
 import { useAppSelector } from '@/lib/store/hooks';
 import { gsap } from 'gsap';
@@ -63,7 +62,7 @@ export default function NavigationBar() {
   const t = useTranslations('navigation');
   const locale = useLocale();
   const pathname = usePathname();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const user = useAppSelector(state => state.auth.user);
   const isSeller = user?.role === 'seller';
   const isRTL = locale === 'ar';
@@ -279,7 +278,6 @@ export default function NavigationBar() {
           {/* Mobile: Optimized for small screens */}
           <div className='flex md:hidden items-center justify-center gap-2 sm:gap-3 h-14 overflow-x-auto scrollbar-hide'>
             {userNavItems.map(item => {
-              const IconComponent = item.icon;
               // For home route, only match exact pathname, not sub-routes
               const isActive =
                 item.key === 'home'
@@ -297,11 +295,6 @@ export default function NavigationBar() {
                       : 'text-deep-charcoal/70 active:text-saudi-green'
                   }`}
                 >
-                  <IconComponent
-                    className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform ${
-                      isActive ? 'scale-110' : ''
-                    }`}
-                  />
                   <span className='font-display text-[10px] sm:text-xs font-medium leading-tight text-center'>
                     {item.label}
                   </span>
@@ -320,7 +313,6 @@ export default function NavigationBar() {
           {/* Desktop: Centered, no scroll */}
           <div className='hidden md:flex items-center justify-center gap-6 lg:gap-8 h-14'>
             {userNavItems.map(item => {
-              const IconComponent = item.icon;
               // For home route, only match exact pathname, not sub-routes
               const isActive =
                 item.key === 'home'
@@ -338,11 +330,6 @@ export default function NavigationBar() {
                       : 'text-deep-charcoal/70 hover:text-saudi-green'
                   }`}
                 >
-                  <IconComponent
-                    className={`w-5 h-5 transition-transform ${
-                      isActive ? 'scale-110' : ''
-                    }`}
-                  />
                   <span className='font-display'>{item.label}</span>
                   <span
                     className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-saudi-green rounded-full transition-all duration-300 ${

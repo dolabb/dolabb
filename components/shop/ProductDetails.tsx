@@ -525,7 +525,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             : img
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
-                        className={`w-full h-full object-cover transition-opacity duration-500 ${
+                        className={`w-full h-full object-contain transition-opacity duration-500 ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
@@ -544,7 +544,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
                         fill
-                        className={`object-cover transition-opacity duration-500 ${
+                        className={`object-contain transition-opacity duration-500 ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
@@ -595,7 +595,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           alt={`${product.title || 'Product'} thumbnail ${
                             index + 1
                           }`}
-                          className='w-full h-full object-cover'
+                          className='w-full h-full object-contain'
                         />
                       ) : (
                         <Image
@@ -604,7 +604,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             index + 1
                           }`}
                           fill
-                          className='object-cover'
+                          className='object-contain'
                           unoptimized={
                             img.includes('unsplash.com') ||
                             img.includes('cloudinary.com') ||
@@ -634,7 +634,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                   product.price,
                   locale,
                   2,
-                  (product as any).Currency || (product as any).currency || product.currency || 'SAR'
+                  (product as any).Currency || (product as any).currency || product.currency
                 )}
               </div>
 
@@ -1097,7 +1097,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             0,
                             locale,
                             2,
-                            (product as any).Currency || (product as any).currency || product.currency || 'SAR'
+                            (product as any).Currency || (product as any).currency || product.currency
                           )}
                         </span>
                       </div>
@@ -1195,6 +1195,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
         productTitle={product.title || (product as any).itemtitle || 'Product'}
         onSubmit={handleOfferSubmit}
         isLoading={isCreatingOffer || isSendingMessage}
+        currency={(product as any).Currency || (product as any).currency || product.currency}
       />
     </div>
   );

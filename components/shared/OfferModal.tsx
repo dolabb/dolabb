@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useLocale } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { HiXMark } from 'react-icons/hi2';
+import { formatPrice } from '@/utils/formatPrice';
 
 interface OfferModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface OfferModalProps {
   productTitle: string;
   onSubmit: (offerAmount: number) => Promise<void>;
   isLoading?: boolean;
+  currency?: string;
 }
 
 export default function OfferModal({
@@ -21,6 +23,7 @@ export default function OfferModal({
   productTitle,
   onSubmit,
   isLoading = false,
+  currency = 'SAR',
 }: OfferModalProps) {
   const locale = useLocale();
   const isRTL = locale === 'ar';
@@ -54,11 +57,11 @@ export default function OfferModal({
       return;
     }
 
-    if (amount >= productPrice) {
+    if (amount > productPrice) {
       setError(
         locale === 'en'
-          ? 'Offer amount must be less than the product price'
-          : 'يجب أن يكون مبلغ العرض أقل من سعر المنتج'
+          ? 'Offer amount must be equal to or less than the product price'
+          : 'يجب أن يكون مبلغ العرض مساوياً أو أقل من سعر المنتج'
       );
       return;
     }
@@ -120,7 +123,7 @@ export default function OfferModal({
                     {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
                   </span>
                   <span className='text-lg font-bold text-saudi-green'>
-                    {locale === 'ar' ? 'ر.س' : 'SAR'} {productPrice.toFixed(2)}
+                    {formatPrice(productPrice, locale, 2, currency)}
                   </span>
                 </div>
               </div>
@@ -134,8 +137,24 @@ export default function OfferModal({
                     {locale === 'en' ? 'Your Offer Amount' : 'مبلغ عرضك'}
                   </label>
                   <div className='relative'>
-                    <span className='absolute left-3 top-1/2 -translate-y-1/2 text-deep-charcoal/60 text-sm'>
-                      {locale === 'ar' ? 'ر.س' : 'SAR'}
+                    <span className={`absolute top-1/2 -translate-y-1/2 text-deep-charcoal/60 text-sm ${
+                      isRTL ? 'right-3' : 'left-3'
+                    }`}>
+                      {(() => {
+                        const currencySymbols: Record<string, string> = {
+                          SAR: '\uFDFC', // ﷼ Saudi Riyal
+                          AED: '\u062F.\u0625', // د.إ UAE Dirham
+                          USD: '$',
+                          EUR: '\u20AC', // €
+                          GBP: '\u00A3', // £
+                          KWD: '\u062F.\u0643', // د.ك Kuwaiti Dinar
+                          QAR: '\u0631.\u0642', // ر.ق Qatari Riyal
+                          OMR: '\u0631.\u0639', // ر.ع Omani Rial
+                          BHD: '\u062F.\u0628', // د.ب Bahraini Dinar
+                        };
+                        const currencySymbol = currencySymbols[currency] || currency;
+                        return locale === 'ar' ? currencySymbol : currency;
+                      })()}
                     </span>
                     <input
                       id='offerAmount'
@@ -165,8 +184,8 @@ export default function OfferModal({
                   )}
                   <p className='mt-2 text-xs text-deep-charcoal/60'>
                     {locale === 'en'
-                      ? `Maximum offer: SAR ${productPrice.toFixed(2)}`
-                      : `الحد الأقصى للعرض: ر.س ${productPrice.toFixed(2)}`}
+                      ? `Maximum offer: ${formatPrice(productPrice, locale, 2, currency)}`
+                      : `الحد الأقصى للعرض: ${formatPrice(productPrice, locale, 2, currency)}`}
                   </p>
                 </div>
 

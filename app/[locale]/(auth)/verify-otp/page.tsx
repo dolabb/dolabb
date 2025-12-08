@@ -105,6 +105,11 @@ export default function VerifyOtpPage() {
             token: result.token,
           }));
 
+          // Dispatch custom event to sync AuthContext
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('auth-state-changed'));
+          }
+
           toast.success(
             locale === 'en'
               ? 'Email verified successfully! Your account is now active.'

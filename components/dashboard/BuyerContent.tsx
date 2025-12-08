@@ -188,16 +188,16 @@ function OfferItem({
           <div className='flex items-center gap-2 mt-2'>
             {offer.originalPrice && (
               <span className='text-deep-charcoal/60 line-through'>
-                {formatPrice(offer.originalPrice, locale, 2, offer.product?.currency || 'SAR')}
+                {formatPrice(offer.originalPrice, locale, 2, offer.product?.currency)}
               </span>
             )}
             <span className='text-lg font-bold text-saudi-green'>
-              {formatPrice(offer.offerAmount, locale, 2, offer.product?.currency || 'SAR')}
+              {formatPrice(offer.offerAmount, locale, 2, offer.product?.currency)}
             </span>
           </div>
           {offer.counterOfferAmount && (
             <p className='text-sm text-blue-600 mt-1'>
-              {locale === 'en' ? 'Counter offer' : 'عرض مقابل'}: {formatPrice(offer.counterOfferAmount, locale, 2, offer.product?.currency || 'SAR')}
+              {locale === 'en' ? 'Counter offer' : 'عرض مقابل'}: {formatPrice(offer.counterOfferAmount, locale, 2, offer.product?.currency)}
             </p>
           )}
         </div>
@@ -408,7 +408,7 @@ export default function BuyerContent() {
       // Send a chat message as backup notification (backend should handle WebSocket)
       if (buyerId) {
         try {
-          const offerCurrency = selectedOffer.product?.currency || 'SAR';
+          const offerCurrency = selectedOffer.product?.currency || '';
           const currencySymbol = locale === 'ar' 
             ? (offerCurrency === 'SAR' ? '﷼' : offerCurrency === 'OMR' ? 'ر.ع' : offerCurrency === 'AED' ? 'د.إ' : offerCurrency === 'KWD' ? 'د.ك' : offerCurrency === 'QAR' ? 'ر.ق' : offerCurrency === 'BHD' ? 'د.ب' : offerCurrency)
             : offerCurrency;
@@ -664,7 +664,7 @@ export default function BuyerContent() {
                               </p>
                             )}
                       <p className='text-lg font-bold text-saudi-green'>
-                              {formatPrice(order.totalPrice || 0, locale, 2, (order as any).currency || offer.product?.currency || 'SAR')}
+                              {formatPrice(order.totalPrice || 0, locale, 2, (order as any).currency || offer.product?.currency)}
                       </p>
                     </div>
                   </div>

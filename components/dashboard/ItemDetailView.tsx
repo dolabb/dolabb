@@ -84,8 +84,8 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
     try {
       await deleteProduct(itemId).unwrap();
       toast.success('Product deleted successfully');
-      // Invalidate and refetch seller products
-      dispatch(productsApi.util.invalidateTags(['Product']));
+      // Invalidate and refetch seller products, featured products, and trending products
+      dispatch(productsApi.util.invalidateTags(['Product', 'FeaturedProducts', 'TrendingProducts']));
       router.push(`/${locale}/my-store`);
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
@@ -205,7 +205,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                     src={mainImage.replace(/\s+/g, '')}
                     alt={product?.title || 'Product image'}
                     fill
-                    className='object-cover'
+                    className='object-contain'
                     unoptimized
                   />
                 ) : (
@@ -237,7 +237,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                             src={imageUrl}
                             alt={`${product?.title || 'Product'} ${index + 1}`}
                             fill
-                            className='object-cover'
+                            className='object-contain'
                             unoptimized
                           />
                         ) : (
@@ -288,11 +288,11 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                   </div>
                 </div>
                 <p className='text-2xl font-bold text-saudi-green mb-4'>
-                  {formatPrice(product.price, locale, 2, product.currency || (product as any).Currency || 'SAR')}
+                  {formatPrice(product.price, locale, 2, product.currency || (product as any).Currency)}
                   {product.originalPrice &&
                     product.originalPrice > product.price && (
                       <span className='text-lg text-deep-charcoal/60 line-through ml-2'>
-                        {formatPrice(product.originalPrice, locale, 2, product.currency || (product as any).Currency || 'SAR')}
+                        {formatPrice(product.originalPrice, locale, 2, product.currency || (product as any).Currency)}
                       </span>
                     )}
                 </p>
@@ -446,7 +446,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                           {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'}
                         </span>
                         <p className='font-medium text-deep-charcoal'>
-                          {formatPrice(product.shippingInfo.cost, locale, 2, product.currency || (product as any).Currency || 'SAR')}
+                          {formatPrice(product.shippingInfo.cost, locale, 2, product.currency || (product as any).Currency)}
                         </p>
                       </div>
                       <div>

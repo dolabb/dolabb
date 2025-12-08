@@ -46,11 +46,14 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
   const [affiliate, setAffiliate] = useState(initialAffiliate);
   const [activeTab, setActiveTab] = useState<'overview' | 'earnings' | 'cashout'>('overview');
   const [cashoutAmount, setCashoutAmount] = useState('');
+  const [cashoutCurrency, setCashoutCurrency] = useState('SAR');
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer');
   const [transactionsPage, setTransactionsPage] = useState(1);
   const transactionsLimit = 20;
+  const [transactionsCurrencyFilter, setTransactionsCurrencyFilter] = useState<string>('');
   const [earningsPeriod, setEarningsPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [earningsLimit, setEarningsLimit] = useState(12);
+  const [earningsCurrencyFilter, setEarningsCurrencyFilter] = useState<string>('');
 
   // API hooks - Get affiliate profile with earnings data
   const { data: profileData, isLoading: isLoadingProfile, refetch: refetchProfile } = useGetAffiliateProfileQuery();
@@ -59,13 +62,15 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
   const { data: earningsBreakdownData, isLoading: isLoadingBreakdown, refetch: refetchBreakdown } = useGetEarningsBreakdownQuery({
     period: earningsPeriod,
     limit: earningsLimit,
+    currency: earningsCurrencyFilter || undefined,
   });
 
   // API hooks - Get transactions
   const { data: transactionsData, isLoading: isLoadingTransactions, refetch: refetchTransactions } = useGetAffiliateTransactionsQuery(
     { 
       page: transactionsPage, 
-      limit: transactionsLimit 
+      limit: transactionsLimit,
+      currency: transactionsCurrencyFilter || undefined,
     },
     { 
       skip: activeTab !== 'earnings' 
@@ -88,6 +93,14 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
 
   // Calculate earnings from API profile data (prioritize API data over initial affiliate)
   const apiAffiliate = profileData?.affiliate || affiliate;
+  const earningsByCurrency = apiAffiliate?.earningsByCurrency || {};
+  const availableCurrencies = Object.keys(earningsByCurrency);
+  
+  // Get available balance for selected currency
+  const getAvailableBalanceForCurrency = (currency: string) => {
+    return earningsByCurrency[currency]?.pending || 0;
+  };
+
   const earnings = {
     totalEarnings: apiAffiliate?.totalEarnings || 0,
     totalCommissions: apiAffiliate?.totalCommissions || 0,
@@ -97,7 +110,15 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
     availableBalance: apiAffiliate?.availableBalance || apiAffiliate?.pendingEarnings || 0,
     commissionRate: apiAffiliate?.commission_rate || 0,
     status: apiAffiliate?.status || 'pending',
+    earningsByCurrency,
   };
+
+  // Set default currency if available
+  useEffect(() => {
+    if (availableCurrencies.length > 0 && !availableCurrencies.includes(cashoutCurrency)) {
+      setCashoutCurrency(availableCurrencies[0]);
+    }
+  }, [availableCurrencies, cashoutCurrency]);
 
   // Normalize cashout requests from API response (support both old and new field names)
   const cashoutRequests = payoutData?.cashoutRequests || payoutData?.payoutRequests || [];
@@ -109,6 +130,7 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
       affiliateId: request.affiliateId || '',
       affiliateName: request.affiliateName || '',
       amount: request.amount || 0,
+      currency: request.currency || 'SAR',
       status: request.status || 'pending',
       paymentMethod: request.paymentMethod || 'Bank Transfer',
       requestedAt: request.requestedDate || request.requestedAt || new Date().toISOString(),
@@ -144,6 +166,7 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
       commission: transaction['Referred User Commission'] || transaction.commission || 0,
       commissionRate: transaction['Commission Rate'] || transaction.commissionRate || 0,
       status: transaction.status || 'pending',
+      currency: transaction.currency || 'SAR',
       created_at: transaction.date || transaction.created_at || new Date().toISOString(),
     };
   };
@@ -162,11 +185,13 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
     }
 
     const amount = parseFloat(cashoutAmount);
-    if (amount > earnings.availableBalance) {
+    const availableBalanceForCurrency = getAvailableBalanceForCurrency(cashoutCurrency);
+    
+    if (amount > availableBalanceForCurrency) {
       toast.error(
         locale === 'en'
-          ? `Insufficient balance. Available balance is ${earnings.availableBalance.toFixed(2)}`
-          : `الرصيد غير كاف. الرصيد المتاح هو ${earnings.availableBalance.toFixed(2)}`
+          ? `Insufficient balance. Available balance is ${availableBalanceForCurrency.toFixed(2)} ${cashoutCurrency}`
+          : `الرصيد غير كاف. الرصيد المتاح هو ${availableBalanceForCurrency.toFixed(2)} ${cashoutCurrency}`
       );
       return;
     }
@@ -175,13 +200,14 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
       const result = await requestCashout({
         amount,
         paymentMethod,
+        currency: cashoutCurrency,
       }).unwrap();
 
       if (result.success && result.cashoutRequest) {
         toast.success(
           locale === 'en'
-            ? `Cashout request of ${amount.toFixed(2)} SAR submitted successfully! Waiting for admin approval.`
-            : `تم إرسال طلب السحب بقيمة ${amount.toFixed(2)} ر.س بنجاح! في انتظار موافقة المسؤول.`
+            ? `Cashout request of ${amount.toFixed(2)} ${cashoutCurrency} submitted successfully! Waiting for admin approval.`
+            : `تم إرسال طلب السحب بقيمة ${amount.toFixed(2)} ${cashoutCurrency} بنجاح! في انتظار موافقة المسؤول.`
         );
         setCashoutAmount('');
         // Refetch profile to update available balance and cashout requests
@@ -355,9 +381,20 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                       </h3>
                       <HiCurrencyDollar className="w-5 h-5 text-saudi-green" />
                     </div>
-                    <p className="text-2xl font-bold text-deep-charcoal">
+                    <p className="text-2xl font-bold text-deep-charcoal mb-2">
                       {earnings.totalEarnings.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
                     </p>
+                    {Object.keys(earningsByCurrency).length > 0 && (
+                      <div className="mt-2 space-y-1 text-xs text-deep-charcoal/70">
+                        {Object.entries(earningsByCurrency).map(([currency, data]) => (
+                          <div key={currency} className="flex items-center gap-1">
+                            <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
+                            <span>{currency}:</span>
+                            <span className="font-semibold">{data.total.toFixed(2)} {currency}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
               <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
@@ -379,21 +416,43 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                   </h3>
                   <HiClock className="w-5 h-5 text-yellow-600" />
                 </div>
-                <p className="text-2xl font-bold text-deep-charcoal">
-                  {earnings.pendingEarnings.toFixed(2)} SAR
+                <p className="text-2xl font-bold text-deep-charcoal mb-2">
+                  {earnings.pendingEarnings.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
                 </p>
+                {Object.keys(earningsByCurrency).length > 0 && (
+                  <div className="mt-2 space-y-1 text-xs text-deep-charcoal/70">
+                    {Object.entries(earningsByCurrency).map(([currency, data]) => (
+                      <div key={currency} className="flex items-center gap-1">
+                        <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
+                        <span>{currency}:</span>
+                        <span className="font-semibold">{data.pending.toFixed(2)} {currency}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium text-deep-charcoal/70">
-                    {locale === 'en' ? 'Available Balance' : 'الرصيد المتاح'}
+                    {locale === 'en' ? 'Paid Earnings' : 'الأرباح المدفوعة'}
                   </h3>
                   <HiCreditCard className="w-5 h-5 text-saudi-green" />
                 </div>
-                <p className="text-2xl font-bold text-deep-charcoal">
-                  {earnings.availableBalance.toFixed(2)} SAR
+                <p className="text-2xl font-bold text-deep-charcoal mb-2">
+                  {earnings.paidEarnings.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
                 </p>
+                {Object.keys(earningsByCurrency).length > 0 && (
+                  <div className="mt-2 space-y-1 text-xs text-deep-charcoal/70">
+                    {Object.entries(earningsByCurrency).map(([currency, data]) => (
+                      <div key={currency} className="flex items-center gap-1">
+                        <span className={locale === 'ar' ? 'ml-1' : 'mr-1'}>├─</span>
+                        <span>{currency}:</span>
+                        <span className="font-semibold">{data.paid.toFixed(2)} {currency}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -406,6 +465,16 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                     {locale === 'en' ? 'Earnings Breakdown' : 'تفصيل الأرباح'}
                   </h3>
                   <div className="flex items-center gap-2">
+                    <select
+                      value={earningsCurrencyFilter}
+                      onChange={(e) => setEarningsCurrencyFilter(e.target.value)}
+                      className="text-xs px-2 py-1 border border-rich-sand rounded-md text-deep-charcoal focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                    >
+                      <option value="">{locale === 'en' ? 'All Currencies' : 'جميع العملات'}</option>
+                      {availableCurrencies.map(currency => (
+                        <option key={currency} value={currency}>{currency}</option>
+                      ))}
+                    </select>
                     <select
                       value={earningsPeriod}
                       onChange={(e) => setEarningsPeriod(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
@@ -636,9 +705,24 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
 
         {activeTab === 'earnings' && (
           <div className="bg-white rounded-lg p-6 border border-rich-sand/30 shadow-sm">
-            <h3 className="text-lg font-semibold text-deep-charcoal mb-4">
-              {locale === 'en' ? 'Earnings History' : 'سجل الأرباح'}
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-deep-charcoal">
+                {locale === 'en' ? 'Earnings History' : 'سجل الأرباح'}
+              </h3>
+              <select
+                value={transactionsCurrencyFilter}
+                onChange={(e) => {
+                  setTransactionsCurrencyFilter(e.target.value);
+                  setTransactionsPage(1);
+                }}
+                className="text-sm px-3 py-1.5 border border-rich-sand rounded-md text-deep-charcoal focus:outline-none focus:ring-2 focus:ring-saudi-green"
+              >
+                <option value="">{locale === 'en' ? 'All Currencies' : 'جميع العملات'}</option>
+                {availableCurrencies.map(currency => (
+                  <option key={currency} value={currency}>{currency}</option>
+                ))}
+              </select>
+            </div>
             
             {/* Overall Stats from Transactions API */}
             {transactionsData && (overallStats.totalReferrals > 0 || overallStats.totalSales > 0) && (
@@ -696,6 +780,9 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                         {locale === 'en' ? 'Commission' : 'العمولة'}
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                        {locale === 'en' ? 'Currency' : 'العملة'}
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
                         {locale === 'en' ? 'Commission Rate' : 'معدل العمولة'}
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
@@ -717,6 +804,9 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                         </td>
                         <td className="py-3 px-4">
                           <div className="h-4 bg-rich-sand/30 rounded w-20 animate-pulse"></div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="h-4 bg-rich-sand/30 rounded w-12 animate-pulse"></div>
                         </td>
                         <td className="py-3 px-4">
                           <div className="h-4 bg-rich-sand/30 rounded w-16 animate-pulse"></div>
@@ -774,7 +864,10 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                               {normalized.referredUserName}
                             </td>
                             <td className="py-3 px-4 text-sm font-medium text-saudi-green">
-                              {normalized.commission.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                              {normalized.commission.toFixed(2)} {normalized.currency}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-deep-charcoal/70">
+                              {normalized.currency}
                             </td>
                             <td className="py-3 px-4 text-sm text-deep-charcoal/70">
                               {normalized.commissionRate.toFixed(1)}%
@@ -832,18 +925,31 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                     type="number"
                     step="0.01"
                     min="0"
-                    max={earnings.availableBalance}
+                    max={getAvailableBalanceForCurrency(cashoutCurrency)}
                     value={cashoutAmount}
                     onChange={(e) => setCashoutAmount(e.target.value)}
                     placeholder={locale === 'en' ? 'Enter amount' : 'أدخل المبلغ'}
                     className="flex-1 px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green"
                   />
                   <select
+                    value={cashoutCurrency}
+                    onChange={(e) => {
+                      setCashoutCurrency(e.target.value);
+                      setCashoutAmount('');
+                    }}
+                    className="px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green"
+                  >
+                    {availableCurrencies.map(currency => (
+                      <option key={currency} value={currency}>{currency}</option>
+                    ))}
+                  </select>
+                  <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green"
                   >
                     <option value="Bank Transfer">{locale === 'en' ? 'Bank Transfer' : 'تحويل بنكي'}</option>
+                    <option value="Crypto">{locale === 'en' ? 'Crypto' : 'عملة رقمية'}</option>
                   </select>
                 </div>
                 <button
@@ -856,11 +962,24 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                     : (locale === 'en' ? 'Request Cashout' : 'طلب السحب')}
                 </button>
               </div>
-              <p className="mt-2 text-sm text-deep-charcoal/70">
-                {locale === 'en'
-                  ? `Available balance: ${earnings.availableBalance.toFixed(2)} SAR`
-                  : `الرصيد المتاح: ${earnings.availableBalance.toFixed(2)} ريال`}
-              </p>
+              <div className="mt-3 space-y-1">
+                <p className="text-sm font-medium text-deep-charcoal">
+                  {locale === 'en' ? 'Available Balance:' : 'الرصيد المتاح:'}
+                </p>
+                {availableCurrencies.length > 0 ? (
+                  <div className="space-y-1 text-sm text-deep-charcoal/70">
+                    {availableCurrencies.map(currency => (
+                      <p key={currency}>
+                        {currency}: {getAvailableBalanceForCurrency(currency).toFixed(2)} {currency}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-deep-charcoal/70">
+                    {earnings.availableBalance.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Cashout Requests History */}
@@ -880,6 +999,9 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                           {locale === 'en' ? 'Amount' : 'المبلغ'}
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                          {locale === 'en' ? 'Currency' : 'العملة'}
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
                           {locale === 'en' ? 'Payment Method' : 'طريقة الدفع'}
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
@@ -895,6 +1017,9 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                           </td>
                           <td className="py-3 px-4">
                             <div className="h-4 bg-rich-sand/30 rounded w-20 animate-pulse"></div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="h-4 bg-rich-sand/30 rounded w-12 animate-pulse"></div>
                           </td>
                           <td className="py-3 px-4">
                             <div className="h-4 bg-rich-sand/30 rounded w-28 animate-pulse"></div>
@@ -919,6 +1044,9 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                           {locale === 'en' ? 'Amount' : 'المبلغ'}
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
+                          {locale === 'en' ? 'Currency' : 'العملة'}
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
                           {locale === 'en' ? 'Payment Method' : 'طريقة الدفع'}
                         </th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-deep-charcoal">
@@ -939,7 +1067,10 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                               })}
                             </td>
                             <td className="py-3 px-4 text-sm font-medium text-saudi-green">
-                              {normalized.amount.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
+                              {normalized.amount.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-deep-charcoal">
+                              {normalized.currency || 'SAR'}
                             </td>
                             <td className="py-3 px-4 text-sm text-deep-charcoal">
                               {normalized.paymentMethod}

@@ -307,14 +307,111 @@ export default function AffiliateRegisterPage() {
     }
   };
 
-  const handleAcceptTerms = () => {
+  const handleAcceptTerms = async () => {
     setTermsAccepted(true);
     setShowTermsModal(false);
-    // Automatically submit form after accepting terms
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    
+    // Wait a bit for state to update, then directly submit
+    // This avoids the double-click issue by bypassing form.requestSubmit()
+    setTimeout(async () => {
+      // Validate form again (terms are now accepted)
+      if (!validateForm()) {
+        return;
+      }
+
+      try {
+        // Step 1: Upload profile image first if provided
+        let profileImageUrl: string | undefined = undefined;
+        
+        if (profileImage) {
+          try {
+            // Validate file size (10MB limit)
+            const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+            if (profileImage.size > maxSize) {
+              toast.error(
+                locale === 'en'
+                  ? 'Image size is too large. Maximum size is 10MB. Please compress the image or choose a smaller file.'
+                  : 'حجم الصورة كبير جداً. الحد الأقصى هو 10 ميجابايت. يرجى ضغط الصورة أو اختيار ملف أصغر.'
+              );
+              return;
+            }
+
+            const imageFormData = new FormData();
+            imageFormData.append('image', profileImage, profileImage.name);
+            
+            const uploadResult = await uploadImage(imageFormData).unwrap();
+            
+            if (uploadResult.success && uploadResult.image_url) {
+              profileImageUrl = uploadResult.image_url;
+            } else {
+              throw new Error('Image upload failed: No image URL returned');
+            }
+          } catch (uploadError: any) {
+            console.error('Image upload failed:', uploadError);
+            
+            const isTimeout = 
+              uploadError?.message?.toLowerCase().includes('timeout') ||
+              uploadError?.message?.toLowerCase().includes('time') ||
+              uploadError?.code === 'ECONNABORTED' ||
+              uploadError?.name === 'TimeoutError' ||
+              uploadError?.error?.data?.message?.toLowerCase().includes('timeout');
+            
+            if (isTimeout) {
+              toast.error(
+                locale === 'en'
+                  ? 'Image upload timed out. The image might be too large or the connection is slow. Please try again with a smaller image or check your internet connection.'
+                  : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصورة أصغر أو التحقق من اتصال الإنترنت.'
+              );
+            } else {
+              toast.error(
+                locale === 'en'
+                  ? 'Failed to upload profile image. Please try again or remove the image.'
+                  : 'فشل تحميل صورة الملف الشخصي. يرجى المحاولة مرة أخرى أو إزالة الصورة.'
+              );
+            }
+            return;
+          }
+        }
+
+        // Step 2: Create affiliate account with the uploaded image URL
+        const result = await affiliateSignup({
+          full_name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          country_code: selectedCountry.code,
+          bank_name: formData.bankName,
+          account_number: formData.accountNumber,
+          iban: formData.iban || '',
+          account_holder_name: formData.accountHolderName,
+          profile_image_url: profileImageUrl,
+        }).unwrap();
+
+        if (result.success && result.affiliate) {
+          // Store email for OTP verification
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('affiliate_signup_email', formData.email);
+            if (result.otp) {
+              localStorage.setItem('affiliate_otp', result.otp);
+            }
+          }
+
+          // Show success toast
+          toast.success(
+            locale === 'en'
+              ? 'Affiliate registration successful! Please check your email for OTP verification.'
+              : 'تم تسجيل الشريك بنجاح! يرجى التحقق من بريدك الإلكتروني للتحقق من رمز OTP.'
+          );
+
+          // Redirect to verify OTP page
+          setTimeout(() => {
+            router.push(`/${locale}/affiliate/verify-otp?email=${encodeURIComponent(formData.email)}`);
+          }, 1500);
+        }
+      } catch (error: any) {
+        handleApiErrorWithToast(error);
+      }
+    }, 100);
   };
 
   return (

@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HiMapPin, HiPhone, HiUser } from 'react-icons/hi2';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/utils/toast';
 import { formatPrice } from '@/utils/formatPrice';
+import { useAppSelector } from '@/lib/store/hooks';
 
 export default function CheckoutPage() {
   const locale = useLocale();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isRTL = locale === 'ar';

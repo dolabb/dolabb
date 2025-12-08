@@ -54,11 +54,12 @@ export default function ThreeDSAuthenticationModal({
 
     const iframe = iframeRef.current;
     let pollInterval: NodeJS.Timeout;
+    let navigationCheckInterval: NodeJS.Timeout;
 
     // Listen for postMessage from iframe (if Moyasar supports it)
     const handleMessage = (event: MessageEvent) => {
       // Verify origin for security
-      if (event.origin.includes('moyasar.com') || event.origin.includes('localhost')) {
+      if (event.origin.includes('moyasar.com') || event.origin.includes('localhost') || event.origin.includes(window.location.hostname)) {
         console.log('Received message from iframe:', event.data);
         if (event.data?.type === '3ds-complete' || event.data?.status === 'success') {
           setIsLoading(false);
@@ -68,6 +69,37 @@ export default function ThreeDSAuthenticationModal({
     };
 
     window.addEventListener('message', handleMessage);
+
+    // Monitor iframe navigation to detect when it redirects to callback URL
+    // Note: This will fail for cross-origin (Moyasar -> localhost), which is expected
+    const checkIframeNavigation = () => {
+      try {
+        // Try to access iframe location (will throw if cross-origin)
+        const iframeLocation = iframe.contentWindow?.location.href;
+        if (iframeLocation) {
+          // If iframe navigated to our callback URL, handle it
+          if (iframeLocation.includes('/payment/callback') || iframeLocation.includes('callback')) {
+            console.log('Iframe navigated to callback URL, closing modal and redirecting');
+            setIsLoading(false);
+            onSuccess();
+            return true;
+          }
+        }
+      } catch (e) {
+        // Cross-origin error is expected and normal
+        // This happens when:
+        // 1. Iframe is on Moyasar (HTTPS) trying to navigate to localhost (HTTP) - browser blocks it
+        // 2. Iframe is still on Moyasar domain during 3DS authentication
+        // We rely on polling instead for these cases
+      }
+      return false;
+    };
+
+    // Check iframe navigation every 1 second (but expect it to fail for cross-origin)
+    // This is mainly useful for same-origin scenarios
+    navigationCheckInterval = setInterval(() => {
+      checkIframeNavigation();
+    }, 1000);
 
     // Poll payment status as fallback
     const pollPaymentStatus = async () => {
@@ -97,38 +129,59 @@ export default function ThreeDSAuthenticationModal({
       return false;
     };
 
-    // Start polling after 5 seconds (give iframe time to load and user to complete authentication)
-    // Poll every 2 seconds for up to 2 minutes
+    // Start polling immediately, then continue every 2 seconds
+    // This helps catch payment completion faster
     let pollCount = 0;
-    const maxPolls = 60; // 2 minutes max
+    const maxPolls = 90; // 3 minutes max (increased for live mode)
     
-    pollInterval = setTimeout(() => {
-      const startPolling = async () => {
-        const completed = await pollPaymentStatus();
-        if (!completed && pollCount < maxPolls) {
-          pollCount++;
-          pollInterval = setTimeout(startPolling, 2000);
-        }
-      };
-      startPolling();
-    }, 5000);
+    const startPolling = async () => {
+      const completed = await pollPaymentStatus();
+      if (!completed && pollCount < maxPolls) {
+        pollCount++;
+        pollInterval = setTimeout(startPolling, 2000);
+      } else if (pollCount >= maxPolls) {
+        console.warn('Payment polling timeout - user may need to manually check status');
+      }
+    };
+    
+    // Start polling immediately (don't wait)
+    startPolling();
 
     // Also listen for iframe load events
     const handleIframeLoad = () => {
       setIsLoading(false);
+      // Check if iframe loaded our callback page
+      setTimeout(() => {
+        if (checkIframeNavigation()) {
+          // Iframe navigated to callback, don't do anything else
+          return;
+        }
+      }, 500);
     };
 
     iframe.addEventListener('load', handleIframeLoad);
 
     return () => {
       window.removeEventListener('message', handleMessage);
-      if (pollInterval) clearInterval(pollInterval);
+      if (pollInterval) clearTimeout(pollInterval);
+      if (navigationCheckInterval) clearInterval(navigationCheckInterval);
       iframe.removeEventListener('load', handleIframeLoad);
     };
   }, [isOpen, onSuccess]);
 
   // Handle iframe errors
-  const handleIframeError = () => {
+  const handleIframeError = (error?: Error) => {
+    // On localhost, iframe navigation errors are expected when 3DS tries to redirect to localhost
+    // The browser blocks HTTPS -> HTTP redirects for security
+    // We'll rely on polling instead to detect payment completion
+    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    
+    if (isLocalhost) {
+      console.log('Iframe navigation error on localhost (expected) - relying on polling to detect payment completion');
+      // Don't set error state, just continue with polling
+      return;
+    }
+    
     setIsLoading(false);
     setHasError(true);
     if (onError) {

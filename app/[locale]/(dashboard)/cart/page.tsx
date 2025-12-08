@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useGetCartQuery, useUnsaveProductMutation } from '@/lib/api/productsApi';
 import { useCreateOfferMutation } from '@/lib/api/offersApi';
@@ -14,7 +13,7 @@ import { HiTrash } from 'react-icons/hi2';
 
 export default function CartPage() {
   const locale = useLocale();
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const router = useRouter();
   const isRTL = locale === 'ar';
   const [offerAmounts, setOfferAmounts] = useState<Record<string, string>>({});

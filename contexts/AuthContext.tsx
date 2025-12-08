@@ -36,18 +36,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Sync with localStorage on mount (in case it changed)
-    if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-        } catch (e) {
-          console.error('Error parsing stored user:', e);
+    const syncUser = () => {
+      if (typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+          } catch (e) {
+            console.error('Error parsing stored user:', e);
+            setUser(null);
+          }
+        } else {
+          setUser(null);
         }
-      } else {
-        setUser(null);
       }
+    };
+
+    syncUser();
+
+    // Listen for storage changes (e.g., when user logs in/out in another tab or component)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', syncUser);
+      // Also listen for custom events that might be dispatched when Redux state changes
+      window.addEventListener('auth-state-changed', syncUser);
+      
+      return () => {
+        window.removeEventListener('storage', syncUser);
+        window.removeEventListener('auth-state-changed', syncUser);
+      };
     }
   }, []);
 

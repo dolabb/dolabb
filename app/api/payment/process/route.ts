@@ -6,7 +6,8 @@ const SECRET_KEY = 'sk_test_uCbs4YG4Ss71psXWdK3J8z8uZg1ABqSCtbPtCeS7';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tokenId, amount, description, metadata, cardDetails, orderId } = body;
+    const { tokenId, amount, description, metadata, cardDetails, orderId } =
+      body;
 
     console.log('Payment process request received:', {
       orderId,
@@ -27,13 +28,22 @@ export async function POST(request: NextRequest) {
     // If amount is already large (>= 1000), assume it's already in halalas
     // Otherwise, assume it's in SAR and convert
     const amountValue = parseFloat(amount);
-    const amountInHalalas = amountValue >= 1000 
-      ? Math.round(amountValue) 
-      : Math.round(amountValue * 100);
+    const amountInHalalas =
+      amountValue >= 1000
+        ? Math.round(amountValue)
+        : Math.round(amountValue * 100);
 
     // Determine payment source
-    let source: any;
-    
+    let source: {
+      type: string;
+      token?: string;
+      name?: string;
+      number?: string;
+      month?: string;
+      year?: string;
+      cvc?: string;
+    };
+
     if (tokenId) {
       // Use token if provided
       console.log('Creating payment with token:', tokenId);
@@ -59,19 +69,77 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get callback URL from request headers
-    const origin = request.headers.get('origin') || request.headers.get('referer')?.split('/api')[0] || 'http://localhost:3000';
+    // Get callback URL from multiple sources with priority:
+    // 1. Metadata origin (passed from frontend - most reliable)
+    // 2. Environment variable (production)
+    // 3. Request origin header
+    // 4. Request referer header
+    // 5. Fallback to localhost (development only)
+
+    const originFromMetadata = metadata?.origin;
+    const productionUrl = process.env.NEXT_PUBLIC_APP_URL
+      ? process.env.NEXT_PUBLIC_APP_URL.startsWith('http')
+        ? process.env.NEXT_PUBLIC_APP_URL
+        : `https://${process.env.NEXT_PUBLIC_APP_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : null;
+
+    const originFromHeader =
+      request.headers.get('origin') ||
+      request.headers
+        .get('referer')
+        ?.split('/api')[0]
+        ?.split('?')[0]
+        ?.replace(/\/$/, '');
+
+    // Priority: metadata origin > production URL > header origin > localhost
+    let origin =
+      originFromMetadata ||
+      productionUrl ||
+      originFromHeader ||
+      'http://localhost:3000';
+
+    // For localhost testing: if origin is localhost but we're in production, use production URL
+    // This prevents the "blocked connection" error when 3DS iframe tries to redirect
+    if (
+      origin.includes('localhost') &&
+      productionUrl &&
+      !originFromMetadata?.includes('localhost')
+    ) {
+      console.warn(
+        'Localhost detected but production URL available. Using production URL for callback to avoid browser blocking.'
+      );
+      origin = productionUrl;
+    }
+
+    // Ensure origin doesn't have trailing slash and is clean
+    const cleanOrigin = origin.replace(/\/$/, '').trim();
+
     const locale = metadata?.locale || 'en';
-    const callbackUrl = `${origin}/${locale}/payment/callback?offerId=${metadata?.offerId || ''}&product=${encodeURIComponent(metadata?.product || '')}&offerPrice=${metadata?.offerPrice || ''}&shipping=${metadata?.shipping || ''}`;
-    
+    const callbackUrl = `${cleanOrigin}/${locale}/payment/callback?offerId=${
+      metadata?.offerId || ''
+    }&product=${encodeURIComponent(metadata?.product || '')}&offerPrice=${
+      metadata?.offerPrice || ''
+    }&shipping=${metadata?.shipping || ''}`;
+
     console.log('Creating payment with callback URL:', callbackUrl);
+    console.log('Origin sources:', {
+      originFromMetadata,
+      productionUrl,
+      originFromHeader,
+      finalOrigin: cleanOrigin,
+      isLocalhost: cleanOrigin.includes('localhost'),
+    });
 
     // Create payment using Moyasar API
     const response = await fetch('https://api.moyasar.com/v1/payments', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(SECRET_KEY + ':').toString('base64')}`,
+        Authorization: `Basic ${Buffer.from(SECRET_KEY + ':').toString(
+          'base64'
+        )}`,
       },
       body: JSON.stringify({
         amount: amountInHalalas,
@@ -92,11 +160,12 @@ export async function POST(request: NextRequest) {
         statusText: response.statusText,
         error: errorData,
       });
-      
+
       // Return detailed error information
       return NextResponse.json(
-        { 
-          error: errorData.message || errorData.type || 'Payment processing failed',
+        {
+          error:
+            errorData.message || errorData.type || 'Payment processing failed',
           details: errorData,
           status: response.status,
         },
@@ -120,12 +189,10 @@ export async function POST(request: NextRequest) {
       payment: paymentData,
       orderId: orderId,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Internal server error';
     console.error('Payment processing error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
-

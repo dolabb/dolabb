@@ -108,6 +108,13 @@ export interface Affiliate {
     account_holder_name: string;
   };
   created_at?: string;
+  earningsByCurrency?: {
+    [currency: string]: {
+      total: number;
+      pending: number;
+      paid: number;
+    };
+  };
 }
 
 export interface AffiliateSignupRequest {
@@ -149,6 +156,7 @@ export interface AffiliateTransaction {
   date?: string;
   affiliateId?: string;
   affiliateName?: string;
+  currency?: string;
   stats?: {
     totalReferrals?: number;
     totalEarnings?: number;
@@ -170,6 +178,13 @@ export interface AffiliateTransactionsResponse {
   totalEarnings?: number;
   totalSales?: number;
   commissionRate?: number;
+  earningsByCurrency?: {
+    [currency: string]: {
+      total: number;
+      pending: number;
+      paid: number;
+    };
+  };
 }
 
 export interface EarningsBreakdownPeriod {
@@ -188,6 +203,13 @@ export interface EarningsBreakdownResponse {
     pendingEarnings: number;
     paidEarnings: number;
     availableBalance: number;
+    earningsByCurrency?: {
+      [currency: string]: {
+        total: number;
+        pending: number;
+        paid: number;
+      };
+    };
   };
   breakdown: EarningsBreakdownPeriod[];
   pagination: {
@@ -201,6 +223,7 @@ export interface CashoutRequest {
   id: string;
   affiliateId: string;
   amount: number;
+  currency?: string;
   status: 'pending' | 'approved' | 'rejected';
   paymentMethod: string;
   requestedAt: string;
@@ -214,8 +237,21 @@ export interface CashoutResponse {
     id: string;
     affiliateId: string;
     amount: number;
+    currency?: string;
     status: 'pending' | 'approved' | 'rejected';
     requestedAt: string;
+  };
+  updatedBalance?: {
+    availableBalance: number;
+    pendingEarnings: number;
+    currency: string;
+  };
+  earningsByCurrency?: {
+    [currency: string]: {
+      total: number;
+      pending: number;
+      paid: number;
+    };
   };
   error?: string;
   message?: string;
@@ -228,6 +264,7 @@ export interface PayoutRequestsResponse {
     affiliateId: string;
     affiliateName: string;
     amount: number;
+    currency?: string;
     requestedDate: string;
     paymentMethod: string;
     status: 'pending' | 'approved' | 'rejected';
@@ -247,6 +284,7 @@ export interface PayoutRequestsResponse {
     affiliateId: string;
     affiliateName: string;
     amount: number;
+    currency?: string;
     status: 'pending' | 'approved' | 'rejected';
     paymentMethod: string;
     requestedAt: string;

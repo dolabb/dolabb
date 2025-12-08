@@ -126,6 +126,11 @@ export default function LoginPage() {
           token: result.token,
         }));
 
+        // Dispatch custom event to sync AuthContext
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-state-changed'));
+        }
+
         // Check if there's a stored guest language preference
         if (typeof window !== 'undefined') {
           const guestLanguage = localStorage.getItem('guest_language');

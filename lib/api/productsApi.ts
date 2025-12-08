@@ -53,7 +53,7 @@ export const productsApi = baseApi.injectEndpoints({
         method: 'POST',
         data,
       }),
-      invalidatesTags: ['Product'],
+      invalidatesTags: ['Product', 'FeaturedProducts', 'TrendingProducts'],
     }),
 
     // Update Product
@@ -68,6 +68,9 @@ export const productsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (result, error, { productId }) => [
         { type: 'Product', id: productId },
+        'Product',
+        'FeaturedProducts',
+        'TrendingProducts',
       ],
     }),
 
@@ -80,7 +83,7 @@ export const productsApi = baseApi.injectEndpoints({
         url: `/api/products/${productId}/delete/`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Product'],
+      invalidatesTags: ['Product', 'FeaturedProducts', 'TrendingProducts'],
     }),
 
     // Get Seller Products
@@ -136,6 +139,7 @@ export const productsApi = baseApi.injectEndpoints({
         method: 'GET',
         params,
       }),
+      providesTags: ['FeaturedProducts', 'Product'],
     }),
 
     // Get Trending Products
@@ -148,6 +152,7 @@ export const productsApi = baseApi.injectEndpoints({
         method: 'GET',
         params,
       }),
+      providesTags: ['TrendingProducts', 'Product'],
     }),
 
     // Get All Categories (New endpoint)

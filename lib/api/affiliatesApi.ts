@@ -25,7 +25,7 @@ export const affiliatesApi = baseApi.injectEndpoints({
     // Request Cashout
     requestCashout: builder.mutation<
       CashoutResponse,
-      { amount: number; paymentMethod: string }
+      { amount: number; paymentMethod: string; currency: string }
     >({
       query: (data) => ({
         url: '/api/affiliate/cashout/',
@@ -38,12 +38,12 @@ export const affiliatesApi = baseApi.injectEndpoints({
     // Get Affiliate Transactions
     getAffiliateTransactions: builder.query<
       AffiliateTransactionsResponse,
-      { page?: number; limit?: number }
+      { page?: number; limit?: number; currency?: string }
     >({
-      query: ({ page = 1, limit = 20 }) => ({
+      query: ({ page = 1, limit = 20, currency }) => ({
         url: '/api/affiliate/transactions/',
         method: 'GET',
-        params: { page, limit },
+        params: { page, limit, ...(currency && { currency }) },
       }),
       providesTags: ['Affiliate'],
     }),
@@ -103,9 +103,10 @@ export const affiliatesApi = baseApi.injectEndpoints({
         limit?: number;
         startDate?: string;
         endDate?: string;
+        currency?: string;
       }
     >({
-      query: ({ period = 'monthly', limit = 12, startDate, endDate }) => ({
+      query: ({ period = 'monthly', limit = 12, startDate, endDate, currency }) => ({
         url: '/api/affiliate/earnings-breakdown/',
         method: 'GET',
         params: {
@@ -113,6 +114,7 @@ export const affiliatesApi = baseApi.injectEndpoints({
           limit,
           ...(startDate && { startDate }),
           ...(endDate && { endDate }),
+          ...(currency && { currency }),
         },
       }),
       providesTags: ['Affiliate'],

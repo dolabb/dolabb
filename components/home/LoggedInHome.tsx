@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import Hero from './Hero';
+import CategoriesSection from './CategoriesSection';
 import { useGetFeaturedProductsQuery, useGetTrendingProductsQuery } from '@/lib/api/productsApi';
 
 export default function LoggedInHome() {
@@ -92,6 +93,9 @@ export default function LoggedInHome() {
         <Hero />
       </section>
 
+      {/* Categories Section */}
+      <CategoriesSection />
+
       {/* Items You Might Like */}
       <section className='py-16 bg-white'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -141,6 +145,7 @@ export default function LoggedInHome() {
                     isLiked={product.isLiked}
                     locale={locale}
                     priority={isPriority}
+                    currency={(product as any).Currency || product.currency}
                   />
                 );
               })}
