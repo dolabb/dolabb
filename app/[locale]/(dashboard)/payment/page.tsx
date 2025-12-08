@@ -631,10 +631,17 @@ export default function PaymentPage() {
         }
       );
     } else if (error === 'payment_failed') {
-      alert(
-        locale === 'en'
-          ? 'Payment verification failed. Please try again or contact support.'
-          : 'فشل التحقق من الدفع. يرجى المحاولة مرة أخرى أو الاتصال بالدعم.'
+      const errorMessage = searchParams.get('errorMessage');
+      const decodedMessage = errorMessage ? decodeURIComponent(errorMessage) : null;
+      
+      toast.error(
+        decodedMessage || 
+        (locale === 'en'
+          ? 'Payment verification failed. Please check your card details and try again.'
+          : 'فشل التحقق من الدفع. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.'),
+        {
+          duration: 8000,
+        }
       );
     }
   }, [searchParams, locale]);

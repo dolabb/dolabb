@@ -96,6 +96,51 @@ export default function PaymentCallbackPage() {
               }
             }
 
+            // Check if payment failed
+            if (paymentStatus === 'failed' && verifiedPayment) {
+              // Payment failed - show error message
+              const failureMessage = verifiedPayment.source?.message || 
+                                    verifiedPayment.message || 
+                                    (locale === 'en' 
+                                      ? 'Payment was declined. Please check your card details and try again.' 
+                                      : 'تم رفض الدفع. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.');
+              
+              // Extract specific error messages
+              let errorToastMessage = failureMessage;
+              if (failureMessage.includes('INVALID CARD') || failureMessage.includes('NOT FOUND')) {
+                errorToastMessage = locale === 'en'
+                  ? 'Invalid card or card not found. Please check your card details and try again.'
+                  : 'بطاقة غير صالحة أو غير موجودة. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.';
+              } else if (failureMessage.includes('DECLINED')) {
+                errorToastMessage = locale === 'en'
+                  ? 'Payment was declined. Please check your card details or try a different payment method.'
+                  : 'تم رفض الدفع. يرجى التحقق من تفاصيل البطاقة أو جرب طريقة دفع أخرى.';
+              } else if (failureMessage.includes('INSUFFICIENT')) {
+                errorToastMessage = locale === 'en'
+                  ? 'Insufficient funds. Please check your account balance and try again.'
+                  : 'رصيد غير كافٍ. يرجى التحقق من رصيد حسابك والمحاولة مرة أخرى.';
+              }
+              
+              toast.error(errorToastMessage, {
+                duration: 8000,
+              });
+              
+              // Redirect back to payment page with error
+              const errorParams = new URLSearchParams({
+                offerId: offerId || '',
+                product: product || '',
+                size: searchParams.get('size') || '',
+                price: searchParams.get('price') || '',
+                offerPrice: offerPrice || '',
+                shipping: shipping || '',
+                error: 'payment_failed',
+                errorMessage: encodeURIComponent(errorToastMessage),
+              });
+              
+              router.push(`/${locale}/payment?${errorParams.toString()}`);
+              return;
+            }
+
             // Only proceed if payment is actually paid (not just initiated)
             if (paymentStatus === 'paid' && verifiedPayment) {
               // Payment is confirmed as paid
@@ -269,9 +314,58 @@ export default function PaymentCallbackPage() {
               
               router.push(`/${locale}/payment?${errorParams.toString()}`);
               return;
+            } else if (paymentStatus === 'failed' && verifiedPayment) {
+              // Payment failed - show error message
+              const failureMessage = verifiedPayment.source?.message || 
+                                    verifiedPayment.message || 
+                                    (locale === 'en' 
+                                      ? 'Payment was declined. Please check your card details and try again.' 
+                                      : 'تم رفض الدفع. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.');
+              
+              // Extract specific error messages
+              let errorToastMessage = failureMessage;
+              if (failureMessage.includes('INVALID CARD') || failureMessage.includes('NOT FOUND')) {
+                errorToastMessage = locale === 'en'
+                  ? 'Invalid card or card not found. Please check your card details and try again.'
+                  : 'بطاقة غير صالحة أو غير موجودة. يرجى التحقق من تفاصيل البطاقة والمحاولة مرة أخرى.';
+              } else if (failureMessage.includes('DECLINED')) {
+                errorToastMessage = locale === 'en'
+                  ? 'Payment was declined. Please check your card details or try a different payment method.'
+                  : 'تم رفض الدفع. يرجى التحقق من تفاصيل البطاقة أو جرب طريقة دفع أخرى.';
+              } else if (failureMessage.includes('INSUFFICIENT')) {
+                errorToastMessage = locale === 'en'
+                  ? 'Insufficient funds. Please check your account balance and try again.'
+                  : 'رصيد غير كافٍ. يرجى التحقق من رصيد حسابك والمحاولة مرة أخرى.';
+              }
+              
+              toast.error(errorToastMessage, {
+                duration: 8000,
+              });
+              
+              const errorParams = new URLSearchParams({
+                offerId: offerId || '',
+                product: product || '',
+                size: searchParams.get('size') || '',
+                price: searchParams.get('price') || '',
+                offerPrice: offerPrice || '',
+                shipping: shipping || '',
+                error: 'payment_failed',
+                errorMessage: encodeURIComponent(errorToastMessage),
+              });
+              
+              router.push(`/${locale}/payment?${errorParams.toString()}`);
+              return;
             } else {
-              // Payment status is something else (failed, etc.)
+              // Payment status is something else (unknown status)
               console.error('Payment verification failed or payment status is:', paymentStatus);
+              
+              const errorMessage = locale === 'en'
+                ? 'Payment could not be processed. Please try again or contact support.'
+                : 'لم يتم معالجة الدفع. يرجى المحاولة مرة أخرى أو الاتصال بالدعم.';
+              
+              toast.error(errorMessage, {
+                duration: 8000,
+              });
               
               const errorParams = new URLSearchParams({
                 offerId: offerId || '',
