@@ -53,11 +53,31 @@ export async function POST(request: NextRequest) {
       };
     } else if (cardDetails) {
       // Use card details directly if provided
-      console.log('Creating payment with card details');
+      // Sanitize card number - remove any non-numeric characters
+      const sanitizedCardNumber = cardDetails.number?.replace(/\D/g, '') || '';
+      
+      console.log('Creating payment with card details:', {
+        nameLength: cardDetails.name?.length,
+        cardNumberLength: sanitizedCardNumber.length,
+        cardNumberFirst4: sanitizedCardNumber.slice(0, 4),
+        cardNumberLast4: sanitizedCardNumber.slice(-4),
+        month: cardDetails.month,
+        year: cardDetails.year,
+        cvcLength: cardDetails.cvc?.length,
+      });
+      
+      // Validate card number before sending to Moyasar
+      if (sanitizedCardNumber.length < 13 || sanitizedCardNumber.length > 19) {
+        return NextResponse.json(
+          { error: 'Invalid card number length. Must be 13-19 digits.' },
+          { status: 400 }
+        );
+      }
+      
       source = {
         type: 'creditcard',
         name: cardDetails.name,
-        number: cardDetails.number,
+        number: sanitizedCardNumber,
         month: cardDetails.month,
         year: cardDetails.year,
         cvc: cardDetails.cvc,
