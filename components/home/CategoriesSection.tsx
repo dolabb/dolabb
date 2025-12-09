@@ -1,6 +1,12 @@
 'use client';
 
-import { navigationCategories, StyleCategory, SubCategory, FeaturedItem, NavigationCategory } from '@/data/navigation';
+import {
+  FeaturedItem,
+  navigationCategories,
+  NavigationCategory,
+  StyleCategory,
+  SubCategory,
+} from '@/data/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
