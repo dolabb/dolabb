@@ -52,39 +52,41 @@ export default function PaymentCallbackPage() {
             let retryCount = 0;
 
             while (retryCount < maxRetries && paymentStatus === 'initiated') {
-              // Call POST verify endpoint with paymentId, orderId, and offerId
-              const verifyResponse = await fetch('/api/payment/verify/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
+              try {
+                // Call Django backend verify endpoint directly
+                console.log(`Calling Django /api/payment/verify/ (attempt ${retryCount + 1})`);
+                
+                const verifyResponse = await apiClient.post('/api/payment/verify/', {
                   paymentId: paymentId,
                   orderId: pendingPayment?.orderId || null,
                   offerId: pendingPayment?.offerId || offerId || null,
-                }),
-              });
-              const verifyResult = await verifyResponse.json();
-              
-              console.log(`Payment verification attempt ${retryCount + 1}:`, verifyResult);
-              
-              if (verifyResult.success && verifyResult.payment) {
-                verifiedPayment = verifyResult.payment;
-                paymentStatus = verifiedPayment.status;
-                
-                // Log complete verification response
-                console.log('Complete Payment Verification Response:', {
-                  status: verifyResponse.status,
-                  statusText: verifyResponse.statusText,
-                  headers: Object.fromEntries(verifyResponse.headers.entries()),
-                  body: verifyResult,
-                  attempt: retryCount + 1,
                 });
+                
+                const verifyResult = verifyResponse.data;
+                
+                console.log(`Payment verification attempt ${retryCount + 1}:`, verifyResult);
+                
+                if (verifyResult.success && verifyResult.payment) {
+                  verifiedPayment = verifyResult.payment;
+                  paymentStatus = verifiedPayment.status;
+                  
+                  // Log complete verification response
+                  console.log('Complete Payment Verification Response (Django):', {
+                    status: verifyResponse.status,
+                    statusText: verifyResponse.statusText,
+                    headers: verifyResponse.headers,
+                    body: verifyResult,
+                    attempt: retryCount + 1,
+                  });
 
-                // If payment is paid, break out of retry loop
-                if (paymentStatus === 'paid') {
-                  break;
+                  // If payment is paid, break out of retry loop
+                  if (paymentStatus === 'paid') {
+                    break;
+                  }
                 }
+              } catch (verifyError: any) {
+                console.error(`Verification attempt ${retryCount + 1} failed:`, verifyError);
+                // Continue to retry if we haven't exceeded max retries
               }
 
               // If still initiated, wait before retrying
