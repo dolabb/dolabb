@@ -1,3 +1,25 @@
+// Currency symbols mapping - Supported: SAR, USD, EUR, GBP, KWD, AED, OMR, QAR
+export const currencySymbols: Record<string, string> = {
+  SAR: '﷼', // Saudi Riyal
+  USD: '$', // US Dollar
+  EUR: '€', // Euro
+  GBP: '£', // British Pound
+  KWD: 'د.ك', // Kuwaiti Dinar
+  AED: 'د.إ', // UAE Dirham
+  OMR: 'ر.ع', // Omani Rial
+  QAR: 'ر.ق', // Qatari Riyal
+  BHD: 'د.ب', // Bahraini Dinar (legacy support)
+};
+
+/**
+ * Gets the currency symbol for a given currency code
+ * @param currency - The currency code (e.g., 'SAR', 'USD', 'EUR', etc.)
+ * @returns The currency symbol or the code itself if not found
+ */
+export function getCurrencySymbol(currency: string): string {
+  return currencySymbols[currency] || currency;
+}
+
 /**
  * Formats a price with currency symbol based on locale and currency
  * For Arabic (RTL): number comes first, then currency symbol
@@ -15,22 +37,10 @@ export function formatPrice(
   decimals: number = 2,
   currency?: string
 ): string {
-  // Currency symbols mapping
-  const currencySymbols: Record<string, string> = {
-    SAR: '\uFDFC', // ﷼ Saudi Riyal
-    AED: '\u062F.\u0625', // د.إ UAE Dirham
-    USD: '$',
-    EUR: '\u20AC', // €
-    GBP: '\u00A3', // £
-    KWD: '\u062F.\u0643', // د.ك Kuwaiti Dinar
-    QAR: '\u0631.\u0642', // ر.ق Qatari Riyal
-    OMR: '\u0631.\u0639', // ر.ع Omani Rial
-    BHD: '\u062F.\u0628', // د.ب Bahraini Dinar
-  };
 
   // Use provided currency - no default, use currency code as-is if not in mapping
   const currencyCode = currency || '';
-  const currencySymbol = currencyCode ? (currencySymbols[currencyCode] || currencyCode) : '';
+  const currencySymbol = currencyCode ? getCurrencySymbol(currencyCode) : '';
 
   if (price === undefined || price === null || price === '') {
     const defaultPrice = `0.${'0'.repeat(decimals)}`;

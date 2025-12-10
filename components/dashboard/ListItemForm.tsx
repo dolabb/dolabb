@@ -21,7 +21,17 @@ interface ListItemFormProps {
   initialData?: Product;
 }
 
-const currencies = ['USD', 'AED', 'SAR', 'KWD', 'QAR', 'OMR', 'BHD'];
+// Supported currencies with their symbols
+const currencies = [
+  { code: 'SAR', symbol: '﷼', name: 'Saudi Riyal' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'KWD', symbol: 'د.ك', name: 'Kuwaiti Dinar' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+  { code: 'OMR', symbol: 'ر.ع', name: 'Omani Rial' },
+  { code: 'QAR', symbol: 'ر.ق', name: 'Qatari Riyal' },
+];
 const genders = ['Men', 'Women', 'Unisex', 'Kids'];
 const sizes = [
   '2XS',
@@ -396,6 +406,13 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
           } catch (uploadError: any) {
             console.error('Image upload failed:', uploadError);
             
+            // Extract error message from API response
+            const apiErrorMessage = 
+              uploadError?.data?.error || 
+              uploadError?.data?.message ||
+              uploadError?.error?.data?.error ||
+              uploadError?.error?.data?.message;
+            
             // Check if it's a timeout error
             const isTimeout = 
               uploadError?.message?.toLowerCase().includes('timeout') ||
@@ -409,6 +426,13 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                 locale === 'en'
                   ? 'Image upload timed out. The image might be too large or the connection is slow. Please try again with smaller images or check your internet connection.'
                   : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصور أصغر أو التحقق من اتصال الإنترنت.'
+              );
+            } else if (apiErrorMessage) {
+              // Show the exact error message from the API
+              toast.error(
+                locale === 'en'
+                  ? `Image upload failed: ${apiErrorMessage}`
+                  : `فشل تحميل الصورة: ${apiErrorMessage}`
               );
             } else {
               toast.error(
@@ -782,7 +806,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               onChange={value =>
                 setFormData(prev => ({ ...prev, currency: value }))
               }
-              options={currencies.map(c => ({ value: c, label: c }))}
+              options={currencies.map(c => ({ value: c.code, label: `${c.code} (${c.symbol})` }))}
               placeholder={locale === 'en' ? 'Select Currency' : 'اختر العملة'}
             />
           </div>
