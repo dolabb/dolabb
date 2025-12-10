@@ -1,9 +1,9 @@
 'use client';
 
+import { formatPrice } from '@/utils/formatPrice';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import { formatPrice } from '@/utils/formatPrice';
 
 interface ProductCardProps {
   id?: string;
@@ -52,7 +52,9 @@ export default function ProductCard({
         return `/api/cdn${cleanPath}`;
       } catch (error) {
         // If URL parsing fails, try simple string replacement
-        const path = trimmed.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+        const path = trimmed
+          .replace('https://cdn.dolabb.com', '')
+          .replace('http://cdn.dolabb.com', '');
         return `/api/cdn${path}`;
       }
     }
@@ -78,14 +80,14 @@ export default function ProductCard({
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Image Container */}
-      <div className='relative aspect-square overflow-hidden bg-rich-sand'>
+      <div className='relative aspect-square overflow-hidden bg-white'>
         {hasValidImage && !imageError ? (
           // Use regular img tag for proxied cdn.dolabb.com images due to SSL certificate issues
           normalizedImage?.startsWith('/api/cdn') ? (
             <img
               src={normalizedImage}
               alt={title || 'Product image'}
-              className='w-full h-full object-contain group-hover:scale-105 transition-transform duration-300'
+              className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-300'
               onError={() => {
                 console.error('Image failed to load:', normalizedImage);
                 setImageError(true);
@@ -97,8 +99,8 @@ export default function ProductCard({
               src={normalizedImage}
               alt={title || 'Product image'}
               fill
-              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className='object-contain group-hover:scale-105 transition-transform duration-300'
+              sizes='(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw'
+              className='object-cover group-hover:scale-105 transition-transform duration-300'
               onError={() => {
                 console.error('Image failed to load:', normalizedImage);
                 setImageError(true);
@@ -109,7 +111,7 @@ export default function ProductCard({
             />
           )
         ) : (
-          <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
+          <div className='w-full h-full flex items-center justify-center bg-gray-100'>
             <span className='text-deep-charcoal/40 text-xs text-center px-2 line-clamp-2'>
               {title || 'No Image'}
             </span>

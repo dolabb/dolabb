@@ -4,6 +4,7 @@ import { useAppSelector } from '@/lib/store/hooks';
 import Hero from '@/components/home/Hero';
 import FeaturedProductsSection from '@/components/home/FeaturedProductsSection';
 import TrendingProductsSection from '@/components/home/TrendingProductsSection';
+import CategoriesSection from '@/components/home/CategoriesSection';
 import LoggedInHome from '@/components/home/LoggedInHome';
 import { useLocale } from 'next-intl';
 
@@ -20,6 +21,7 @@ export default function HomePage() {
   return (
     <div className='bg-off-white' dir={isRTL ? 'rtl' : 'ltr'}>
       <Hero />
+      <CategoriesSection />
       <FeaturedProductsSection />
       <TrendingProductsSection />
     </div>

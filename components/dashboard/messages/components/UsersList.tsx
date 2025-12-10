@@ -3,7 +3,7 @@
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import type { ConversationUser, OnlineUserDetail } from '../types';
-import { formatDate, formatUsername } from '../utils';
+import { formatUsername } from '../utils';
 
 interface UsersListProps {
   conversations: ConversationUser[];
@@ -60,8 +60,6 @@ export default function UsersList({
           </div>
         ) : (
           conversations.map(conv => {
-            const timeAgo = formatDate(conv.lastMessageAt, locale);
-            
             // Enhance with online user details if available
             let displayUser = conv.otherUser;
             if (onlineUsersDetails && onlineUsersDetails.length > 0) {
@@ -163,17 +161,11 @@ export default function UsersList({
                     <h3 className='font-semibold text-deep-charcoal truncate'>
                       {formattedUsername}
                     </h3>
-                    {isOnline ? (
+                    {isOnline && (
                       <span className='text-xs text-green-600 font-medium flex-shrink-0 ml-2 flex items-center gap-1'>
                         <span className='w-2 h-2 bg-green-500 rounded-full'></span>
                         {locale === 'en' ? 'Online' : 'متصل'}
                       </span>
-                    ) : (
-                      timeAgo && (
-                        <span className='text-xs text-deep-charcoal/60 flex-shrink-0 ml-2'>
-                          {timeAgo}
-                        </span>
-                      )
                     )}
                   </div>
                   <p className='text-sm text-deep-charcoal/70 truncate'>

@@ -856,12 +856,12 @@ export default function ProfileContent() {
         </div>
 
         {/* Tabs */}
-        <div className='flex gap-4 mb-6 border-b border-rich-sand/30'>
+        <div className='flex mb-6 border-b border-rich-sand/30 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0'>
           {isSeller ? (
-            <>
+            <div className='flex gap-2 sm:gap-4 min-w-max'>
               <button
                 onClick={() => setActiveTab('saleHistory')}
-                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
                   activeTab === 'saleHistory'
                     ? 'border-saudi-green text-saudi-green'
                     : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -871,7 +871,7 @@ export default function ProfileContent() {
               </button>
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
                   activeTab === 'overview'
                     ? 'border-saudi-green text-saudi-green'
                     : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -881,7 +881,7 @@ export default function ProfileContent() {
               </button>
               <button
                 onClick={() => setActiveTab('payoutRequests')}
-                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
                   activeTab === 'payoutRequests'
                     ? 'border-saudi-green text-saudi-green'
                     : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -891,7 +891,7 @@ export default function ProfileContent() {
               </button>
               <button
                 onClick={() => setActiveTab('profileDetails')}
-                className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
                   activeTab === 'profileDetails'
                     ? 'border-saudi-green text-saudi-green'
                     : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -899,30 +899,30 @@ export default function ProfileContent() {
               >
                 {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
               </button>
-            </>
+            </div>
           ) : (
-            <>
-          <button
-            onClick={() => setActiveTab('reviews')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-              activeTab === 'reviews'
-                ? 'border-saudi-green text-saudi-green'
-                : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-            }`}
-          >
-            {locale === 'en' ? 'Reviews' : 'المراجعات'}
-          </button>
-          <button
-            onClick={() => setActiveTab('profileDetails')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-              activeTab === 'profileDetails'
-                ? 'border-saudi-green text-saudi-green'
-                : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-            }`}
-          >
-            {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
-          </button>
-            </>
+            <div className='flex gap-2 sm:gap-4 min-w-max'>
+              <button
+                onClick={() => setActiveTab('reviews')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'reviews'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'Reviews' : 'المراجعات'}
+              </button>
+              <button
+                onClick={() => setActiveTab('profileDetails')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'profileDetails'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
+              </button>
+            </div>
           )}
         </div>
 

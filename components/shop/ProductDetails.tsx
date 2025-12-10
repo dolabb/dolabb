@@ -525,7 +525,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             : img
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
-                        className={`w-full h-full object-contain transition-opacity duration-500 ${
+                        className={`w-full h-full object-cover transition-opacity duration-500 ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
@@ -544,7 +544,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
                         fill
-                        className={`object-contain transition-opacity duration-500 ${
+                        className={`object-cover transition-opacity duration-500 ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
@@ -595,7 +595,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           alt={`${product.title || 'Product'} thumbnail ${
                             index + 1
                           }`}
-                          className='w-full h-full object-contain'
+                          className='w-full h-full object-cover'
                         />
                       ) : (
                         <Image
@@ -604,7 +604,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             index + 1
                           }`}
                           fill
-                          className='object-contain'
+                          className='object-cover'
                           unoptimized={
                             img.includes('unsplash.com') ||
                             img.includes('cloudinary.com') ||
@@ -620,16 +620,16 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
           </div>
 
           {/* Product Info Section - Middle & Right Columns */}
-          <div className='lg:col-span-2 space-y-4'>
+          <div className='lg:col-span-2 space-y-3 sm:space-y-4'>
             {/* Top Section - Title, Price, Attributes, Actions */}
-            <div className='bg-white rounded-lg border border-rich-sand/20 p-5 space-y-4'>
+            <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 p-4 sm:p-5 space-y-3 sm:space-y-4 shadow-sm'>
               {/* Product Title */}
-              <h1 className='text-xl font-semibold text-deep-charcoal leading-tight'>
+              <h1 className='text-lg sm:text-xl font-bold text-deep-charcoal leading-snug'>
                 {product.title || (product as any).itemtitle}
               </h1>
 
-              {/* Price */}
-              <div className='text-2xl font-semibold text-deep-charcoal'>
+              {/* Price - More prominent on mobile */}
+              <div className='text-2xl sm:text-3xl font-bold text-saudi-green'>
                 {formatPrice(
                   product.price,
                   locale,
@@ -638,28 +638,28 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                 )}
               </div>
 
-              {/* Product Attributes */}
-              <div className='text-sm text-deep-charcoal/70'>
-                <span>
+              {/* Product Attributes - Pill style for mobile */}
+              <div className='flex flex-wrap gap-2 sm:gap-0 sm:block text-sm text-deep-charcoal/70'>
+                <span className='inline-flex items-center px-2.5 py-1 sm:px-0 sm:py-0 bg-rich-sand/20 sm:bg-transparent rounded-full sm:rounded-none'>
                   {locale === 'en'
                     ? `Size ${productDetails.size}`
                     : `المقاس ${productDetails.size}`}
                 </span>
-                <span className='mx-2'>•</span>
-                <span>
+                <span className='hidden sm:inline mx-2'>•</span>
+                <span className='inline-flex items-center px-2.5 py-1 sm:px-0 sm:py-0 bg-rich-sand/20 sm:bg-transparent rounded-full sm:rounded-none'>
                   {locale === 'en' ? productDetails.condition : 'حالة ممتازة'}
                 </span>
-                <span className='mx-2'>•</span>
+                <span className='hidden sm:inline mx-2'>•</span>
                 <Link
                   href={`/${locale}/brands/${productDetails.brand.toLowerCase()}`}
-                  className='text-deep-charcoal hover:text-saudi-green transition-colors'
+                  className='inline-flex items-center px-2.5 py-1 sm:px-0 sm:py-0 bg-saudi-green/10 sm:bg-transparent text-saudi-green sm:text-deep-charcoal rounded-full sm:rounded-none font-medium sm:font-normal hover:text-saudi-green transition-colors'
                 >
                   {productDetails.brand}
                 </Link>
               </div>
 
-              {/* Action Buttons */}
-              <div className='flex gap-2.5 pt-2'>
+              {/* Action Buttons - Stacked on mobile for better touch targets */}
+              <div className='flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2'>
                 {canPurchase ? (
                 <button
                   onClick={() => {
@@ -674,90 +674,93 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                     }
                     setShowOfferModal(true);
                   }}
-                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
+                  className='w-full sm:flex-1 bg-saudi-green text-white py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg font-semibold text-base sm:text-sm hover:bg-saudi-green/90 active:scale-[0.98] transition-all cursor-pointer shadow-sm'
                 >
-                  {locale === 'en' ? 'Make offer' : 'قدم عرضاً'}
+                  {locale === 'en' ? 'Make an Offer' : 'قدم عرضاً'}
                 </button>
                 ) : (
-                  <div className='flex-1 bg-rich-sand/20 border border-rich-sand/40 text-deep-charcoal/70 py-2.5 rounded-lg font-medium text-sm text-center px-4'>
+                  <div className='w-full bg-rich-sand/20 border border-rich-sand/40 text-deep-charcoal/70 py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg font-medium text-sm text-center px-4'>
                     {locale === 'en'
-                      ? 'This is your own product. You cannot make offers or purchase it.'
-                      : 'هذا منتجك الخاص. لا يمكنك تقديم عروض أو شرائه.'}
+                      ? 'This is your own product'
+                      : 'هذا منتجك الخاص'}
                   </div>
                 )}
-                <button
-                  onClick={async () => {
-                    // Check authentication first
-                    if (!isAuthenticated) {
-                      toast.error(
-                        locale === 'en'
-                          ? 'Please login to add items to bag'
-                          : 'يرجى تسجيل الدخول لإضافة المنتجات إلى الحقيبة'
-                      );
-                      router.push(`/${locale}/login`);
-                      return;
-                    }
-
-                    // Add to bag logic - call save product API
-                    try {
-                      await saveProduct(productId).unwrap();
-                      toast.success(
-                        locale === 'en'
-                          ? 'Item added to bag!'
-                          : 'تم إضافة المنتج إلى الحقيبة!'
-                      );
-                    } catch (error: any) {
-                      // Check if it's an authentication error
-                      if (error?.status === 401 || error?.response?.status === 401) {
+                {canPurchase && (
+                  <button
+                    onClick={async () => {
+                      // Check authentication first
+                      if (!isAuthenticated) {
                         toast.error(
                           locale === 'en'
-                            ? 'Your session has expired. Please login again.'
-                            : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
+                            ? 'Please login to add items to bag'
+                            : 'يرجى تسجيل الدخول لإضافة المنتجات إلى الحقيبة'
                         );
                         router.push(`/${locale}/login`);
                         return;
                       }
-                      toast.error(
-                        locale === 'en'
-                          ? 'Failed to add item to bag. Please try again.'
-                          : 'فشل إضافة المنتج إلى الحقيبة. يرجى المحاولة مرة أخرى.'
-                      );
-                    }
-                  }}
-                  disabled={isSaving}
-                  className='flex-1 bg-white border border-saudi-green text-saudi-green py-2.5 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
-                >
-                  {isSaving
-                    ? locale === 'en'
-                      ? 'Adding...'
-                      : 'جاري الإضافة...'
-                    : locale === 'en'
-                    ? 'Add to bag'
-                    : 'أضف إلى الحقيبة'}
-                </button>
+
+                      // Add to bag logic - call save product API
+                      try {
+                        await saveProduct(productId).unwrap();
+                        toast.success(
+                          locale === 'en'
+                            ? 'Item added to bag!'
+                            : 'تم إضافة المنتج إلى الحقيبة!'
+                        );
+                      } catch (error: any) {
+                        // Check if it's an authentication error
+                        if (error?.status === 401 || error?.response?.status === 401) {
+                          toast.error(
+                            locale === 'en'
+                              ? 'Your session has expired. Please login again.'
+                              : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
+                          );
+                          router.push(`/${locale}/login`);
+                          return;
+                        }
+                        toast.error(
+                          locale === 'en'
+                            ? 'Failed to add item to bag. Please try again.'
+                            : 'فشل إضافة المنتج إلى الحقيبة. يرجى المحاولة مرة أخرى.'
+                        );
+                      }
+                    }}
+                    disabled={isSaving}
+                    className='w-full sm:flex-1 bg-white border-2 border-saudi-green text-saudi-green py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg font-semibold text-base sm:text-sm hover:bg-saudi-green/5 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isSaving
+                      ? locale === 'en'
+                        ? 'Adding...'
+                        : 'جاري الإضافة...'
+                      : locale === 'en'
+                      ? 'Add to Bag'
+                      : 'أضف إلى الحقيبة'}
+                  </button>
+                )}
               </div>
 
-              {/* Buyer Protection */}
-              <div className='flex items-start gap-2 pt-2 text-xs text-deep-charcoal/60'>
-                <HiShieldCheck className='w-3.5 h-3.5 text-deep-charcoal/50 mt-0.5 shrink-0' />
-                <p>
+              {/* Buyer Protection - Card style on mobile */}
+              <div className='flex items-center gap-3 p-3 sm:p-0 bg-emerald-50/50 sm:bg-transparent rounded-lg sm:rounded-none mt-2'>
+                <div className='w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center bg-saudi-green/10 sm:bg-transparent rounded-full shrink-0'>
+                  <HiShieldCheck className='w-4 h-4 sm:w-3.5 sm:h-3.5 text-saudi-green sm:text-deep-charcoal/50' />
+                </div>
+                <p className='text-xs sm:text-xs text-deep-charcoal/70 sm:text-deep-charcoal/60'>
                   {locale === 'en' ? (
                     <>
-                      All purchases through Dolabb are covered by Buyer
-                      Protection.{' '}
+                      Buyer Protection included.{' '}
                       <Link
                         href='#'
-                        className='text-deep-charcoal underline hover:text-saudi-green'
+                        className='text-saudi-green sm:text-deep-charcoal underline hover:text-saudi-green font-medium sm:font-normal'
                       >
                         Learn more
                       </Link>
                     </>
                   ) : (
                     <>
-                      جميع المشتريات من خلال Dolabb مغطاة بحماية المشتري.{' '}
+                      حماية المشتري مشمولة.{' '}
                       <Link
                         href='#'
-                        className='text-deep-charcoal underline hover:text-saudi-green'
+                        className='text-saudi-green sm:text-deep-charcoal underline hover:text-saudi-green font-medium sm:font-normal'
                       >
                         اعرف المزيد
                       </Link>
@@ -768,9 +771,9 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             </div>
 
             {/* Seller Information */}
-            <div className='bg-white rounded-lg border border-rich-sand/20 p-5'>
-              <div className='flex items-start gap-3 mb-3'>
-                <div className='relative w-10 h-10 rounded-full overflow-hidden bg-rich-sand/30 shrink-0'>
+            <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 p-4 sm:p-5 shadow-sm'>
+              <div className='flex items-center gap-3 sm:gap-3 mb-3 sm:mb-3'>
+                <div className='relative w-14 h-14 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-rich-sand/30 shrink-0 ring-2 ring-saudi-green/20'>
                   {sellerData.profileImage && !sellerImageError ? (
                     <Image
                       key={sellerData.profileImage}
@@ -784,14 +787,14 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                       }}
                     />
                   ) : (
-                    <div className='w-full h-full flex items-center justify-center bg-saudi-green/20 text-saudi-green font-semibold text-xs'>
+                    <div className='w-full h-full flex items-center justify-center bg-saudi-green text-white font-bold text-lg sm:text-xs'>
                       {sellerData.username.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
                 <div className='flex-1 min-w-0'>
-                  <div className='flex items-center gap-2 mb-1'>
-                    <div className='font-semibold text-deep-charcoal  transition-colors text-sm'>
+                  <div className='flex items-center gap-2 mb-0.5 sm:mb-1'>
+                    <div className='font-bold text-deep-charcoal text-base sm:text-sm'>
                       {sellerData.username}
                     </div>
                   </div>
@@ -799,89 +802,101 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                     {[...Array(sellerData.rating)].map((_, i) => (
                       <FaStar
                         key={i}
-                        className='w-3 h-3 text-coral-red fill-current'
+                        className='w-3.5 h-3.5 sm:w-3 sm:h-3 text-amber-400 fill-current'
                       />
                     ))}
-                    <span className='text-xs text-deep-charcoal/70'>
-                      ({sellerData.rating})
+                    <span className='text-sm sm:text-xs text-deep-charcoal/70 font-medium'>
+                      {sellerData.rating > 0 ? sellerData.rating.toFixed(1) : locale === 'en' ? 'New' : 'جديد'}
                     </span>
                   </div>
-                  <p className='text-xs text-deep-charcoal/60'>
-                    {sellerData.sold} {locale === 'en' ? 'sold' : 'مباع'} •{' '}
-                    {locale === 'en' ? 'Active' : 'نشط'}
-                  </p>
+                  <div className='flex items-center gap-2 text-xs sm:text-xs text-deep-charcoal/60'>
+                    <span className='inline-flex items-center gap-1'>
+                      <span className='w-1.5 h-1.5 bg-emerald-500 rounded-full'></span>
+                      {locale === 'en' ? 'Active' : 'نشط'}
+                    </span>
+                    <span>•</span>
+                    <span>{sellerData.sold} {locale === 'en' ? 'sold' : 'مباع'}</span>
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  // Check authentication first
-                  if (!isAuthenticated) {
-                    toast.error(
-                      locale === 'en'
-                        ? 'Please login to chat with the seller'
-                        : 'يرجى تسجيل الدخول للدردشة مع البائع'
-                    );
-                    router.push(`/${locale}/login`);
-                    return;
-                  }
+              {canPurchase ? (
+                <button
+                  onClick={() => {
+                    // Check authentication first
+                    if (!isAuthenticated) {
+                      toast.error(
+                        locale === 'en'
+                          ? 'Please login to chat with the seller'
+                          : 'يرجى تسجيل الدخول للدردشة مع البائع'
+                      );
+                      router.push(`/${locale}/login`);
+                      return;
+                    }
 
-                  // Get seller ID from product
-                  const sellerId = product?.seller?.id;
-                  if (!sellerId) {
-                    toast.error(
-                      locale === 'en'
-                        ? 'Seller information not available'
-                        : 'معلومات البائع غير متاحة'
-                    );
-                    return;
-                  }
+                    // Get seller ID from product
+                    const sellerId = product?.seller?.id;
+                    if (!sellerId) {
+                      toast.error(
+                        locale === 'en'
+                          ? 'Seller information not available'
+                          : 'معلومات البائع غير متاحة'
+                      );
+                      return;
+                    }
 
-                  // Navigate to messages page with sellerId query parameter
-                  router.push(`/${locale}/messages?sellerId=${sellerId}`);
-                }}
-                className='w-full bg-white border border-saudi-green text-saudi-green py-2 rounded-lg font-medium text-sm hover:bg-saudi-green/5 transition-colors cursor-pointer'
-              >
-                {locale === 'en' ? 'Chat' : 'دردشة'}
-              </button>
+                    // Navigate to messages page with sellerId query parameter
+                    router.push(`/${locale}/messages?sellerId=${sellerId}`);
+                  }}
+                  className='w-full bg-deep-charcoal text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-semibold text-base sm:text-sm hover:bg-deep-charcoal/90 active:scale-[0.98] transition-all cursor-pointer'
+                >
+                  {locale === 'en' ? 'Message Seller' : 'راسل البائع'}
+                </button>
+              ) : (
+                <div className='w-full bg-rich-sand/10 text-deep-charcoal/50 py-3 sm:py-2 rounded-xl sm:rounded-lg font-medium text-sm text-center'>
+                  {locale === 'en' ? 'This is your listing' : 'هذا إعلانك'}
+                </div>
+              )}
             </div>
 
             {/* Collapsible Sections */}
-            <div className='space-y-3'>
+            <div className='space-y-2 sm:space-y-3'>
               {/* Item Details */}
-              <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
+              <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 overflow-hidden shadow-sm'>
                 <button
                   onClick={() => toggleSection('itemDetails')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                  className='w-full flex items-center justify-between p-4 sm:p-4 hover:bg-rich-sand/10 active:bg-rich-sand/20 transition-colors cursor-pointer'
                 >
-                  <h2 className='text-sm font-semibold text-deep-charcoal'>
+                  <h2 className='text-base sm:text-sm font-bold sm:font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Item Details' : 'تفاصيل العنصر'}
                   </h2>
-                  {expandedSections.itemDetails ? (
-                    <HiChevronUp className='w-4 h-4 text-deep-charcoal/60' />
-                  ) : (
-                    <HiChevronDown className='w-4 h-4 text-deep-charcoal/60' />
-                  )}
+                  <div className='w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center bg-rich-sand/20 sm:bg-transparent rounded-full'>
+                    {expandedSections.itemDetails ? (
+                      <HiChevronUp className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    ) : (
+                      <HiChevronDown className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    )}
+                  </div>
                 </button>
                 {expandedSections.itemDetails && (
                   <div className='px-4 pb-4'>
-                    <div className='grid grid-cols-2 gap-3 text-sm'>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en'
-                            ? 'Brand name'
-                            : 'اسم العلامة التجارية'}
+                            ? 'Brand'
+                            : 'العلامة التجارية'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {productDetails.brand}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en' ? 'Category' : 'الفئة'}
                         </span>
                         <Link
                           href={`/${locale}/${product.category || 'browse'}`}
-                          className='text-deep-charcoal font-medium hover:text-saudi-green text-right'
+                          className='text-sm text-saudi-green font-semibold hover:underline'
                         >
                           {product.category
                             ? product.category.charAt(0).toUpperCase() +
@@ -892,52 +907,52 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         </Link>
                       </div>
                       {product.subcategory && (
-                        <div className='flex justify-between'>
-                          <span className='text-deep-charcoal/70'>
+                        <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                          <span className='text-sm text-deep-charcoal/70'>
                             {locale === 'en' ? 'Subcategory' : 'الفئة الفرعية'}
                           </span>
                           <Link
                             href={`/${locale}/${
                               product.category || 'browse'
                             }?subcategory=${product.subcategory}`}
-                            className='text-deep-charcoal font-medium hover:text-saudi-green text-right'
+                            className='text-sm text-saudi-green font-semibold hover:underline'
                           >
                             {product.subcategory}
                           </Link>
                         </div>
                       )}
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en' ? 'Condition' : 'الحالة'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {locale === 'en'
                             ? productDetails.condition
                             : 'حالة ممتازة'}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en' ? 'Size' : 'المقاس'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {productDetails.size}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b-0 sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en' ? 'Quantity' : 'الكمية'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {(product as any).Quantity || product.quantity || 1}
                         </span>
                       </div>
                       {(product as any).Gender && (
-                        <div className='flex justify-between'>
-                          <span className='text-deep-charcoal/70'>
+                        <div className='flex justify-between items-center py-2 sm:py-0 border-rich-sand/10'>
+                          <span className='text-sm text-deep-charcoal/70'>
                             {locale === 'en' ? 'Gender' : 'الجنس'}
                           </span>
-                          <span className='text-deep-charcoal font-medium'>
+                          <span className='text-sm text-deep-charcoal font-semibold'>
                             {(product as any).Gender}
                           </span>
                         </div>
@@ -948,46 +963,48 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               </div>
 
               {/* Product Information */}
-              <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
+              <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 overflow-hidden shadow-sm'>
                 <button
                   onClick={() => toggleSection('productInfo')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                  className='w-full flex items-center justify-between p-4 sm:p-4 hover:bg-rich-sand/10 active:bg-rich-sand/20 transition-colors cursor-pointer'
                 >
-                  <h2 className='text-sm font-semibold text-deep-charcoal'>
+                  <h2 className='text-base sm:text-sm font-bold sm:font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Product Information' : 'معلومات المنتج'}
                   </h2>
-                  {expandedSections.productInfo ? (
-                    <HiChevronUp className='w-4 h-4 text-deep-charcoal/60' />
-                  ) : (
-                    <HiChevronDown className='w-4 h-4 text-deep-charcoal/60' />
-                  )}
+                  <div className='w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center bg-rich-sand/20 sm:bg-transparent rounded-full'>
+                    {expandedSections.productInfo ? (
+                      <HiChevronUp className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    ) : (
+                      <HiChevronDown className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    )}
+                  </div>
                 </button>
                 {expandedSections.productInfo && (
                   <div className='px-4 pb-4'>
-                    <div className='grid grid-cols-2 gap-3 text-sm'>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en'
                             ? 'Has Variants'
                             : 'يحتوي على متغيرات'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {locale === 'en' ? 'No' : 'لا'}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
                           {locale === 'en' ? 'Custom Size' : 'مقاس مخصص'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {locale === 'en' ? 'No' : 'لا'}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Created at' : 'تاريخ الإنشاء'}
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
+                          {locale === 'en' ? 'Listed on' : 'تاريخ الإدراج'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {product.createdAt || (product as any).created_at
                             ? new Date(
                                 product.createdAt || (product as any).created_at
@@ -995,7 +1012,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                                 locale === 'en' ? 'en-US' : 'ar-SA',
                                 {
                                   year: 'numeric',
-                                  month: 'long',
+                                  month: 'short',
                                   day: 'numeric',
                                 }
                               )
@@ -1004,18 +1021,18 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             : 'غير متاح'}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Processing Time' : 'وقت المعالجة'}
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b-0 sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
+                          {locale === 'en' ? 'Processing' : 'وقت المعالجة'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {product.shippingInfo?.estimatedDays ||
                           (product as any)['Processing Time (days)']
                             ? `${
                                 product.shippingInfo?.estimatedDays ||
                                 (product as any)['Processing Time (days)']
                               } ${
-                                locale === 'en' ? 'business day(s)' : 'يوم عمل'
+                                locale === 'en' ? 'days' : 'يوم'
                               }`
                             : locale === 'en'
                             ? 'N/A'
@@ -1028,36 +1045,38 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               </div>
 
               {/* Description */}
-              <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
+              <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 overflow-hidden shadow-sm'>
                 <button
                   onClick={() => toggleSection('description')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                  className='w-full flex items-center justify-between p-4 sm:p-4 hover:bg-rich-sand/10 active:bg-rich-sand/20 transition-colors cursor-pointer'
                 >
-                  <h2 className='text-sm font-semibold text-deep-charcoal'>
+                  <h2 className='text-base sm:text-sm font-bold sm:font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Description' : 'الوصف'}
                   </h2>
-                  {expandedSections.description ? (
-                    <HiChevronUp className='w-4 h-4 text-deep-charcoal/60' />
-                  ) : (
-                    <HiChevronDown className='w-4 h-4 text-deep-charcoal/60' />
-                  )}
+                  <div className='w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center bg-rich-sand/20 sm:bg-transparent rounded-full'>
+                    {expandedSections.description ? (
+                      <HiChevronUp className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    ) : (
+                      <HiChevronDown className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    )}
+                  </div>
                 </button>
                 {expandedSections.description && (
                   <div className='px-4 pb-4'>
-                    <div className='space-y-2 text-sm text-deep-charcoal/80 leading-relaxed'>
-                      <p className='font-semibold'>
-                        {product.title || (product as any).itemtitle}
-                      </p>
+                    <div className='space-y-3 text-sm sm:text-sm text-deep-charcoal/80 leading-relaxed'>
                       {productDetails.color &&
                         productDetails.color !== 'N/A' && (
-                          <p>• {productDetails.color}</p>
+                          <div className='inline-flex items-center gap-2 px-3 py-1.5 bg-rich-sand/20 rounded-full'>
+                            <span className='w-3 h-3 rounded-full bg-deep-charcoal/30'></span>
+                            <span className='text-sm font-medium text-deep-charcoal'>{productDetails.color}</span>
+                          </div>
                         )}
-                      <p className='text-xs text-deep-charcoal/60 uppercase tracking-wide'>
+                      <p className='text-xs text-deep-charcoal/50 uppercase tracking-wider'>
                         {locale === 'en'
-                          ? `LISTED ${productDetails.listed.toUpperCase()}`
-                          : `مُدرج منذ ${productDetails.listed}`}
+                          ? `Listed ${productDetails.listed}`
+                          : `مُدرج ${productDetails.listed}`}
                       </p>
-                      <p className='pt-2 whitespace-pre-wrap'>
+                      <p className='whitespace-pre-wrap text-deep-charcoal/70 leading-6'>
                         {product.description ||
                           (locale === 'en'
                             ? 'No description available.'
@@ -1069,28 +1088,30 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               </div>
 
               {/* Shipping */}
-              <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
+              <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 overflow-hidden shadow-sm'>
                 <button
                   onClick={() => toggleSection('shipping')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                  className='w-full flex items-center justify-between p-4 sm:p-4 hover:bg-rich-sand/10 active:bg-rich-sand/20 transition-colors cursor-pointer'
                 >
-                  <h2 className='text-sm font-semibold text-deep-charcoal'>
+                  <h2 className='text-base sm:text-sm font-bold sm:font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Shipping' : 'الشحن'}
                   </h2>
-                  {expandedSections.shipping ? (
-                    <HiChevronUp className='w-4 h-4 text-deep-charcoal/60' />
-                  ) : (
-                    <HiChevronDown className='w-4 h-4 text-deep-charcoal/60' />
-                  )}
+                  <div className='w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center bg-rich-sand/20 sm:bg-transparent rounded-full'>
+                    {expandedSections.shipping ? (
+                      <HiChevronUp className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    ) : (
+                      <HiChevronDown className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    )}
+                  </div>
                 </button>
                 {expandedSections.shipping && (
                   <div className='px-4 pb-4'>
-                    <div className='grid grid-cols-2 gap-3 text-sm'>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Price' : 'السعر'}
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3'>
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
+                          {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-saudi-green font-bold'>
                           {formatPrice(
                             product.shippingInfo?.cost ||
                             (product as any)['Shipping Cost'] ||
@@ -1101,31 +1122,31 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           )}
                         </span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Processing Time' : 'وقت المعالجة'}
+                      <div className='flex justify-between items-center py-2 sm:py-0 border-b sm:border-0 border-rich-sand/10'>
+                        <span className='text-sm text-deep-charcoal/70'>
+                          {locale === 'en' ? 'Delivery Time' : 'وقت التوصيل'}
                         </span>
-                        <span className='text-deep-charcoal font-medium'>
+                        <span className='text-sm text-deep-charcoal font-semibold'>
                           {product.shippingInfo?.estimatedDays ||
                           (product as any)['Processing Time (days)']
                             ? `${
                                 product.shippingInfo?.estimatedDays ||
                                 (product as any)['Processing Time (days)']
-                              } ${locale === 'en' ? 'Business day' : 'يوم عمل'}`
+                              } ${locale === 'en' ? 'days' : 'أيام'}`
                             : locale === 'en'
-                            ? 'N/A'
-                            : 'غير متاح'}
+                            ? 'Contact seller'
+                            : 'تواصل مع البائع'}
                         </span>
                       </div>
                       {product.shippingInfo?.locations ||
                       (product as any)['Shipping Locations'] ? (
-                        <div className='flex justify-between'>
-                          <span className='text-deep-charcoal/70'>
+                        <div className='flex justify-between items-center py-2 sm:py-0 border-b-0 sm:border-0 border-rich-sand/10 col-span-1 sm:col-span-2'>
+                          <span className='text-sm text-deep-charcoal/70'>
                             {locale === 'en'
-                              ? 'Shipping Locations'
-                              : 'مواقع الشحن'}
+                              ? 'Ships to'
+                              : 'يشحن إلى'}
                           </span>
-                          <span className='text-deep-charcoal font-medium'>
+                          <span className='text-sm text-deep-charcoal font-semibold'>
                             {(
                               product.shippingInfo?.locations ||
                               (product as any)['Shipping Locations'] ||
@@ -1140,19 +1161,21 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               </div>
 
               {/* Tags */}
-              <div className='bg-white rounded-lg border border-rich-sand/20 overflow-hidden'>
+              <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 overflow-hidden shadow-sm'>
                 <button
                   onClick={() => toggleSection('tags')}
-                  className='w-full flex items-center justify-between p-4 hover:bg-rich-sand/10 transition-colors cursor-pointer'
+                  className='w-full flex items-center justify-between p-4 sm:p-4 hover:bg-rich-sand/10 active:bg-rich-sand/20 transition-colors cursor-pointer'
                 >
-                  <h2 className='text-sm font-semibold text-deep-charcoal'>
+                  <h2 className='text-base sm:text-sm font-bold sm:font-semibold text-deep-charcoal'>
                     {locale === 'en' ? 'Tags' : 'العلامات'}
                   </h2>
-                  {expandedSections.tags ? (
-                    <HiChevronUp className='w-4 h-4 text-deep-charcoal/60' />
-                  ) : (
-                    <HiChevronDown className='w-4 h-4 text-deep-charcoal/60' />
-                  )}
+                  <div className='w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center bg-rich-sand/20 sm:bg-transparent rounded-full'>
+                    {expandedSections.tags ? (
+                      <HiChevronUp className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    ) : (
+                      <HiChevronDown className='w-5 h-5 sm:w-4 sm:h-4 text-deep-charcoal/60' />
+                    )}
+                  </div>
                 </button>
                 {expandedSections.tags && (
                   <div className='px-4 pb-4'>
@@ -1166,13 +1189,13 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         ).map((tag: string) => (
                           <span
                             key={tag}
-                            className='px-2.5 py-1 bg-rich-sand/30 text-deep-charcoal rounded-full text-xs font-medium'
+                            className='px-3 py-1.5 sm:px-2.5 sm:py-1 bg-saudi-green/10 text-saudi-green rounded-full text-sm sm:text-xs font-semibold sm:font-medium hover:bg-saudi-green/20 transition-colors cursor-pointer'
                           >
                             #{tag}
                           </span>
                         ))
                       ) : (
-                        <p className='text-deep-charcoal/60 text-sm'>
+                        <p className='text-deep-charcoal/50 text-sm'>
                           {locale === 'en'
                             ? 'No tags available'
                             : 'لا توجد علامات متاحة'}

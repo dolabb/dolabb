@@ -39,21 +39,22 @@ export default function MessageInput({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          if (e.target?.result) {
-            const newFile: AttachedFile = {
-              id: Date.now().toString() + Math.random(),
-              file,
-              preview: e.target.result as string,
-            };
-            setAttachedFiles(prev => [...prev, newFile]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+    if (files && files.length > 0) {
+      // Only allow one file at a time - take the first file
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = e => {
+        if (e.target?.result) {
+          const newFile: AttachedFile = {
+            id: Date.now().toString() + Math.random(),
+            file,
+            preview: e.target.result as string,
+          };
+          // Replace any existing file with the new one (only 1 allowed)
+          setAttachedFiles([newFile]);
+        }
+      };
+      reader.readAsDataURL(file);
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -120,9 +121,10 @@ export default function MessageInput({
         console.error('Error uploading attachments:', error);
         toast.error(
           locale === 'en'
-            ? 'Failed to upload attachments'
-            : 'فشل تحميل المرفقات'
+            ? 'Failed to upload attachment'
+            : 'فشل تحميل المرفق'
         );
+        setIsSending(false);
         return;
       }
     }
@@ -263,19 +265,28 @@ export default function MessageInput({
           type='file'
           ref={fileInputRef}
           onChange={handleFileSelect}
-          accept='image/*'
-          multiple
+          accept='image/*,.pdf'
           className='hidden'
           id='file-attachment'
         />
-        <label
-          htmlFor='file-attachment'
-          className='group relative p-2.5 md:p-3 bg-gradient-to-br from-rich-sand/20 to-rich-sand/10 hover:from-rich-sand/30 hover:to-rich-sand/20 rounded-xl cursor-pointer transition-all duration-200 flex-shrink-0 shadow-sm hover:shadow-md border border-rich-sand/20 hover:border-rich-sand/30'
-          aria-label={locale === 'en' ? 'Attach file' : 'إرفاق ملف'}
-        >
-          <HiPaperClip className='w-5 h-5 text-deep-charcoal group-hover:text-saudi-green transition-colors duration-200' />
-          <div className='absolute inset-0 rounded-xl bg-saudi-green/0 group-hover:bg-saudi-green/5 transition-colors duration-200'></div>
-        </label>
+        {/* Only show attach button if no file is attached (limit: 1 file per message) */}
+        {attachedFiles.length === 0 ? (
+          <label
+            htmlFor='file-attachment'
+            className='group relative p-2.5 md:p-3 bg-gradient-to-br from-rich-sand/20 to-rich-sand/10 hover:from-rich-sand/30 hover:to-rich-sand/20 rounded-xl cursor-pointer transition-all duration-200 flex-shrink-0 shadow-sm hover:shadow-md border border-rich-sand/20 hover:border-rich-sand/30'
+            aria-label={locale === 'en' ? 'Attach file' : 'إرفاق ملف'}
+          >
+            <HiPaperClip className='w-5 h-5 text-deep-charcoal group-hover:text-saudi-green transition-colors duration-200' />
+            <div className='absolute inset-0 rounded-xl bg-saudi-green/0 group-hover:bg-saudi-green/5 transition-colors duration-200'></div>
+          </label>
+        ) : (
+          <div
+            className='p-2.5 md:p-3 bg-rich-sand/10 rounded-xl flex-shrink-0 border border-rich-sand/20 opacity-50 cursor-not-allowed'
+            title={locale === 'en' ? 'Remove current file to attach a new one' : 'أزل الملف الحالي لإرفاق ملف جديد'}
+          >
+            <HiPaperClip className='w-5 h-5 text-deep-charcoal/50' />
+          </div>
+        )}
         <div className='flex-1 relative flex flex-col'>
           {validationError && (
             <div className='mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700'>
@@ -316,7 +327,30 @@ export default function MessageInput({
               className='absolute right-2 top-1/2 -translate-y-1/2 group p-2 bg-gradient-to-br from-saudi-green to-green-600 text-white rounded-full hover:from-saudi-green/90 hover:to-green-600/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-saudi-green disabled:hover:to-green-600 cursor-pointer shadow-md hover:shadow-lg hover:scale-110 active:scale-95 disabled:hover:scale-100 disabled:hover:shadow-md'
               aria-label={locale === 'en' ? 'Send message' : 'إرسال رسالة'}
             >
-              <HiPaperAirplane className='w-4 h-4 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200' />
+              {isSending ? (
+                <svg
+                  className='w-4 h-4 animate-spin'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  />
+                </svg>
+              ) : (
+                <HiPaperAirplane className='w-4 h-4 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200' />
+              )}
               <div className='absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/10 transition-colors duration-200'></div>
             </button>
           </div>

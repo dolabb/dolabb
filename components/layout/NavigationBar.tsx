@@ -136,7 +136,7 @@ export default function NavigationBar() {
     if (isVisible) {
       // Set display to block immediately before animation
       dropdown.style.display = 'block';
-      
+
       gsap.fromTo(
         dropdown,
         {
@@ -276,7 +276,7 @@ export default function NavigationBar() {
       >
         <div className='max-w-7xl mx-auto px-3 sm:px-4 lg:px-8'>
           {/* Mobile: Optimized for small screens */}
-          <div className='flex md:hidden items-center justify-center gap-2 sm:gap-3 h-14 overflow-x-auto scrollbar-hide'>
+          <div className='flex md:hidden items-center justify-center gap-3 sm:gap-4 h-16 overflow-x-auto scrollbar-hide'>
             {userNavItems.map(item => {
               // For home route, only match exact pathname, not sub-routes
               const isActive =
@@ -289,19 +289,19 @@ export default function NavigationBar() {
                 <Link
                   key={item.key}
                   href={item.href}
-                  className={`relative flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-1.5 min-w-[60px] sm:min-w-[70px] transition-all duration-300 ${
+                  className={`relative flex flex-col items-center justify-center gap-1 px-3 sm:px-4 py-2 min-w-[70px] sm:min-w-[80px] transition-all duration-300 ${
                     isActive
                       ? 'text-saudi-green'
                       : 'text-deep-charcoal/70 active:text-saudi-green'
                   }`}
                 >
-                  <span className='font-display text-[10px] sm:text-xs font-medium leading-tight text-center'>
+                  <span className='font-display text-xs sm:text-sm font-semibold leading-tight text-center whitespace-nowrap'>
                     {item.label}
                   </span>
                   <span
                     className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-saudi-green rounded-full transition-all duration-300 ${
                       isActive
-                        ? 'w-full max-w-[50px] sm:max-w-[60px] opacity-100 shadow-md shadow-saudi-green/50'
+                        ? 'w-full max-w-[60px] sm:max-w-[70px] opacity-100 shadow-md shadow-saudi-green/50'
                         : 'w-0 opacity-0'
                     }`}
                   />
@@ -330,7 +330,9 @@ export default function NavigationBar() {
                       : 'text-deep-charcoal/70 hover:text-saudi-green'
                   }`}
                 >
-                  <span className='font-display'>{item.label}</span>
+                  <span className='font-display whitespace-nowrap'>
+                    {item.label}
+                  </span>
                   <span
                     className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-saudi-green rounded-full transition-all duration-300 ${
                       isActive
@@ -347,212 +349,7 @@ export default function NavigationBar() {
     );
   }
 
-  // If not authenticated, show category navigation
-  return (
-    <nav
-      className='bg-white border-b border-rich-sand/30 sticky z-40 top-[calc(4rem+3.5rem)] md:top-20'
-      dir={isRTL ? 'rtl' : 'ltr'}
-      onMouseLeave={handleCategoryLeave}
-    >
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-        {/* Desktop Navigation */}
-        <div className='hidden md:flex items-center justify-center gap-8 h-14'>
-          {navigationCategories.map(category => {
-            const isActive =
-              clickedCategory === category.key ||
-              activeCategory === category.key;
-            const IconComponent = categoryIcons[category.key];
-            return (
-              <div key={category.key} className='relative'>
-                <button
-                  onClick={e => handleCategoryClick(category.key, e)}
-                  className={`relative px-3 py-2 font-medium text-sm transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-                    isActive
-                      ? 'text-saudi-green'
-                      : 'text-deep-charcoal/70 hover:text-saudi-green'
-                  }`}
-                  onMouseEnter={() => handleCategoryEnter(category.key)}
-                >
-                  <span className='font-display'>
-                    {t(category.key) || category.name}
-                  </span>
-                  <span
-                    className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-saudi-green rounded-full transition-all duration-300 ${
-                      isActive
-                        ? 'w-12 opacity-100 shadow-lg shadow-saudi-green/50'
-                        : 'w-0 opacity-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Mobile Navigation - Categories Bar */}
-        <div className='md:hidden'>
-          <div className='flex items-center gap-2 sm:gap-3 h-14 overflow-x-auto scrollbar-hide px-2'>
-            {navigationCategories.map(category => {
-              const isActive =
-                clickedCategory === category.key ||
-                activeCategory === category.key;
-              const IconComponent = categoryIcons[category.key];
-              return (
-                <button
-                  key={category.key}
-                  onClick={e => handleCategoryClick(category.key, e)}
-                  className={`relative flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-1.5 min-w-[60px] sm:min-w-[70px] transition-all duration-300 flex-shrink-0 cursor-pointer ${
-                    isActive
-                      ? 'text-saudi-green'
-                      : 'text-deep-charcoal/70 active:text-saudi-green'
-                  }`}
-                >
-                  <span className='font-display text-[10px] sm:text-xs font-medium leading-tight text-center whitespace-nowrap'>
-                    {t(category.key) || category.name}
-                  </span>
-                  <span
-                    className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-saudi-green rounded-full transition-all duration-300 ${
-                      isActive
-                        ? 'w-full max-w-[50px] sm:max-w-[60px] opacity-100 shadow-md shadow-saudi-green/50'
-                        : 'w-0 opacity-0'
-                    }`}
-                  />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Dropdown Menu */}
-      {activeCategoryData && (
-        <div
-          ref={dropdownRef}
-          className='absolute top-full left-0 right-0 bg-white border-t border-rich-sand/30 shadow-lg z-30'
-          style={{ display: displayedCategory ? 'block' : 'none' }}
-          onMouseEnter={() => {
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-            }
-          }}
-          onMouseLeave={handleCategoryLeave}
-        >
-          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
-              {activeCategoryData.subCategories.length > 0 && (
-                <div className='dropdown-item'>
-                  <h3 className='font-bold text-deep-charcoal mb-4 text-lg'>
-                    {t('shopByCategory') || 'Shop by category'}
-                  </h3>
-                  <div className='grid grid-cols-2 gap-2'>
-                    {activeCategoryData.subCategories.map(subCat => {
-                      // Build browse URL with category and subcategory filters
-                      const browseUrl = `/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}&subcategory=${encodeURIComponent(subCat.name)}`;
-                      return (
-                        <Link
-                          key={subCat.key}
-                          href={browseUrl}
-                          className='text-deep-charcoal/70 hover:text-saudi-green hover:font-medium transition-all duration-200 text-sm py-1.5 px-2 rounded hover:bg-saudi-green/5'
-                          onClick={handleCloseDropdown}
-                        >
-                          {safeTranslate(
-                            `${activeCategoryData.key}Sub.${subCat.key}`,
-                            subCat.name
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  <Link
-                    href={`/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}`}
-                    className='mt-4 inline-block w-full text-sm text-saudi-green underline underline-offset-2 hover:underline-offset-4 transition-all duration-200'
-                    onClick={handleCloseDropdown}
-                  >
-                    {t('seeAll') || 'See all'} {activeCategoryData.name}
-                  </Link>
-                </div>
-              )}
-
-              {activeCategoryData.featured.length > 0 && (
-                <div className='dropdown-item'>
-                  <h3 className='font-bold text-deep-charcoal mb-4 text-lg'>
-                    {t('featured') || 'Featured'}
-                  </h3>
-                  <div className='grid grid-cols-2 text-nowrap gap-3'>
-                    {activeCategoryData.featured.map(item => {
-                      const translationKey = `${activeCategoryData.key}Sub.featured.${item.key}`;
-                      const displayName = safeTranslate(
-                        translationKey,
-                        item.name
-                      );
-                      // Extract subcategory from href if it's a category page
-                      // Otherwise redirect to browse with category filter
-                      const isCategoryPage = item.href.startsWith(`/${activeCategoryData.key}`);
-                      const browseUrl = isCategoryPage
-                        ? `/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}&subcategory=${encodeURIComponent(item.name)}`
-                        : `/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}`;
-                      return (
-                        <Link
-                          key={item.key}
-                          href={browseUrl}
-                          className='text-deep-charcoal/70 hover:text-saudi-green hover:font-medium transition-all duration-200 text-sm py-1.5 px-2 rounded hover:bg-saudi-green/5'
-                          onClick={handleCloseDropdown}
-                        >
-                          {displayName}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  <Link
-                    href={`/${locale}/browse?category=${encodeURIComponent(activeCategoryData.key)}`}
-                    className='mt-4 inline-block w-full text-sm text-saudi-green underline underline-offset-2 hover:underline-offset-4 transition-all duration-200'
-                    onClick={handleCloseDropdown}
-                  >
-                    {t('seeAll') || 'See all'} {activeCategoryData.name}
-                  </Link>
-                </div>
-              )}
-
-              {activeCategoryData.styles.length > 0 && (
-                <div className='dropdown-item'>
-                  <h3 className='font-bold text-deep-charcoal mb-4 text-lg'>
-                    {t('styles') || 'Styles'}
-                  </h3>
-                  <div className='grid grid-cols-2 gap-3'>
-                    {activeCategoryData.styles.map(style => (
-                      <Link
-                        key={style.key}
-                        href={`/${locale}${style.href}`}
-                        className='group relative aspect-square overflow-hidden rounded-lg'
-                        onClick={handleCloseDropdown}
-                      >
-                        <StyleImage
-                          style={style}
-                          className='group-hover:scale-105'
-                        />
-                        <div className='absolute inset-0 bg-gradient-to-t from-deep-charcoal/70 to-transparent' />
-                        <span className='absolute bottom-2 left-2 right-2 text-white font-semibold text-sm text-center'>
-                          {safeTranslate(
-                            `${activeCategoryData.key}Sub.styles.${style.key}`,
-                            style.name
-                          )}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                  <Link
-                    href={`/${locale}${activeCategoryData.href}`}
-                    className='mt-4 inline-flex items-center justify-center w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 text-sm shadow-md hover:shadow-lg'
-                    onClick={handleCloseDropdown}
-                  >
-                    {t('seeAll') || 'See all'} {activeCategoryData.name}
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </nav>
-  );
+  // If not authenticated, don't show the old category navigation bar
+  // Categories are now shown in the CategoriesSection component on the home page
+  return null;
 }

@@ -32,7 +32,7 @@ export default function FeaturedProductsSection() {
       <section className='py-16 bg-off-white'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center mb-8'>
-            <h2 className='text-3xl font-bold text-deep-charcoal font-display'>
+            <h2 className='text-lg sm:text-xl md:text-3xl font-bold text-deep-charcoal font-display'>
               {t('title')}
             </h2>
           </div>
@@ -64,7 +64,7 @@ export default function FeaturedProductsSection() {
     <section className='py-16 bg-off-white'>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
         <div className='flex justify-between items-center mb-8'>
-          <h2 className='text-3xl font-bold text-deep-charcoal font-display'>
+          <h2 className='text-lg sm:text-xl md:text-3xl font-bold text-deep-charcoal font-display'>
             {t('title')}
           </h2>
           <Link

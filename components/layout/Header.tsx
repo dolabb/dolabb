@@ -173,6 +173,7 @@ export default function Header() {
   }, []);
 
   // Initialize affiliate status after mount to avoid hydration mismatch
+  // Re-check when pathname changes (e.g., after login redirect)
   useEffect(() => {
     const checkAffiliate = () => {
       if (typeof window !== 'undefined') {
@@ -185,7 +186,7 @@ export default function Header() {
     // Listen for storage changes (e.g., when affiliate logs in/out in another tab)
     window.addEventListener('storage', checkAffiliate);
     return () => window.removeEventListener('storage', checkAffiliate);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -371,7 +372,7 @@ export default function Header() {
                 alt='Dolabb Logo'
                 width={100}
                 height={100}
-                className='md:hidden h-10 w-auto'
+                className='md:hidden h-24 w-auto'
                 priority
               />
             </div>
@@ -390,7 +391,7 @@ export default function Header() {
                 alt='Dolabb Logo'
                 width={100}
                 height={100}
-                className='md:hidden h-10 w-auto'
+                className='md:hidden h-24 w-auto'
                 priority
               />
             </Link>
@@ -697,11 +698,11 @@ export default function Header() {
                           onClick={() => setIsProfileDropdownOpen(false)}
                           className='flex items-center gap-3 px-4 py-2 text-sm text-deep-charcoal hover:bg-rich-sand/10 hover:text-saudi-green transition-colors whitespace-nowrap'
                         >
-                          <HiPencilSquare className='w-4 h-4 flex-shrink-0' />
+                          <HiUser className='w-4 h-4 flex-shrink-0' />
                           <span className='font-medium'>
                             {locale === 'en'
-                              ? 'Edit Profile'
-                              : 'تعديل الملف الشخصي'}
+                              ? 'View Profile'
+                              : 'عرض الملف الشخصي'}
                           </span>
                         </Link>
                       )}
@@ -899,25 +900,21 @@ export default function Header() {
                 <>
                   {/* Cart (hidden for affiliates) */}
                   {(!mounted || !isAffiliate) && (
-                    <div className='relative'>
-                      <Link
-                        href={`/${locale}/cart`}
-                        className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
-                        onClick={() => setIsMobileMenuOpen(false)}
-                      >
-                        <div className='relative'>
-                          <HiShoppingBag className='w-5 h-5' />
-                          {cartData?.itemCount && cartData.itemCount > 0 && (
-                            <span className='absolute top-0 right-0 bg-saudi-green text-white text-[10px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center leading-none'>
-                              {cartData.itemCount > 9
-                                ? '9+'
-                                : cartData.itemCount}
-                            </span>
-                          )}
-                        </div>
-                        {locale === 'en' ? 'Cart' : 'السلة'}
-                      </Link>
-                    </div>
+                    <Link
+                      href={`/${locale}/cart`}
+                      className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className='relative'>
+                        <HiShoppingBag className='w-5 h-5' />
+                        {cartData?.itemCount && cartData.itemCount > 0 && (
+                          <span className='absolute -top-1 -right-1 bg-saudi-green text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none'>
+                            {cartData.itemCount > 9 ? '9+' : cartData.itemCount}
+                          </span>
+                        )}
+                      </div>
+                      {locale === 'en' ? 'Cart' : 'السلة'}
+                    </Link>
                   )}
                   {/* Messages (hidden for affiliates) */}
                   {(!mounted || !isAffiliate) && (
@@ -930,68 +927,40 @@ export default function Header() {
                       {locale === 'en' ? 'Messages' : 'الرسائل'}
                     </Link>
                   )}
-                  {/* Profile Dropdown - Mobile */}
-                  <div className='border-t border-rich-sand/30 pt-2 mt-2'>
-                    <button
-                      onClick={() =>
-                        setIsProfileDropdownOpen(!isProfileDropdownOpen)
-                      }
-                      className='w-full flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 cursor-pointer'
-                    >
-                      <HiUser className='w-5 h-5 flex-shrink-0' />
-                      <span className='text-sm whitespace-nowrap'>
-                        {locale === 'en' ? 'Profile' : 'الملف الشخصي'}
-                      </span>
-                    </button>
-                    {isProfileDropdownOpen && (
-                      <div className='pl-8 pt-2 space-y-2'>
-                        {isAffiliate ? (
-                          <Link
-                            href={`/${locale}/affiliate/profile`}
-                            onClick={() => {
-                              setIsMobileMenuOpen(false);
-                              setIsProfileDropdownOpen(false);
-                            }}
-                            className='flex items-center gap-3 text-sm text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 whitespace-nowrap'
-                          >
-                            <HiPencilSquare className='w-4 h-4 flex-shrink-0' />
-                            <span>
-                              {locale === 'en' ? 'Profile' : 'الملف الشخصي'}
-                            </span>
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/${locale}/profile`}
-                            onClick={() => {
-                              setIsMobileMenuOpen(false);
-                              setIsProfileDropdownOpen(false);
-                            }}
-                            className='flex items-center gap-3 text-sm text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 whitespace-nowrap'
-                          >
-                            <HiPencilSquare className='w-4 h-4 flex-shrink-0' />
-                            <span>
-                              {locale === 'en'
-                                ? 'Edit Profile'
-                                : 'تعديل الملف الشخصي'}
-                            </span>
-                          </Link>
-                        )}
-                        <button
-                          onClick={() => {
-                            handleLogout();
-                            setIsMobileMenuOpen(false);
-                            setIsProfileDropdownOpen(false);
-                          }}
-                          className='w-full flex items-center gap-3 text-sm text-deep-charcoal hover:text-red-600 transition-colors font-medium py-2 whitespace-nowrap cursor-pointer'
-                        >
-                          <HiArrowRightOnRectangle className='w-4 h-4 flex-shrink-0' />
-                          <span>
-                            {locale === 'en' ? 'Logout' : 'تسجيل الخروج'}
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {/* View Profile - Mobile */}
+                  <Link
+                    href={
+                      isAffiliate
+                        ? `/${locale}/affiliate/profile`
+                        : `/${locale}/profile`
+                    }
+                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <HiUser className='w-5 h-5' />
+                    {locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}
+                  </Link>
+                  {/* Logout - Mobile */}
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className='flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all duration-200 font-semibold shadow-md hover:shadow-lg cursor-pointer'
+                  >
+                    <HiArrowRightOnRectangle className='w-5 h-5' />
+                    {locale === 'en' ? 'Logout' : 'تسجيل الخروج'}
+                  </button>
+                  {/* Language Toggle - Mobile */}
+                  <button
+                    onClick={toggleLanguage}
+                    className='flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold shadow-sm hover:shadow-md cursor-pointer'
+                  >
+                    <span className='text-base font-bold'>
+                      {locale === 'en' ? 'ع' : 'EN'}
+                    </span>
+                    {locale === 'en' ? 'العربية' : 'English'}
+                  </button>
                 </>
               ) : (
                 (!mounted || !isAffiliate) && (
@@ -1022,15 +991,20 @@ export default function Header() {
                   </>
                 )
               )}
-              <button
-                onClick={toggleLanguage}
-                className='px-4 py-2 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 w-fit cursor-pointer'
-              >
-                <span className='text-base'>
-                  {locale === 'en' ? 'ع' : 'EN'}
-                </span>
-                <span className='text-xs'>{locale === 'en' ? 'AR' : 'EN'}</span>
-              </button>
+              {/* Language Toggle - Only for non-authenticated users */}
+              {!isAuthenticated && !isAffiliate && (
+                <button
+                  onClick={toggleLanguage}
+                  className='px-4 py-2 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 w-fit cursor-pointer'
+                >
+                  <span className='text-base'>
+                    {locale === 'en' ? 'ع' : 'EN'}
+                  </span>
+                  <span className='text-xs'>
+                    {locale === 'en' ? 'AR' : 'EN'}
+                  </span>
+                </button>
+              )}
             </nav>
           </div>
         )}

@@ -663,13 +663,19 @@ export function useWebSocket({
                 }
               } else {
                 // Fallback: determine from offer data (should not happen if backend is correct)
-                if (data.type === 'offer_countered') {
-                  // For counter offers: check who sent it
-                  // Backend should provide message.senderId, but if not, use offer context
-                  const userIsSeller = data.offer.sellerId === user?.id;
-                  const userIsBuyer = data.offer.buyerId === user?.id;
-                  // This is a fallback - backend should provide isSender or senderId
-                  isMyMessage = userIsSeller || userIsBuyer;
+                // Check for senderId at the root level of data as well
+                if (data.senderId && user?.id) {
+                  isMyMessage = data.senderId === user?.id;
+                } else if (data.type === 'offer_countered') {
+                  // For counter offers: check lastCounteredBy field if available
+                  // Otherwise, we cannot reliably determine who sent it without senderId
+                  if (data.offer.lastCounteredBy && user?.id) {
+                    isMyMessage = data.offer.lastCounteredBy === user?.id;
+                  } else {
+                    // Cannot determine - default to false (assume received)
+                    // Backend should always provide senderId for proper determination
+                    isMyMessage = false;
+                  }
                 } else if (data.type === 'offer_sent') {
                   isMyMessage = data.offer.buyerId === user?.id;
                 } else {
@@ -1025,6 +1031,17 @@ export function useWebSocket({
               // These are important events that should update the conversations list
               safeRefetchConversations();
 
+              // Determine if current user sent the message for toast display
+              // Priority: message.senderId > message.isSender > data.senderId > offer context
+              let toastIsMyMessage = isMyMessage;
+              if (data.message?.senderId && user?.id) {
+                toastIsMyMessage = data.message.senderId === user?.id;
+              } else if (data.message?.isSender !== undefined) {
+                toastIsMyMessage = data.message.isSender;
+              } else if (data.senderId && user?.id) {
+                toastIsMyMessage = data.senderId === user?.id;
+              }
+
               if (data.type === 'offer_sent') {
                 toast.success(
                   locale === 'en'
@@ -1034,8 +1051,8 @@ export function useWebSocket({
               } else if (data.type === 'offer_countered') {
                 toast.info(
                   locale === 'en'
-                    ? `Counter offer of ${data.offer.counterAmount} SAR ${isMyMessage ? 'sent' : 'received'}`
-                    : `تم ${isMyMessage ? 'إرسال' : 'استلام'} عرض مقابل بقيمة ${data.offer.counterAmount} ريال`
+                    ? `Counter offer of ${data.offer.counterAmount} SAR ${toastIsMyMessage ? 'sent' : 'received'}`
+                    : `تم ${toastIsMyMessage ? 'إرسال' : 'استلام'} عرض مقابل بقيمة ${data.offer.counterAmount} ريال`
                 );
               } else if (data.type === 'offer_accepted') {
                 toast.success(

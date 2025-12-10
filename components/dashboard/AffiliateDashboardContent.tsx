@@ -328,38 +328,40 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-6 border-b border-rich-sand/30">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-              activeTab === 'overview'
-                ? 'border-saudi-green text-saudi-green'
-                : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-            }`}
-          >
-            {locale === 'en' ? 'Overview' : 'نظرة عامة'}
-          </button>
-          <button
-            onClick={() => setActiveTab('earnings')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-              activeTab === 'earnings'
-                ? 'border-saudi-green text-saudi-green'
-                : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-            }`}
-          >
-            {locale === 'en' ? 'Earnings' : 'الأرباح'}
-          </button>
-          <button
-            onClick={() => setActiveTab('cashout')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
-              activeTab === 'cashout'
-                ? 'border-saudi-green text-saudi-green'
-                : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-            }`}
-          >
-            {locale === 'en' ? 'Cashout' : 'السحب'}
-          </button>
+        {/* Tabs - Horizontally scrollable on mobile */}
+        <div className="flex mb-6 border-b border-rich-sand/30 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex gap-2 sm:gap-4 min-w-max">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'overview'
+                  ? 'border-saudi-green text-saudi-green'
+                  : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+              }`}
+            >
+              {locale === 'en' ? 'Overview' : 'نظرة عامة'}
+            </button>
+            <button
+              onClick={() => setActiveTab('earnings')}
+              className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'earnings'
+                  ? 'border-saudi-green text-saudi-green'
+                  : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+              }`}
+            >
+              {locale === 'en' ? 'Earnings' : 'الأرباح'}
+            </button>
+            <button
+              onClick={() => setActiveTab('cashout')}
+              className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'cashout'
+                  ? 'border-saudi-green text-saudi-green'
+                  : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+              }`}
+            >
+              {locale === 'en' ? 'Cashout' : 'السحب'}
+            </button>
+          </div>
         </div>
 
         {/* Content */}

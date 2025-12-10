@@ -1,12 +1,15 @@
 'use client';
 
 import ProductCard from '@/components/shared/ProductCard';
+import {
+  useGetFeaturedProductsQuery,
+  useGetTrendingProductsQuery,
+} from '@/lib/api/productsApi';
 import { useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import Hero from './Hero';
 import CategoriesSection from './CategoriesSection';
-import { useGetFeaturedProductsQuery, useGetTrendingProductsQuery } from '@/lib/api/productsApi';
+import Hero from './Hero';
 
 export default function LoggedInHome() {
   const locale = useLocale();
@@ -15,8 +18,16 @@ export default function LoggedInHome() {
   const carouselIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch featured and trending products
-  const { data: featuredData, isLoading: featuredLoading, error: featuredError } = useGetFeaturedProductsQuery({ limit: 8, page: 1 });
-  const { data: trendingData, isLoading: trendingLoading, error: trendingError } = useGetTrendingProductsQuery({ limit: 8, page: 1 });
+  const {
+    data: featuredData,
+    isLoading: featuredLoading,
+    error: featuredError,
+  } = useGetFeaturedProductsQuery({ limit: 8, page: 1 });
+  const {
+    data: trendingData,
+    isLoading: trendingLoading,
+    error: trendingError,
+  } = useGetTrendingProductsQuery({ limit: 8, page: 1 });
 
   const itemsYouMightLike = featuredData?.products || [];
   const dailyRecommendations = trendingData?.products || [];
@@ -100,25 +111,29 @@ export default function LoggedInHome() {
       <section className='py-16 bg-white'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center mb-8'>
-            <h2 className='text-3xl font-bold text-deep-charcoal font-display'>
+            <h2 className='text-lg sm:text-xl md:text-3xl font-bold text-deep-charcoal font-display'>
               {locale === 'en' ? 'Items You Might Like' : 'عناصر قد تعجبك'}
             </h2>
             <Link
               href={`/${locale}/browse`}
               className='text-saudi-green hover:text-saudi-green/80 font-semibold transition-colors font-display flex items-center gap-1'
             >
-              {locale === 'en' ? 'View all' : 'عرض الكل'} <span>{locale === 'ar' ? '←' : '→'}</span>
+              {locale === 'en' ? 'View all' : 'عرض الكل'}{' '}
+              <span>{locale === 'ar' ? '←' : '→'}</span>
             </Link>
           </div>
           {featuredLoading ? (
             <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
-                  <div className="relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer" />
-                  <div className="p-4">
-                    <div className="h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer" />
-                    <div className="h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer" />
-                    <div className="h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer" />
+                <div
+                  key={i}
+                  className='bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300'
+                >
+                  <div className='relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer' />
+                  <div className='p-4'>
+                    <div className='h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer' />
+                    <div className='h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer' />
+                    <div className='h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
                   </div>
                 </div>
               ))}
@@ -127,13 +142,18 @@ export default function LoggedInHome() {
             <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
               {itemsYouMightLike.map((product, index) => {
                 // Get first valid image, clean any spaces in URL
-                const firstImage = product.images?.find(img => img && img.trim() !== '') || product.images?.[0] || '';
+                const firstImage =
+                  product.images?.find(img => img && img.trim() !== '') ||
+                  product.images?.[0] ||
+                  '';
                 // Clean image URL - remove any spaces that might be in the URL
-                const productImage = firstImage ? firstImage.replace(/\s+/g, '') : '';
-                
+                const productImage = firstImage
+                  ? firstImage.replace(/\s+/g, '')
+                  : '';
+
                 // Prioritize first 4 items (above the fold)
                 const isPriority = index < 4;
-                
+
                 return (
                   <ProductCard
                     key={product.id}
@@ -158,25 +178,29 @@ export default function LoggedInHome() {
       <section className='py-16 bg-off-white'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex justify-between items-center mb-8'>
-            <h2 className='text-3xl font-bold text-deep-charcoal font-display'>
+            <h2 className='text-lg sm:text-xl md:text-3xl font-bold text-deep-charcoal font-display'>
               {locale === 'en' ? 'Daily Recommendations' : 'التوصيات اليومية'}
             </h2>
             <Link
               href={`/${locale}/recommendations`}
               className='text-saudi-green hover:text-saudi-green/80 font-semibold transition-colors font-display flex items-center gap-1'
             >
-              {locale === 'en' ? 'View all' : 'عرض الكل'} <span>{locale === 'ar' ? '←' : '→'}</span>
+              {locale === 'en' ? 'View all' : 'عرض الكل'}{' '}
+              <span>{locale === 'ar' ? '←' : '→'}</span>
             </Link>
           </div>
           {trendingLoading ? (
             <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
-                  <div className="relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer" />
-                  <div className="p-4">
-                    <div className="h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer" />
-                    <div className="h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer" />
-                    <div className="h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer" />
+                <div
+                  key={i}
+                  className='bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300'
+                >
+                  <div className='relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer' />
+                  <div className='p-4'>
+                    <div className='h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer' />
+                    <div className='h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer' />
+                    <div className='h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
                   </div>
                 </div>
               ))}
@@ -185,10 +209,15 @@ export default function LoggedInHome() {
             <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6'>
               {dailyRecommendations.map(product => {
                 // Get first valid image, clean any spaces in URL
-                const firstImage = product.images?.find(img => img && img.trim() !== '') || product.images?.[0] || '';
+                const firstImage =
+                  product.images?.find(img => img && img.trim() !== '') ||
+                  product.images?.[0] ||
+                  '';
                 // Clean image URL - remove any spaces that might be in the URL
-                const productImage = firstImage ? firstImage.replace(/\s+/g, '') : '';
-                
+                const productImage = firstImage
+                  ? firstImage.replace(/\s+/g, '')
+                  : '';
+
                 return (
                   <ProductCard
                     key={product.id}
