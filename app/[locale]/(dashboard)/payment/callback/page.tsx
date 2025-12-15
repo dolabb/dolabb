@@ -101,6 +101,11 @@ export default function PaymentCallbackPage() {
                     verifiedPayment = verifyResult.payment;
                     console.log('Verification successful via Next.js API:', verifyResult);
                   }
+                } else if (verifyResponse.status === 404) {
+                  // 404 means route not found - might be deployment issue, but payment is still valid
+                  console.warn('Verify endpoint returned 404, but URL status is paid. Proceeding with success.');
+                } else {
+                  console.warn('Verify endpoint returned non-200 status:', verifyResponse.status);
                 }
               } catch (nextJsError: any) {
                 console.warn('Next.js API verification failed, trying Django backend:', nextJsError);
@@ -126,7 +131,13 @@ export default function PaymentCallbackPage() {
                 } catch (djangoError: any) {
                   // Handle 400/500 errors from Django backend
                   const errorMessage = djangoError.response?.data?.error || djangoError.message;
-                  console.warn('Django backend verification failed (400/500), but proceeding with success since URL status is paid:', errorMessage);
+                  const errorStatus = djangoError.response?.status;
+                  
+                  if (errorStatus === 404) {
+                    console.warn('Django backend verify endpoint not found (404), but proceeding with success since URL status is paid');
+                  } else {
+                    console.warn('Django backend verification failed, but proceeding with success since URL status is paid:', errorMessage);
+                  }
                   // Don't block - payment is confirmed as paid from URL
                 }
               }
@@ -174,6 +185,10 @@ export default function PaymentCallbackPage() {
                         break;
                       }
                     }
+                  } else if (verifyResponse.status === 404) {
+                    // 404 means route not found - might be deployment issue
+                    console.warn(`Verify endpoint returned 404 (attempt ${retryCount + 1}). This might be a deployment issue.`);
+                    // Continue to retry or fallback
                   } else {
                     throw new Error(`Verification failed with status: ${verifyResponse.status}`);
                   }
@@ -422,13 +437,14 @@ export default function PaymentCallbackPage() {
               }
 
               // Redirect to success page with payment IDs
+              // Use moyasarPaymentId instead of local paymentId to avoid ObjectId errors
               const successParams = new URLSearchParams({
                 offerId: finalOfferId,
                 product: finalProduct,
                 offerPrice: finalOfferPrice,
                 shipping: finalShipping,
                 orderId: orderId,
-                paymentId: paymentRecord.id || '',
+                // Removed paymentId (local PAY-xxx format) - use moyasarPaymentId instead
                 moyasarPaymentId: paymentId || paymentData?.id || '',
               });
               
@@ -604,13 +620,14 @@ export default function PaymentCallbackPage() {
                 );
 
                 // Redirect to success page
+                // Use moyasarPaymentId instead of local paymentId to avoid ObjectId errors
                 const successParams = new URLSearchParams({
                   offerId: finalOfferId,
                   product: finalProduct,
                   offerPrice: finalOfferPrice,
                   shipping: finalShipping,
                   orderId: orderId,
-                  paymentId: paymentRecord.id || '',
+                  // Removed paymentId (local PAY-xxx format) - use moyasarPaymentId instead
                   moyasarPaymentId: paymentId || '',
                 });
                 
@@ -684,13 +701,14 @@ export default function PaymentCallbackPage() {
         // Fallback: use status from callback URL
         if (status === 'paid') {
           // Payment successful - redirect to success page with payment IDs
+          // Use moyasarPaymentId instead of local paymentId to avoid ObjectId errors
           const successParams = new URLSearchParams({
             offerId: offerId || '',
             product: product || '',
             offerPrice: offerPrice || '',
             shipping: shipping || '',
             orderId: orderId,
-            paymentId: pendingPayment?.paymentId || '',
+            // Removed paymentId (local PAY-xxx format) - use moyasarPaymentId instead
             moyasarPaymentId: paymentId || '',
           });
           

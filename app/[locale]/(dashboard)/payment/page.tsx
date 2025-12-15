@@ -249,11 +249,15 @@ export default function PaymentPage() {
           isGroup: isGroupOrder ? 'true' : 'false',
           type: isCartCheckout ? 'cart' : 'offer',
           offerId: offerId || '',
-          product: product || '',
+          // Product information
+          product: product || '', // Product title
           size: size || '',
-          price: price || '',
-          offerPrice: offerPrice || '',
-          shipping: shipping || '',
+          // Price information
+          price: price || '', // Original price
+          offerPrice: offerPrice || '', // Offer/negotiated price
+          shipping: shipping || '', // Shipping cost
+          totalPrice: (totalAmount / 100).toFixed(2), // Total amount in SAR
+          // Additional info
           locale: locale,
         },
         on_completed: function(payment: any) {

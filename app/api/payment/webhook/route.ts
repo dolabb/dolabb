@@ -127,20 +127,95 @@ export async function POST(request: NextRequest) {
     // 3. Send "item sold" email notification (ONLY if status is 'paid')
     // 4. Update affiliate earnings
     // etc.
-
-    return NextResponse.json({
-      success: true,
-      message: 'Webhook processed successfully - payment verified as paid',
-      data: {
+    
+    const DJANGO_BACKEND_URL = process.env.DJANGO_BACKEND_URL || 'https://dolabb-backend-2vsj.onrender.com';
+    
+    try {
+      // Forward webhook to Django backend
+      const djangoWebhookBody = {
         id,
-        status: actualPaymentStatus, // Use verified status, not reported status
+        status: actualPaymentStatus,
         amount,
-        offerId: offerId || null,
-        processedAt: new Date().toISOString(),
-        emailSent: true, // Safe to send email now
-        verified: true, // Indicate payment was verified
-      },
-    });
+        offerId: body.offerId || null,
+        orderId: body.orderId || null,
+        orderIds: body.orderIds || null,
+        isGroup: body.isGroup || false,
+      };
+      
+      console.log('Forwarding webhook to Django backend:', djangoWebhookBody);
+      
+      const djangoResponse = await fetch(`${DJANGO_BACKEND_URL}/api/payment/webhook/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(djangoWebhookBody),
+      });
+      
+      const djangoData = await djangoResponse.json().catch(() => ({}));
+      
+      if (!djangoResponse.ok) {
+        console.error('Django backend webhook error:', {
+          status: djangoResponse.status,
+          data: djangoData,
+        });
+        
+        // Still return success to frontend since payment is verified
+        // Django backend error shouldn't block the payment success
+        return NextResponse.json({
+          success: true,
+          message: 'Webhook processed successfully - payment verified as paid',
+          warning: 'Django backend webhook failed but payment is verified',
+          data: {
+            id,
+            status: actualPaymentStatus,
+            amount,
+            offerId: offerId || null,
+            processedAt: new Date().toISOString(),
+            emailSent: false, // Email not sent due to Django error
+            verified: true,
+            djangoError: djangoData.error || djangoData.message || 'Unknown error',
+          },
+        });
+      }
+      
+      console.log('Django backend webhook successful:', djangoData);
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Webhook processed successfully - payment verified as paid',
+        data: {
+          id,
+          status: actualPaymentStatus, // Use verified status, not reported status
+          amount,
+          offerId: offerId || null,
+          processedAt: new Date().toISOString(),
+          emailSent: true, // Safe to send email now
+          verified: true, // Indicate payment was verified
+          djangoResponse: djangoData,
+        },
+      });
+    } catch (djangoError: any) {
+      console.error('Error forwarding webhook to Django backend:', djangoError);
+      
+      // Still return success to frontend since payment is verified
+      // Django backend error shouldn't block the payment success
+      return NextResponse.json({
+        success: true,
+        message: 'Webhook processed successfully - payment verified as paid',
+        warning: 'Django backend webhook failed but payment is verified',
+        data: {
+          id,
+          status: actualPaymentStatus,
+          amount,
+          offerId: offerId || null,
+          processedAt: new Date().toISOString(),
+          emailSent: false, // Email not sent due to Django error
+          verified: true,
+          djangoError: djangoError.message || 'Failed to forward to Django backend',
+        },
+      });
+    }
   } catch (error: any) {
     console.error('Payment webhook error:', error);
     return NextResponse.json(

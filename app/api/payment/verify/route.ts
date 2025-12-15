@@ -51,24 +51,29 @@ async function verifyPaymentWithMoyasar(paymentId: string) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const paymentId = searchParams.get('id');
+    // Try both 'id' and 'paymentId' query params for compatibility
+    const paymentId = searchParams.get('id') || searchParams.get('paymentId');
 
     if (!paymentId) {
       return NextResponse.json(
-        { error: 'Payment ID is required' },
+        { error: 'Payment ID is required. Provide ?id= or ?paymentId= parameter' },
         { status: 400 }
       );
     }
 
+    console.log('Payment verification request:', { paymentId, url: request.url });
+
     const result = await verifyPaymentWithMoyasar(paymentId);
 
     if (result.error) {
+      console.error('Payment verification failed:', result);
       return NextResponse.json(
         result,
         { status: result.status || 500 }
       );
     }
 
+    console.log('Payment verification successful:', { paymentId, status: result.payment?.status });
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('Payment verification error:', error);

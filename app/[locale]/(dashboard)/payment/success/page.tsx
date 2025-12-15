@@ -46,29 +46,64 @@ export default function PaymentSuccessPage() {
   const [paymentData, setPaymentData] = useState<PaymentSuccessResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [urlParams, setUrlParams] = useState<{
+    orderId: string | null;
+    paymentId: string | null;
+    moyasarPaymentId: string | null;
+    isGroupOrder: boolean;
+    orderIds: string[];
+    paidOrderIds: string[];
+    isCartCheckout: boolean;
+  } | null>(null);
 
-  // Get parameters from URL or storage
-  const orderId = searchParams.get('orderId') || searchParams.get('order_id') || 
-                  (typeof window !== 'undefined' ? sessionStorage.getItem('orderId') : null);
-  const paymentId = searchParams.get('paymentId') || searchParams.get('payment_id') || 
-                    (typeof window !== 'undefined' ? localStorage.getItem('lastPaymentId') : null);
-  const moyasarPaymentId = searchParams.get('moyasarPaymentId') || searchParams.get('moyasar_payment_id') || 
-                            searchParams.get('id') || // From callback
-                            (typeof window !== 'undefined' ? localStorage.getItem('lastMoyasarPaymentId') : null);
-  
-  // Group order parameters
-  const isGroupOrder = searchParams.get('isGroup') === 'true';
-  const orderIdsParam = searchParams.get('orderIds');
-  const paidOrderIdsParam = searchParams.get('paidOrderIds');
-  const checkoutType = searchParams.get('type');
-  const isCartCheckout = checkoutType === 'cart';
-  
-  // Parse order IDs arrays
-  const orderIds = orderIdsParam ? orderIdsParam.split(',') : [];
-  const paidOrderIds = paidOrderIdsParam ? paidOrderIdsParam.split(',') : [];
+  // Initialize URL params after mount to avoid hydration issues
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const orderId = searchParams.get('orderId') || searchParams.get('order_id') || 
+                    sessionStorage.getItem('orderId');
+    const paymentId = searchParams.get('paymentId') || searchParams.get('payment_id') || 
+                      localStorage.getItem('lastPaymentId');
+    const moyasarPaymentId = searchParams.get('moyasarPaymentId') || searchParams.get('moyasar_payment_id') || 
+                              searchParams.get('id') || // From callback
+                              localStorage.getItem('lastMoyasarPaymentId');
+    
+    // Group order parameters
+    const isGroupOrder = searchParams.get('isGroup') === 'true';
+    const orderIdsParam = searchParams.get('orderIds');
+    const paidOrderIdsParam = searchParams.get('paidOrderIds');
+    const checkoutType = searchParams.get('type');
+    const isCartCheckout = checkoutType === 'cart';
+    
+    // Parse order IDs arrays
+    const orderIds = orderIdsParam ? orderIdsParam.split(',') : [];
+    const paidOrderIds = paidOrderIdsParam ? paidOrderIdsParam.split(',') : [];
+    
+    setUrlParams({
+      orderId,
+      paymentId,
+      moyasarPaymentId,
+      isGroupOrder,
+      orderIds,
+      paidOrderIds,
+      isCartCheckout,
+    });
+  }, [searchParams]);
+
+  // Get parameters from state
+  const orderId = urlParams?.orderId || null;
+  const paymentId = urlParams?.paymentId || null;
+  const moyasarPaymentId = urlParams?.moyasarPaymentId || null;
+  const isGroupOrder = urlParams?.isGroupOrder || false;
+  const orderIds = urlParams?.orderIds || [];
+  const paidOrderIds = urlParams?.paidOrderIds || [];
+  const isCartCheckout = urlParams?.isCartCheckout || false;
 
   // Call payment success API
   useEffect(() => {
+    // Wait for URL params to be initialized
+    if (!urlParams) return;
+    
     const fetchPaymentSuccess = async () => {
       if (!orderId && !paymentId && !moyasarPaymentId) {
         setError(locale === 'en' 
@@ -129,7 +164,7 @@ export default function PaymentSuccessPage() {
     };
 
     fetchPaymentSuccess();
-  }, [orderId, paymentId, moyasarPaymentId, locale, isGroupOrder, orderIds, paidOrderIds, isCartCheckout]);
+  }, [urlParams, orderId, paymentId, moyasarPaymentId, locale, isGroupOrder, orderIds, paidOrderIds, isCartCheckout]);
 
   // Determine if payment was successful
   const isPaymentSuccessful = paymentData?.payment?.status === 'completed' || 
