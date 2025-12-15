@@ -184,21 +184,48 @@ const reverseConditionMap: Record<string, string> = {
 };
 const colors = [
   'Black',
+  'Grey',
   'White',
-  'Navy',
-  'Gray',
-  'Beige',
-  'Red',
-  'Blue',
-  'Green',
-  'Pink',
-  'Yellow',
-  'Purple',
-  'Orange',
   'Brown',
+  'Tan',
+  'Cream',
+  'Yellow',
+  'Red',
+  'Burgundy',
+  'Orange',
+  'Pink',
+  'Purple',
+  'Blue',
+  'Navy',
+  'Green',
+  'Khaki',
+  'Multi',
   'Silver',
   'Gold',
 ];
+
+// Color mapping for display swatches
+const colorMap: Record<string, string> = {
+  'Black': '#000000',
+  'Grey': '#808080',
+  'White': '#FFFFFF',
+  'Brown': '#8B4513',
+  'Tan': '#D2B48C',
+  'Cream': '#FFFDD0',
+  'Yellow': '#FFFF00',
+  'Red': '#FF0000',
+  'Burgundy': '#800020',
+  'Orange': '#FFA500',
+  'Pink': '#FFC0CB',
+  'Purple': '#800080',
+  'Blue': '#0000FF',
+  'Navy': '#000080',
+  'Green': '#008000',
+  'Khaki': '#C3B091',
+  'Silver': '#C0C0C0',
+  'Gold': '#FFD700',
+  'Multi': 'multi', // Special case
+};
 
 export default function ListItemForm({ onCancel, productId, initialData }: ListItemFormProps) {
   const locale = useLocale();
@@ -319,6 +346,19 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     normalizedData?.shippingInfo?.locations || ['Saudi Arabia']
   );
   const [newShippingLocation, setNewShippingLocation] = useState('');
+  // Handle colors as array for multi-select
+  const [selectedColors, setSelectedColors] = useState<string[]>(() => {
+    if (normalizedData?.color) {
+      // Handle both string (comma-separated) and array formats
+      if (typeof normalizedData.color === 'string') {
+        return normalizedData.color.split(',').map(c => c.trim()).filter(Boolean);
+      }
+      if (Array.isArray(normalizedData.color)) {
+        return normalizedData.color;
+      }
+    }
+    return [];
+  });
 
   // Update form when initialData changes (for edit mode)
   useEffect(() => {
@@ -363,6 +403,19 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
 
       // Update shipping locations
       setShippingLocations(normalizedData.shippingInfo?.locations || ['Saudi Arabia']);
+
+      // Update selected colors
+      if (normalizedData.color) {
+        if (typeof normalizedData.color === 'string') {
+          setSelectedColors(normalizedData.color.split(',').map(c => c.trim()).filter(Boolean));
+        } else if (Array.isArray(normalizedData.color)) {
+          setSelectedColors(normalizedData.color);
+        } else {
+          setSelectedColors([]);
+        }
+      } else {
+        setSelectedColors([]);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData, isEditMode]);
@@ -605,8 +658,9 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         apiData['SKU/ID (Optional)'] = formData.sku;
       }
       
-      if (formData.color) {
-        apiData.Color = formData.color;
+      if (selectedColors.length > 0) {
+        // Send colors as comma-separated string for API compatibility
+        apiData.Color = selectedColors.join(', ');
       }
       
       if (formData.originalPrice) {
@@ -665,6 +719,119 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     // Automatically submit form after accepting terms
     // Pass skipTermsCheck=true to avoid checking terms again
     await handleSubmit(new Event('submit') as any, true);
+  };
+
+  // Color Swatch Component
+  const ColorSwatch = ({ colorName }: { colorName: string }) => {
+    if (colorName === 'Multi') {
+      // Show all colors for Multi - using a conic gradient pattern
+      const allColors = colors.filter(c => c !== 'Multi').map(c => colorMap[c] || '#CCCCCC');
+      const colorStops = allColors.map((color, index) => {
+        const percentage = (index / allColors.length) * 100;
+        return `${color} ${percentage}%`;
+      }).join(', ');
+      
+      return (
+        <div className='w-5 h-5 rounded-full border border-gray-300 relative overflow-hidden flex-shrink-0' title='Multi'>
+          <div 
+            className='absolute inset-0'
+            style={{
+              background: `conic-gradient(from 0deg, ${colorStops})`
+            }}
+          />
+        </div>
+      );
+    }
+    
+    const colorHex = colorMap[colorName] || '#CCCCCC';
+    const isLight = colorName === 'White' || colorName === 'Cream' || colorName === 'Yellow' || colorName === 'Silver' || colorName === 'Gold';
+    
+    return (
+      <div
+        className={`w-5 h-5 rounded-full border ${isLight ? 'border-gray-300' : 'border-transparent'} flex-shrink-0`}
+        style={{ backgroundColor: colorHex }}
+        title={colorName}
+      />
+    );
+  };
+
+  // Multi-select Color Dropdown Component
+  const MultiSelectColorDropdown = () => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (
+          dropdownRef.current &&
+          !dropdownRef.current.contains(event.target as Node)
+        ) {
+          setIsOpen(false);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () =>
+        document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleColor = (colorName: string) => {
+      if (selectedColors.includes(colorName)) {
+        setSelectedColors(prev => prev.filter(c => c !== colorName));
+      } else {
+        setSelectedColors(prev => [...prev, colorName]);
+      }
+    };
+
+    return (
+      <div className='relative' ref={dropdownRef}>
+        <button
+          type='button'
+          onClick={() => setIsOpen(!isOpen)}
+          className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors bg-white text-deep-charcoal cursor-pointer text-left flex items-center justify-between'
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23006747' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
+            backgroundPosition: 'right 0.5rem center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: '1.5em 1.5em',
+            paddingRight: '2.5rem',
+          }}
+        >
+          <span className={selectedColors.length > 0 ? '' : 'text-deep-charcoal/50'}>
+            {selectedColors.length > 0
+              ? `${selectedColors.length} ${locale === 'en' ? 'color(s) selected' : 'لون محدد'}`
+              : locale === 'en' ? 'Select Colors' : 'اختر الألوان'}
+          </span>
+        </button>
+        {isOpen && (
+          <div className='absolute z-50 w-full mt-1 bg-white border border-rich-sand/30 rounded-lg shadow-lg overflow-hidden min-w-[200px]'>
+            <div className='max-h-[240px] overflow-y-auto'>
+              {colors.map(colorName => {
+                const isSelected = selectedColors.includes(colorName);
+                return (
+                  <button
+                    key={colorName}
+                    type='button'
+                    onClick={() => toggleColor(colorName)}
+                    className={`w-full px-3 py-2 text-sm text-left hover:bg-saudi-green/10 transition-colors cursor-pointer flex items-center gap-2 ${
+                      isSelected
+                        ? 'bg-saudi-green/20 text-saudi-green font-medium'
+                        : 'text-deep-charcoal'
+                    }`}
+                  >
+                    <ColorSwatch colorName={colorName} />
+                    <span>{colorName}</span>
+                    {isSelected && (
+                      <span className='ml-auto text-saudi-green'>✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Custom dropdown component
@@ -1172,19 +1339,29 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
           </div>
           <div>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Color (Optional)' : 'اللون (اختياري)'}
+              {locale === 'en' ? 'Colors (Optional)' : 'الألوان (اختياري)'}
             </label>
-            <CustomDropdown
-              value={formData.color}
-              onChange={value =>
-                setFormData(prev => ({ ...prev, color: value }))
-              }
-              options={[
-                { value: '', label: locale === 'en' ? 'Select Color' : 'اختر اللون' },
-                ...colors.map(c => ({ value: c, label: c })),
-              ]}
-              placeholder={locale === 'en' ? 'Select Color' : 'اختر اللون'}
-            />
+            <MultiSelectColorDropdown />
+            {selectedColors.length > 0 && (
+              <div className='flex flex-wrap gap-2 mt-2'>
+                {selectedColors.map((color, index) => (
+                  <span
+                    key={index}
+                    className='inline-flex items-center gap-1.5 px-3 py-1.5 bg-saudi-green/10 text-saudi-green rounded-full text-sm border border-saudi-green/20'
+                  >
+                    <ColorSwatch colorName={color} />
+                    {color}
+                    <button
+                      type='button'
+                      onClick={() => setSelectedColors(prev => prev.filter((_, i) => i !== index))}
+                      className='hover:text-red-500 transition-colors cursor-pointer ml-1'
+                    >
+                      <HiXMark className='w-4 h-4' />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
