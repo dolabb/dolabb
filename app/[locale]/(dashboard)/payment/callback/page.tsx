@@ -22,25 +22,55 @@ export default function PaymentCallbackPage() {
         const product = searchParams.get('product');
         const offerPrice = searchParams.get('offerPrice');
         const shipping = searchParams.get('shipping');
+        
+        // Get cart/group order parameters
+        const checkoutType = searchParams.get('type');
+        const isCartCheckout = checkoutType === 'cart';
+        const isGroupFromUrl = searchParams.get('isGroup') === 'true';
+        const orderIdsFromUrl = searchParams.get('orderIds');
+        const orderIdFromUrl = searchParams.get('orderId');
 
         console.log('Payment callback received:', {
           paymentId,
           status,
           offerId,
           product,
+          checkoutType,
+          isGroupFromUrl,
+          orderIdsFromUrl,
+          orderIdFromUrl,
         });
 
         // Try to get pending payment data from sessionStorage
-        let pendingPayment = null;
+        let pendingPayment: any = null;
+        let isGroupOrder = isGroupFromUrl;
+        let orderIds: string[] = [];
+        
         try {
           const stored = sessionStorage.getItem('pendingPayment');
           if (stored) {
             pendingPayment = JSON.parse(stored);
             sessionStorage.removeItem('pendingPayment'); // Clean up
+            
+            // Check if this is a group order from pendingPayment
+            if (pendingPayment.isGroup) {
+              isGroupOrder = true;
+              orderIds = pendingPayment.orderIds || [];
+            }
           }
         } catch (e) {
           console.error('Error reading pending payment:', e);
         }
+        
+        // Get orderIds from URL if not in pendingPayment
+        if (orderIdsFromUrl && orderIds.length === 0) {
+          orderIds = orderIdsFromUrl.split(',');
+        }
+        
+        // Get single orderId
+        const orderId = pendingPayment?.orderId || orderIdFromUrl || '';
+        
+        console.log('Group order info:', { isGroupOrder, orderIds, orderId });
 
         // If we have a payment ID, verify the payment status
         if (paymentId) {
@@ -56,11 +86,21 @@ export default function PaymentCallbackPage() {
                 // Call Django backend verify endpoint directly
                 console.log(`Calling Django /api/payment/verify/ (attempt ${retryCount + 1})`);
                 
-                const verifyResponse = await apiClient.post('/api/payment/verify/', {
+                // Build verify request body
+                const verifyBody: any = {
                   paymentId: paymentId,
-                  orderId: pendingPayment?.orderId || null,
                   offerId: pendingPayment?.offerId || offerId || null,
-                });
+                };
+                
+                // For group orders, send orderIds array
+                if (isGroupOrder && orderIds.length > 0) {
+                  verifyBody.orderIds = orderIds;
+                  verifyBody.isGroup = true;
+                } else {
+                  verifyBody.orderId = orderId || null;
+                }
+                
+                const verifyResponse = await apiClient.post('/api/payment/verify/', verifyBody);
                 
                 const verifyResult = verifyResponse.data;
                 
@@ -212,19 +252,29 @@ export default function PaymentCallbackPage() {
               
               if (!webhookAlreadyCalled) {
                 try {
-                  console.log('Calling Django backend payment webhook with:', {
+                  // Build webhook request body
+                  const webhookBody: any = {
                     id: paymentId,
                     status: 'paid',
                     amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
-                    offerId: finalOfferId,
-                  });
+                  };
+                  
+                  // For group orders, send orderIds array
+                  if (isGroupOrder && orderIds.length > 0) {
+                    webhookBody.orderIds = orderIds;
+                    webhookBody.isGroup = true;
+                  } else if (orderId) {
+                    webhookBody.orderId = orderId;
+                  }
+                  
+                  // Include offerId for offer-based checkout
+                  if (finalOfferId) {
+                    webhookBody.offerId = finalOfferId;
+                  }
+                  
+                  console.log('Calling Django backend payment webhook with:', webhookBody);
 
-                  const webhookResponse = await apiClient.post('/api/payment/webhook/', {
-                    id: paymentId,
-                    status: 'paid',
-                    amount: paymentData?.amount || Math.round(parseFloat(finalTotalPrice) * 100),
-                    offerId: finalOfferId, // CRITICAL: Include offerId for backend to update offer status
-                  });
+                  const webhookResponse = await apiClient.post('/api/payment/webhook/', webhookBody);
 
                   console.log('Payment Webhook Response:', {
                     status: webhookResponse.status,
@@ -293,10 +343,27 @@ export default function PaymentCallbackPage() {
                 product: finalProduct,
                 offerPrice: finalOfferPrice,
                 shipping: finalShipping,
-                orderId: pendingPayment?.orderId || '',
+                orderId: orderId,
                 paymentId: paymentRecord.id || '',
                 moyasarPaymentId: paymentId || paymentData?.id || '',
               });
+              
+              // Add group order info to success params
+              if (isGroupOrder && orderIds.length > 0) {
+                successParams.set('isGroup', 'true');
+                successParams.set('orderIds', orderIds.join(','));
+              }
+              
+              // Check if payment response includes orders array (for group payments)
+              if (paymentData?.orders && Array.isArray(paymentData.orders)) {
+                successParams.set('paidOrderIds', paymentData.orders.join(','));
+              }
+              
+              // For cart checkout, add type
+              if (isCartCheckout) {
+                successParams.set('type', 'cart');
+              }
+              
               router.push(`/${locale}/payment/success?${successParams.toString()}`);
               return;
             } else if (paymentStatus === 'initiated') {
@@ -395,28 +462,63 @@ export default function PaymentCallbackPage() {
             product: product || '',
             offerPrice: offerPrice || '',
             shipping: shipping || '',
-            orderId: pendingPayment?.orderId || '',
+            orderId: orderId,
             paymentId: pendingPayment?.paymentId || '',
             moyasarPaymentId: paymentId || '',
           });
+          
+          // Add group order info
+          if (isGroupOrder && orderIds.length > 0) {
+            successParams.set('isGroup', 'true');
+            successParams.set('orderIds', orderIds.join(','));
+          }
+          
+          if (isCartCheckout) {
+            successParams.set('type', 'cart');
+          }
+          
           router.push(`/${locale}/payment/success?${successParams.toString()}`);
         } else {
           // Payment failed or cancelled - redirect back to payment page
-          router.push(
-            `/${locale}/payment?offerId=${offerId}&product=${encodeURIComponent(product || '')}&size=${searchParams.get('size')}&price=${searchParams.get('price')}&offerPrice=${offerPrice}&shipping=${shipping}`
-          );
+          if (isCartCheckout) {
+            const errorParams = new URLSearchParams({
+              type: 'cart',
+              orderId: orderId,
+              error: 'payment_failed',
+            });
+            if (isGroupOrder && orderIds.length > 0) {
+              errorParams.set('isGroup', 'true');
+              errorParams.set('orderIds', orderIds.join(','));
+            }
+            router.push(`/${locale}/payment?${errorParams.toString()}`);
+          } else {
+            router.push(
+              `/${locale}/payment?offerId=${offerId}&product=${encodeURIComponent(product || '')}&size=${searchParams.get('size')}&price=${searchParams.get('price')}&offerPrice=${offerPrice}&shipping=${shipping}`
+            );
+          }
         }
       } catch (error) {
         console.error('Payment callback error:', error);
         setIsVerifying(false);
         // Redirect back to payment page on error
-        const offerId = searchParams.get('offerId');
-        const product = searchParams.get('product');
-        const offerPrice = searchParams.get('offerPrice');
-        const shipping = searchParams.get('shipping');
-        router.push(
-          `/${locale}/payment?offerId=${offerId}&product=${encodeURIComponent(product || '')}&size=${searchParams.get('size')}&price=${searchParams.get('price')}&offerPrice=${offerPrice}&shipping=${shipping}`
-        );
+        const errorOfferId = searchParams.get('offerId');
+        const errorProduct = searchParams.get('product');
+        const errorOfferPrice = searchParams.get('offerPrice');
+        const errorShipping = searchParams.get('shipping');
+        const errorType = searchParams.get('type');
+        
+        if (errorType === 'cart') {
+          const errorParams = new URLSearchParams({
+            type: 'cart',
+            orderId: searchParams.get('orderId') || '',
+            error: 'payment_error',
+          });
+          router.push(`/${locale}/payment?${errorParams.toString()}`);
+        } else {
+          router.push(
+            `/${locale}/payment?offerId=${errorOfferId}&product=${encodeURIComponent(errorProduct || '')}&size=${searchParams.get('size')}&price=${searchParams.get('price')}&offerPrice=${errorOfferPrice}&shipping=${errorShipping}`
+          );
+        }
       }
     };
 

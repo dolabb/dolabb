@@ -77,7 +77,7 @@ export const formatMessageTime = (
     if (diffMins < 1) {
       return locale === 'en' ? 'Just now' : 'الآن';
     }
-    
+
     // Show date if over 24 hours
     if (diffDays >= 1) {
       return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
@@ -141,35 +141,48 @@ export const validateMessageText = (
 
   for (const pattern of phonePatterns) {
     const matches = text.match(pattern);
-    if (matches && matches.some(match => {
-      const digitsOnly = match.replace(/\D/g, '');
-      const digitsLength = digitsOnly.length;
-      
-      // Phone numbers typically have 7-15 digits
-      if (digitsLength < 7 || digitsLength > 15) return false;
-      
-      // Exclude years (1900-2099) - 4 digits
-      if (digitsLength === 4 && /^(19|20)\d{2}$/.test(digitsOnly)) return false;
-      
-      // Exclude very short numbers
-      if (digitsLength <= 3) return false;
-      
-      // If pattern has separators, country code, or parentheses, it's likely a phone number
-      if (match.includes('+') || match.includes('-') || match.includes('(') || 
-          match.includes(')') || (match.includes(' ') && digitsLength >= 7)) {
-        return true;
-      }
-      
-      // For long digit sequences (10+ digits), very likely a phone number
-      if (digitsLength >= 10) return true;
-      
-      // For 7-9 digit sequences starting with 0 (common for local numbers)
-      if (digitsLength >= 7 && digitsLength <= 9 && digitsOnly.startsWith('0')) {
-        return true;
-      }
-      
-      return false;
-    })) {
+    if (
+      matches &&
+      matches.some(match => {
+        const digitsOnly = match.replace(/\D/g, '');
+        const digitsLength = digitsOnly.length;
+
+        // Phone numbers typically have 7-15 digits
+        if (digitsLength < 7 || digitsLength > 15) return false;
+
+        // Exclude years (1900-2099) - 4 digits
+        if (digitsLength === 4 && /^(19|20)\d{2}$/.test(digitsOnly))
+          return false;
+
+        // Exclude very short numbers
+        if (digitsLength <= 3) return false;
+
+        // If pattern has separators, country code, or parentheses, it's likely a phone number
+        if (
+          match.includes('+') ||
+          match.includes('-') ||
+          match.includes('(') ||
+          match.includes(')') ||
+          (match.includes(' ') && digitsLength >= 7)
+        ) {
+          return true;
+        }
+
+        // For long digit sequences (10+ digits), very likely a phone number
+        if (digitsLength >= 10) return true;
+
+        // For 7-9 digit sequences starting with 0 (common for local numbers)
+        if (
+          digitsLength >= 7 &&
+          digitsLength <= 9 &&
+          digitsOnly.startsWith('0')
+        ) {
+          return true;
+        }
+
+        return false;
+      })
+    ) {
       return {
         isValid: false,
         restrictionType: 'phone',
@@ -181,9 +194,57 @@ export const validateMessageText = (
     }
   }
 
+  // Check for phone numbers written as words (e.g., "zero fiver zero six eight nine")
+  // This catches attempts to bypass numeric phone detection
+  const numberWords = [
+    'zero',
+    'one',
+    'two',
+    'three',
+    'four',
+    'five',
+    'fiver',
+    'six',
+    'seven',
+    'eight',
+    'nine',
+    'oh',
+    'o', // Common substitutions for zero
+    // Arabic number words
+    'صفر',
+    'واحد',
+    'اثنين',
+    'ثلاثة',
+    'اربعة',
+    'أربعة',
+    'خمسة',
+    'ستة',
+    'سبعة',
+    'ثمانية',
+    'تسعة',
+  ];
+
+  // Create a regex pattern to find sequences of number words
+  const numberWordPattern = new RegExp(
+    `\\b(${numberWords.join('|')})\\b`,
+    'gi'
+  );
+
+  const wordMatches = text.match(numberWordPattern);
+  if (wordMatches && wordMatches.length >= 7) {
+    // If 7 or more number words found, likely a phone number written in words
+    return {
+      isValid: false,
+      restrictionType: 'phone',
+      message:
+        locale === 'en'
+          ? 'Phone numbers (including those written as words) are not allowed in messages. Please remove any phone numbers before sending.'
+          : 'لا يُسمح بأرقام الهواتف (بما في ذلك المكتوبة بالكلمات) في الرسائل. يرجى إزالة أي أرقام هواتف قبل الإرسال.',
+    };
+  }
+
   // Check for email addresses
-  const emailPattern =
-    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+  const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
   if (emailPattern.test(text)) {
     return {
       isValid: false,
@@ -195,41 +256,50 @@ export const validateMessageText = (
     };
   }
 
-  // Check for external links/URLs
-  // Matches http://, https://, www., and common domain patterns
-  const urlPatterns = [
-    /https?:\/\/[^\s]+/gi, // http:// or https://
-    /www\.[^\s]+/gi, // www.
-    /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi, // domain.com or domain.com/path
+  // Check for blocked domain extensions (.com, .org, .gov)
+  // These are specifically blocked to prevent external link sharing
+  const blockedDomainPatterns = [
+    // Matches URLs with http:// or https:// containing blocked extensions
+    /https?:\/\/[^\s]*\.(com|org|gov)(\/[^\s]*)?/gi,
+    // Matches www. prefixed URLs with blocked extensions
+    /www\.[^\s]*\.(com|org|gov)(\/[^\s]*)?/gi,
+    // Matches bare domain names with blocked extensions (e.g., example.com, site.org)
+    /\b[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.(com|org|gov)(\/[^\s]*)?\b/gi,
   ];
 
-  for (const pattern of urlPatterns) {
-    if (pattern.test(text)) {
-      // Additional check to avoid false positives (like "a.com" in regular text)
-      const matches = text.match(pattern);
-      if (matches && matches.some(match => {
+  for (const pattern of blockedDomainPatterns) {
+    const matches = text.match(pattern);
+    if (
+      matches &&
+      matches.some(match => {
         const cleanMatch = match.toLowerCase().trim();
         // Exclude common false positives
-        const falsePositives = ['e.g.', 'i.e.', 'etc.', 'vs.', 'mr.', 'mrs.', 'dr.', 'prof.'];
+        const falsePositives = [
+          'e.g.',
+          'i.e.',
+          'etc.',
+          'vs.',
+          'mr.',
+          'mrs.',
+          'dr.',
+          'prof.',
+        ];
         if (falsePositives.some(fp => cleanMatch.includes(fp))) return false;
-        
-        // Check if it looks like a real URL
-        return cleanMatch.includes('://') || 
-               cleanMatch.startsWith('www.') || 
-               (cleanMatch.includes('.') && cleanMatch.length > 4);
-      })) {
-        return {
-          isValid: false,
-          restrictionType: 'link',
-          message:
-            locale === 'en'
-              ? 'External links are not allowed in messages. Please remove any links before sending.'
-              : 'لا يُسمح بالروابط الخارجية في الرسائل. يرجى إزالة أي روابط قبل الإرسال.',
-        };
-      }
+
+        // Verify it contains a blocked domain extension
+        return /\.(com|org|gov)(\/|$)/i.test(cleanMatch);
+      })
+    ) {
+      return {
+        isValid: false,
+        restrictionType: 'link',
+        message:
+          locale === 'en'
+            ? 'Links with .com, .org, or .gov domains are not allowed in messages. Please remove any such links before sending.'
+            : 'لا يُسمح بالروابط التي تحتوي على نطاقات .com أو .org أو .gov في الرسائل. يرجى إزالة أي روابط من هذا النوع قبل الإرسال.',
+      };
     }
   }
 
   return { isValid: true, restrictionType: null, message: '' };
 };
-

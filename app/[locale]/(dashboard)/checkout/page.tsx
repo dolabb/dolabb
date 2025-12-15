@@ -16,13 +16,21 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const isRTL = locale === 'ar';
 
-  // Get offer data from URL params
+  // Determine checkout type (cart or offer)
+  const checkoutType = searchParams.get('type') || 'offer';
+  const isCartCheckout = checkoutType === 'cart';
+
+  // Get offer data from URL params (for offer flow)
   const offerId = searchParams.get('offerId');
   const product = searchParams.get('product');
   const size = searchParams.get('size');
   const price = searchParams.get('price');
   const offerPrice = searchParams.get('offerPrice');
   const shipping = searchParams.get('shipping');
+
+  // Get cart data from URL params (for cart flow)
+  const orderIdFromUrl = searchParams.get('orderId');
+  const totalFromUrl = searchParams.get('total');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -38,6 +46,7 @@ export default function CheckoutPage() {
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [orderSummary, setOrderSummary] = useState<any>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [cartCheckoutData, setCartCheckoutData] = useState<any>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -46,16 +55,33 @@ export default function CheckoutPage() {
   }, [isAuthenticated, locale, router]);
 
   useEffect(() => {
-    // Redirect if no offer data
-    if (!offerId || !product || !offerPrice) {
-      router.push(`/${locale}/messages`);
-    }
-  }, [offerId, product, offerPrice, locale, router]);
+    // For cart checkout, load data from sessionStorage
+    if (isCartCheckout) {
+      const storedCheckoutData = sessionStorage.getItem('checkoutData');
+      if (storedCheckoutData) {
+        try {
+          setCartCheckoutData(JSON.parse(storedCheckoutData));
+        } catch (e) {
+          console.error('Error parsing cart checkout data:', e);
+        }
+      }
 
-  // Fetch order summary from API
+      // Redirect if no cart checkout data
+      if (!orderIdFromUrl && !sessionStorage.getItem('orderId')) {
+        router.push(`/${locale}/cart`);
+      }
+    } else {
+      // For offer flow, redirect if no offer data
+      if (!offerId || !product || !offerPrice) {
+        router.push(`/${locale}/messages`);
+      }
+    }
+  }, [isCartCheckout, offerId, product, offerPrice, orderIdFromUrl, locale, router]);
+
+  // Fetch order summary from API (for offer flow)
   useEffect(() => {
     const fetchOrderSummary = async () => {
-      if (!offerId) return;
+      if (!offerId || isCartCheckout) return;
 
       setIsLoadingSummary(true);
       try {
@@ -72,9 +98,14 @@ export default function CheckoutPage() {
     };
 
     fetchOrderSummary();
-  }, [offerId]);
+  }, [offerId, isCartCheckout]);
 
-  if (!isAuthenticated || !offerId || !product || !offerPrice) {
+  // Early return checks
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (!isCartCheckout && (!offerId || !product || !offerPrice)) {
     return null;
   }
 
@@ -132,65 +163,85 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!offerId) {
-      toast.error(
-        locale === 'en'
-          ? 'Offer ID is required'
-          : 'معرف العرض مطلوب'
-      );
-      return;
-    }
-
     setIsCreatingOrder(true);
 
     try {
-      // Get affiliate code if available
-      let affiliateCode = '';
-      try {
-        const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
-        const item = storedItems.find((item: any) => item.title === product);
-        affiliateCode = item?.affiliateCode || '';
-      } catch (e) {
-        console.error('Error getting affiliate code:', e);
-      }
-
-      // Call Django backend checkout API to create order
-      console.log('Creating order with Django backend...');
-      const checkoutResponse = await apiClient.post('/api/payment/checkout/', {
-        offerId: offerId,
-        deliveryAddress: {
-          fullName: formData.fullName.trim(),
-          phone: formData.phone.trim(),
-          address: formData.address.trim(),
-          city: formData.city.trim(),
-          postalCode: formData.postalCode.trim(),
-          country: formData.country,
-          additionalInfo: formData.additionalInfo.trim(),
-        },
-        affiliateCode: affiliateCode || undefined,
-      });
-
-      const checkoutData = checkoutResponse.data;
-      console.log('Checkout API response:', checkoutData);
-
-      if (checkoutData.success && checkoutData.orderId) {
-        // Store real orderId in sessionStorage for payment page
-        sessionStorage.setItem('orderId', checkoutData.orderId);
+      if (isCartCheckout) {
+        // Cart checkout - order already created, go directly to payment
+        const orderId = orderIdFromUrl || sessionStorage.getItem('orderId');
         
-        // Redirect to payment page with offer data and orderId
+        if (!orderId) {
+          throw new Error('Order ID not found');
+        }
+
+        // Update delivery address if needed (optional API call)
+        // For now, redirect directly to payment
         const params = new URLSearchParams({
-          offerId: offerId || '',
-          product: product || '',
-          size: size || '',
-          price: price || '',
-          offerPrice: offerPrice || '',
-          shipping: shipping || '',
-          orderId: checkoutData.orderId, // Include real orderId
+          type: 'cart',
+          orderId: orderId,
+          total: cartCheckoutData?.total?.toString() || totalFromUrl || '0',
         });
         
         router.push(`/${locale}/payment?${params.toString()}`);
       } else {
-        throw new Error(checkoutData.error || 'Failed to create order');
+        // Offer checkout flow
+        if (!offerId) {
+          toast.error(
+            locale === 'en'
+              ? 'Offer ID is required'
+              : 'معرف العرض مطلوب'
+          );
+          return;
+        }
+
+        // Get affiliate code if available
+        let affiliateCode = '';
+        try {
+          const storedItems = JSON.parse(localStorage.getItem('listedItems') || '[]');
+          const item = storedItems.find((item: any) => item.title === product);
+          affiliateCode = item?.affiliateCode || '';
+        } catch (e) {
+          console.error('Error getting affiliate code:', e);
+        }
+
+        // Call Django backend checkout API to create order
+        console.log('Creating order with Django backend...');
+        const checkoutResponse = await apiClient.post('/api/payment/checkout/', {
+          offerId: offerId,
+          deliveryAddress: {
+            fullName: formData.fullName.trim(),
+            phone: formData.phone.trim(),
+            address: formData.address.trim(),
+            city: formData.city.trim(),
+            postalCode: formData.postalCode.trim(),
+            country: formData.country,
+            additionalInfo: formData.additionalInfo.trim(),
+          },
+          affiliateCode: affiliateCode || undefined,
+        });
+
+        const checkoutData = checkoutResponse.data;
+        console.log('Checkout API response:', checkoutData);
+
+        if (checkoutData.success && checkoutData.orderId) {
+          // Store real orderId in sessionStorage for payment page
+          sessionStorage.setItem('orderId', checkoutData.orderId);
+          
+          // Redirect to payment page with offer data and orderId
+          const params = new URLSearchParams({
+            offerId: offerId || '',
+            product: product || '',
+            size: size || '',
+            price: price || '',
+            offerPrice: offerPrice || '',
+            shipping: shipping || '',
+            orderId: checkoutData.orderId, // Include real orderId
+          });
+          
+          router.push(`/${locale}/payment?${params.toString()}`);
+        } else {
+          throw new Error(checkoutData.error || 'Failed to create order');
+        }
       }
     } catch (error: any) {
       console.error('Error creating order:', error);
@@ -293,22 +344,52 @@ export default function CheckoutPage() {
     return normalized;
   };
 
-  // Use API data if available, otherwise fall back to URL params
-  const displayProduct = orderSummary?.productTitle || product;
-  const displayOriginalPrice = orderSummary?.originalPrice?.toFixed(2) || price;
-  const displayOfferPrice = orderSummary?.offerPrice?.toFixed(2) || offerPrice;
-  const displayShipping = orderSummary?.shippingPrice?.toFixed(2) || shipping;
-  const displayPlatformFee = orderSummary?.platformFee?.toFixed(2) || '0.00';
-  const displayTax = orderSummary?.platformTax?.amount?.toFixed(2) || '0.00';
-  const displayTotal = orderSummary?.finalTotal?.toFixed(2) || 
-    (parseFloat(offerPrice || '0') + parseFloat(shipping || '0')).toFixed(2);
-  
-  // Get currency from orderSummary or default to SAR
-  const orderCurrency = orderSummary?.currency || orderSummary?.productCurrency || 'SAR';
-  
-  const normalizedProductImage = orderSummary?.productImage 
-    ? normalizeImageUrl(orderSummary.productImage) 
-    : '';
+  // Display values based on checkout type
+  const getDisplayData = () => {
+    if (isCartCheckout && cartCheckoutData) {
+      return {
+        product: cartCheckoutData.product || 'Cart Items',
+        originalPrice: cartCheckoutData.price?.toFixed(2) || '0.00',
+        offerPrice: cartCheckoutData.price?.toFixed(2) || '0.00',
+        shipping: cartCheckoutData.shipping?.toFixed(2) || '0.00',
+        platformFee: cartCheckoutData.platformFee?.toFixed(2) || '0.00',
+        tax: '0.00',
+        total: cartCheckoutData.total?.toFixed(2) || '0.00',
+        currency: cartCheckoutData.currency || 'SAR',
+        productImage: '',
+        isCart: true,
+      };
+    }
+
+    // Offer flow
+    const displayProduct = orderSummary?.productTitle || product;
+    const displayOriginalPrice = orderSummary?.originalPrice?.toFixed(2) || price;
+    const displayOfferPrice = orderSummary?.offerPrice?.toFixed(2) || offerPrice;
+    const displayShipping = orderSummary?.shippingPrice?.toFixed(2) || shipping;
+    const displayPlatformFee = orderSummary?.platformFee?.toFixed(2) || '0.00';
+    const displayTax = orderSummary?.platformTax?.amount?.toFixed(2) || '0.00';
+    const displayTotal = orderSummary?.finalTotal?.toFixed(2) || 
+      (parseFloat(offerPrice || '0') + parseFloat(shipping || '0')).toFixed(2);
+    const orderCurrency = orderSummary?.currency || orderSummary?.productCurrency || 'SAR';
+    const normalizedProductImage = orderSummary?.productImage 
+      ? normalizeImageUrl(orderSummary.productImage) 
+      : '';
+
+    return {
+      product: displayProduct,
+      originalPrice: displayOriginalPrice,
+      offerPrice: displayOfferPrice,
+      shipping: displayShipping,
+      platformFee: displayPlatformFee,
+      tax: displayTax,
+      total: displayTotal,
+      currency: orderCurrency,
+      productImage: normalizedProductImage,
+      isCart: false,
+    };
+  };
+
+  const displayData = getDisplayData();
 
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
@@ -561,22 +642,24 @@ export default function CheckoutPage() {
                 <div className='space-y-4 mb-6'>
                   {/* Product Info */}
                   <div>
-                    {normalizedProductImage && (
+                    {displayData.productImage && (
                       <img
-                        src={normalizedProductImage}
-                        alt={displayProduct}
+                        src={displayData.productImage}
+                        alt={displayData.product}
                         className='w-full h-48 object-cover rounded-lg mb-3'
                         onError={(e) => {
-                          console.error('Product image failed to load:', normalizedProductImage);
+                          console.error('Product image failed to load:', displayData.productImage);
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     )}
                     <p className='text-sm text-deep-charcoal/70 mb-1'>
-                      {locale === 'en' ? 'Product' : 'المنتج'}
+                      {displayData.isCart 
+                        ? (locale === 'en' ? 'Cart Items' : 'منتجات السلة')
+                        : (locale === 'en' ? 'Product' : 'المنتج')}
                     </p>
-                    <p className='font-semibold text-deep-charcoal'>{displayProduct}</p>
-                    {size && (
+                    <p className='font-semibold text-deep-charcoal'>{displayData.product}</p>
+                    {size && !displayData.isCart && (
                       <p className='text-sm text-deep-charcoal/60'>
                         {locale === 'en' ? 'Size' : 'المقاس'}: {size}
                       </p>
@@ -585,20 +668,24 @@ export default function CheckoutPage() {
 
                   {/* Price Breakdown */}
                   <div className='border-t border-rich-sand/30 pt-4 space-y-2'>
+                    {!displayData.isCart && (
+                      <div className='flex justify-between text-sm'>
+                        <span className='text-deep-charcoal/70'>
+                          {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
+                        </span>
+                        <span className='text-deep-charcoal line-through'>
+                          {formatPrice(parseFloat(displayData.originalPrice), locale, 2, displayData.currency)}
+                        </span>
+                      </div>
+                    )}
                     <div className='flex justify-between text-sm'>
                       <span className='text-deep-charcoal/70'>
-                        {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
-                      </span>
-                      <span className='text-deep-charcoal line-through'>
-                        {formatPrice(parseFloat(displayOriginalPrice), locale, 2, orderCurrency)}
-                      </span>
-                    </div>
-                    <div className='flex justify-between text-sm'>
-                      <span className='text-deep-charcoal/70'>
-                        {locale === 'en' ? 'Offer Price' : 'سعر العرض'}
+                        {displayData.isCart 
+                          ? (locale === 'en' ? 'Items Total' : 'إجمالي المنتجات')
+                          : (locale === 'en' ? 'Offer Price' : 'سعر العرض')}
                       </span>
                       <span className='font-semibold text-saudi-green'>
-                        {formatPrice(parseFloat(displayOfferPrice), locale, 2, orderCurrency)}
+                        {formatPrice(parseFloat(displayData.offerPrice), locale, 2, displayData.currency)}
                       </span>
                     </div>
                     <div className='flex justify-between text-sm'>
@@ -606,27 +693,27 @@ export default function CheckoutPage() {
                         {locale === 'en' ? 'Shipping' : 'الشحن'}
                       </span>
                       <span className='text-deep-charcoal'>
-                        +{formatPrice(parseFloat(displayShipping), locale, 2, orderCurrency)}
+                        +{formatPrice(parseFloat(displayData.shipping), locale, 2, displayData.currency)}
                       </span>
                     </div>
-                    {parseFloat(displayPlatformFee) > 0 && (
+                    {parseFloat(displayData.platformFee) > 0 && (
                       <div className='flex justify-between text-sm'>
                         <span className='text-deep-charcoal/70'>
                           {locale === 'en' ? 'Platform Fee' : 'رسوم المنصة'}
                         </span>
                         <span className='text-deep-charcoal'>
-                          +{formatPrice(parseFloat(displayPlatformFee), locale, 2, orderCurrency)}
+                          +{formatPrice(parseFloat(displayData.platformFee), locale, 2, displayData.currency)}
                         </span>
                       </div>
                     )}
-                    {parseFloat(displayTax) > 0 && (
+                    {parseFloat(displayData.tax) > 0 && (
                       <div className='flex justify-between text-sm'>
                         <span className='text-deep-charcoal/70'>
                           {orderSummary?.platformTax?.label || 
                            (locale === 'en' ? 'Tax (VAT 15%)' : 'الضريبة (ضريبة القيمة المضافة 15%)')}
                         </span>
                         <span className='text-deep-charcoal'>
-                          +{formatPrice(parseFloat(displayTax), locale, 2, orderCurrency)}
+                          +{formatPrice(parseFloat(displayData.tax), locale, 2, displayData.currency)}
                         </span>
                       </div>
                     )}
@@ -639,7 +726,7 @@ export default function CheckoutPage() {
                         {locale === 'en' ? 'Total' : 'الإجمالي'}
                       </span>
                       <span className='text-xl font-bold text-saudi-green'>
-                        {formatPrice(parseFloat(displayTotal), locale, 2, orderCurrency)}
+                        {formatPrice(parseFloat(displayData.total), locale, 2, displayData.currency)}
                       </span>
                     </div>
                   </div>
@@ -652,4 +739,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-

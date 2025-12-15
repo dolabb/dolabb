@@ -27,7 +27,7 @@ export default function ListedItems() {
             key={i}
             className='bg-white rounded-lg border border-rich-sand/30 overflow-hidden'
           >
-            <div className='relative aspect-square bg-rich-sand/20 skeleton-shimmer' />
+            <div className='relative aspect-square bg-white skeleton-shimmer' />
             <div className='p-4 space-y-3'>
               <div className='h-5 bg-rich-sand/30 rounded w-3/4 skeleton-shimmer' />
               <div className='flex justify-between items-center'>
@@ -68,7 +68,7 @@ export default function ListedItems() {
               key={product.id}
               className='bg-white rounded-lg border border-rich-sand/30 overflow-hidden hover:shadow-lg transition-shadow'
             >
-              <div className='relative aspect-square bg-rich-sand/20'>
+              <div className='relative aspect-square bg-white'>
                 {productImage ? (
                   <Image
                     src={productImage}
@@ -78,7 +78,7 @@ export default function ListedItems() {
                     unoptimized
                   />
                 ) : (
-                  <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
+                  <div className='w-full h-full flex items-center justify-center bg-gray-100'>
                     <span className='text-deep-charcoal/40 text-xs text-center px-2 line-clamp-2'>
                       {product.title || 'No Image'}
                     </span>

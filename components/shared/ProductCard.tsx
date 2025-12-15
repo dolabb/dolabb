@@ -87,7 +87,7 @@ export default function ProductCard({
             <img
               src={normalizedImage}
               alt={title || 'Product image'}
-              className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-300'
+              className='w-full h-full object-contain group-hover:scale-105 transition-transform duration-300'
               onError={() => {
                 console.error('Image failed to load:', normalizedImage);
                 setImageError(true);
@@ -100,7 +100,7 @@ export default function ProductCard({
               alt={title || 'Product image'}
               fill
               sizes='(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw'
-              className='object-cover group-hover:scale-105 transition-transform duration-300'
+              className='object-contain group-hover:scale-105 transition-transform duration-300'
               onError={() => {
                 console.error('Image failed to load:', normalizedImage);
                 setImageError(true);

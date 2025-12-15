@@ -55,6 +55,17 @@ export default function PaymentSuccessPage() {
   const moyasarPaymentId = searchParams.get('moyasarPaymentId') || searchParams.get('moyasar_payment_id') || 
                             searchParams.get('id') || // From callback
                             (typeof window !== 'undefined' ? localStorage.getItem('lastMoyasarPaymentId') : null);
+  
+  // Group order parameters
+  const isGroupOrder = searchParams.get('isGroup') === 'true';
+  const orderIdsParam = searchParams.get('orderIds');
+  const paidOrderIdsParam = searchParams.get('paidOrderIds');
+  const checkoutType = searchParams.get('type');
+  const isCartCheckout = checkoutType === 'cart';
+  
+  // Parse order IDs arrays
+  const orderIds = orderIdsParam ? orderIdsParam.split(',') : [];
+  const paidOrderIds = paidOrderIdsParam ? paidOrderIdsParam.split(',') : [];
 
   // Call payment success API
   useEffect(() => {
@@ -74,6 +85,18 @@ export default function PaymentSuccessPage() {
         if (orderId) requestBody.orderId = orderId;
         if (paymentId) requestBody.paymentId = paymentId;
         if (moyasarPaymentId) requestBody.moyasarPaymentId = moyasarPaymentId;
+        
+        // Add group order info
+        if (isGroupOrder && orderIds.length > 0) {
+          requestBody.isGroup = true;
+          requestBody.orderIds = orderIds;
+        }
+        if (paidOrderIds.length > 0) {
+          requestBody.paidOrderIds = paidOrderIds;
+        }
+        if (isCartCheckout) {
+          requestBody.type = 'cart';
+        }
 
         // Try POST first, fallback to GET with query params
         let response;
@@ -106,7 +129,7 @@ export default function PaymentSuccessPage() {
     };
 
     fetchPaymentSuccess();
-  }, [orderId, paymentId, moyasarPaymentId, locale]);
+  }, [orderId, paymentId, moyasarPaymentId, locale, isGroupOrder, orderIds, paidOrderIds, isCartCheckout]);
 
   // Determine if payment was successful
   const isPaymentSuccessful = paymentData?.payment?.status === 'completed' || 
@@ -188,6 +211,19 @@ export default function PaymentSuccessPage() {
                    : 'لم يتم معالجة الدفع. يرجى المحاولة مرة أخرى.'))}
           </p>
 
+          {/* Group Order Info */}
+          {isGroupOrder && orderIds.length > 1 && (
+            <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left'>
+              <p className='text-sm text-blue-800'>
+                <span className='font-medium'>
+                  {locale === 'en' 
+                    ? `This payment covers ${orderIds.length} orders from different sellers.` 
+                    : `يغطي هذا الدفع ${orderIds.length} طلبات من بائعين مختلفين.`}
+                </span>
+              </p>
+            </div>
+          )}
+
           {/* Order Details */}
           {paymentData.order && (
             <div className='bg-rich-sand/10 rounded-lg p-6 mb-6 text-left'>
@@ -217,6 +253,14 @@ export default function PaymentSuccessPage() {
                       {locale === 'en' ? 'Payment Status:' : 'حالة الدفع:'}
                     </span>{' '}
                     <span className='capitalize'>{paymentData.order.paymentStatus}</span>
+                  </p>
+                )}
+                {isGroupOrder && orderIds.length > 1 && (
+                  <p>
+                    <span className='font-medium'>
+                      {locale === 'en' ? 'Related Orders:' : 'الطلبات المرتبطة:'}
+                    </span>{' '}
+                    {orderIds.length} {locale === 'en' ? 'orders' : 'طلبات'}
                   </p>
                 )}
               </div>

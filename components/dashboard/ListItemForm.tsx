@@ -33,12 +33,69 @@ const currencies = [
   { code: 'QAR', symbol: 'ر.ق', name: 'Qatari Riyal' },
 ];
 const genders = ['Men', 'Women', 'Unisex', 'Kids'];
-const sizes = [
-  '2XS',
+
+// Category-specific size mappings
+const categorySizes: Record<string, string[]> = {
+  // Clothing - T-shirts, Shirts, Tops
+  'tshirts': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+  'shirts': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+  'tops': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+  'blouses': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'dresses': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'pants': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'jeans': ['24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '36', '38', '40', '42'],
+  'shorts': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'skirts': ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+  'jackets': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'coats': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'hoodies': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  'sweaters': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  
+  // Shoes
+  'shoes': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
+  'sneakers': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
+  'boots': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'],
+  'sandals': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'],
+  'heels': ['35', '36', '37', '38', '39', '40', '41', '42', '43'],
+  'flats': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+  
+  // Bags
+  'bags': ['Small', 'Medium', 'Large', 'Extra Large'],
+  'handbags': ['Small', 'Medium', 'Large'],
+  'backpacks': ['Small', 'Medium', 'Large', 'Extra Large'],
+  'tote-bags': ['Small', 'Medium', 'Large'],
+  'clutches': ['Small', 'Medium'],
+  'crossbody': ['Small', 'Medium', 'Large'],
+  
+  // Accessories
+  'accessories': ['One Size'],
+  'jewelry': ['One Size'],
+  'watches': ['Small', 'Medium', 'Large'],
+  'belts': ['XS', 'S', 'M', 'L', 'XL'],
+  'hats': ['S', 'M', 'L', 'XL'],
+  'scarves': ['One Size'],
+  'sunglasses': ['One Size'],
+  
+  // Underwear & Lingerie
+  'underwear': ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+  'bras': ['32A', '32B', '32C', '34A', '34B', '34C', '36A', '36B', '36C', '38A', '38B', '38C'],
+  'lingerie': ['XS', 'S', 'M', 'L', 'XL'],
+  
+  // Swimwear
+  'swimwear': ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+  'bikinis': ['XS', 'S', 'M', 'L', 'XL'],
+  
+  // Kids
+  'kids-clothing': ['2T', '3T', '4T', '5T', '6', '7', '8', '10', '12', '14'],
+  'kids-shoes': ['25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35'],
+};
+
+// Default sizes (fallback)
+const defaultSizes = [
   'XS',
-  'Small',
-  'Medium',
-  'Large',
+  'S',
+  'M',
+  'L',
   'XL',
   '2XL',
   '3XL',
@@ -46,6 +103,67 @@ const sizes = [
   '5XL',
   'One Size',
 ];
+
+// Function to get sizes based on category and subcategory
+const getSizesForCategory = (category: string, subCategory: string): string[] => {
+  // Normalize subcategory key (remove spaces, hyphens, convert to lowercase)
+  const normalizedSubCategory = subCategory 
+    ? subCategory.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    : '';
+  
+  // First try subcategory (exact match)
+  if (normalizedSubCategory && categorySizes[normalizedSubCategory]) {
+    return categorySizes[normalizedSubCategory];
+  }
+  
+  // Try subcategory without normalization (for keys like 'tshirts', 'shoes')
+  if (subCategory && categorySizes[subCategory.toLowerCase()]) {
+    return categorySizes[subCategory.toLowerCase()];
+  }
+  
+  // Try common subcategory patterns
+  if (normalizedSubCategory) {
+    // Check for shoes-related
+    if (normalizedSubCategory.includes('shoe') || normalizedSubCategory.includes('sneaker') || 
+        normalizedSubCategory.includes('boot') || normalizedSubCategory.includes('sandal') ||
+        normalizedSubCategory.includes('heel') || normalizedSubCategory.includes('flat')) {
+      return categorySizes['shoes'];
+    }
+    
+    // Check for bags-related
+    if (normalizedSubCategory.includes('bag') || normalizedSubCategory.includes('purse') ||
+        normalizedSubCategory.includes('backpack') || normalizedSubCategory.includes('tote') ||
+        normalizedSubCategory.includes('clutch') || normalizedSubCategory.includes('crossbody')) {
+      return categorySizes['bags'];
+    }
+    
+    // Check for clothing
+    if (normalizedSubCategory.includes('tshirt') || normalizedSubCategory.includes('shirt') ||
+        normalizedSubCategory.includes('top') || normalizedSubCategory.includes('blouse')) {
+      return categorySizes['tshirts'];
+    }
+    
+    // Check for jeans
+    if (normalizedSubCategory.includes('jean')) {
+      return categorySizes['jeans'];
+    }
+    
+    // Check for accessories
+    if (normalizedSubCategory.includes('accessory') || normalizedSubCategory.includes('jewelry') ||
+        normalizedSubCategory.includes('jewellery') || normalizedSubCategory.includes('sunglass') ||
+        normalizedSubCategory.includes('scarf') || normalizedSubCategory.includes('hat')) {
+      return categorySizes['accessories'];
+    }
+  }
+  
+  // Then try category
+  if (category && categorySizes[category.toLowerCase()]) {
+    return categorySizes[category.toLowerCase()];
+  }
+  
+  // Default fallback
+  return defaultSizes;
+};
 const conditions = ['New with tag', 'Like new', 'Good', 'Fair', 'Poor'];
 
 // Map display condition values to API-expected values
@@ -374,6 +492,9 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
   const selectedCategory = navigationCategories.find(
     cat => cat.key === formData.category
   );
+  
+  // Get dynamic sizes based on category and subcategory
+  const availableSizes = getSizesForCategory(formData.category, formData.subCategory);
 
   const handleSubmit = async (e: React.FormEvent, skipTermsCheck = false) => {
     e.preventDefault();
@@ -836,10 +957,15 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             <CustomDropdown
               value={formData.category}
               onChange={value => {
+                const newCategory = value;
+                const newSizes = getSizesForCategory(newCategory, '');
+                const currentSizeValid = !formData.size || newSizes.includes(formData.size);
+                
                 setFormData(prev => ({
                   ...prev,
-                  category: value,
+                  category: newCategory,
                   subCategory: '',
+                  size: currentSizeValid ? prev.size : '',
                 }));
                 setCustomSubCategories([]);
                 setNewSubCategoryInput('');
@@ -887,7 +1013,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                   value: '',
                   label: locale === 'en' ? 'Select Size' : 'اختر المقاس',
                 },
-                ...sizes.map(s => ({ value: s, label: s })),
+                ...availableSizes.map(s => ({ value: s, label: s })),
               ]}
               placeholder={locale === 'en' ? 'Select Size' : 'اختر المقاس'}
             />
@@ -937,9 +1063,17 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               </label>
               <CustomDropdown
                 value={formData.subCategory}
-                onChange={value =>
-                  setFormData(prev => ({ ...prev, subCategory: value }))
-                }
+                onChange={value => {
+                  const newSubCategory = value;
+                  const newSizes = getSizesForCategory(formData.category, newSubCategory);
+                  const currentSizeValid = !formData.size || newSizes.includes(formData.size);
+                  
+                  setFormData(prev => ({
+                    ...prev,
+                    subCategory: newSubCategory,
+                    size: currentSizeValid ? prev.size : '',
+                  }));
+                }}
                 options={[
                   {
                     value: '',

@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api/client';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import { HiShieldCheck } from 'react-icons/hi2';
+import { HiShieldCheck, HiShoppingCart } from 'react-icons/hi2';
 import { toast } from '@/utils/toast';
 import { useAppSelector } from '@/lib/store/hooks';
 import { formatPrice } from '@/utils/formatPrice';
@@ -26,8 +26,18 @@ export default function PaymentPage() {
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [isMoyasarLoaded, setIsMoyasarLoaded] = useState(false);
   const moyasarInitialized = useRef(false);
+  const [cartCheckoutData, setCartCheckoutData] = useState<any>(null);
+  const [isGroupOrder, setIsGroupOrder] = useState(false);
+  const [orderIds, setOrderIds] = useState<string[]>([]);
+  const [groupOrders, setGroupOrders] = useState<any[]>([]);
 
-  // Get offer data from URL params
+  // Determine checkout type
+  const checkoutType = searchParams.get('type');
+  const isCartCheckout = checkoutType === 'cart';
+  const isGroupFromUrl = searchParams.get('isGroup') === 'true';
+  const orderIdsFromUrl = searchParams.get('orderIds');
+
+  // Get offer data from URL params (for offer flow)
   const offerId = searchParams.get('offerId');
   const product = searchParams.get('product');
   const size = searchParams.get('size');
@@ -35,9 +45,20 @@ export default function PaymentPage() {
   const offerPrice = searchParams.get('offerPrice');
   const shipping = searchParams.get('shipping');
   const orderIdFromUrl = searchParams.get('orderId');
+  const totalFromUrl = searchParams.get('total');
+  
+  // Get cart checkout data from URL params (for cart flow)
+  const priceFromUrl = searchParams.get('price');
+  const shippingFromUrl = searchParams.get('shipping');
+  const platformFeeFromUrl = searchParams.get('platformFee');
+  const currencyFromUrl = searchParams.get('currency');
 
   // Moyasar publishable key
   const publishableKey = 'pk_live_UUEN6v2pZSdxNdmEbMyyGcLw1fvd79CxJbb16BuG';
+
+  // Check if we have valid checkout data
+  const hasValidOfferData = offerId && product && offerPrice;
+  const hasValidCartData = isCartCheckout && (orderIdFromUrl || (typeof window !== 'undefined' && sessionStorage.getItem('orderId')));
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -45,17 +66,63 @@ export default function PaymentPage() {
     }
   }, [isAuthenticated, locale, router]);
 
+  // Load cart checkout data from sessionStorage
   useEffect(() => {
-    // Redirect if no offer data
-    if (!offerId || !product || !offerPrice) {
-      router.push(`/${locale}/messages`);
+    if (isCartCheckout && typeof window !== 'undefined') {
+      const storedCheckoutData = sessionStorage.getItem('checkoutData');
+      if (storedCheckoutData) {
+        try {
+          setCartCheckoutData(JSON.parse(storedCheckoutData));
+        } catch (e) {
+          console.error('Error parsing cart checkout data:', e);
+        }
+      }
+      
+      // Load group order data
+      const storedIsGroup = sessionStorage.getItem('isGroupOrder') === 'true' || isGroupFromUrl;
+      setIsGroupOrder(storedIsGroup);
+      
+      if (storedIsGroup) {
+        // Load order IDs from URL params or sessionStorage
+        if (orderIdsFromUrl) {
+          setOrderIds(orderIdsFromUrl.split(','));
+        } else {
+          const storedOrderIds = sessionStorage.getItem('orderIds');
+          if (storedOrderIds) {
+            try {
+              setOrderIds(JSON.parse(storedOrderIds));
+            } catch (e) {
+              console.error('Error parsing orderIds:', e);
+            }
+          }
+        }
+        
+        // Load group orders details
+        const storedGroupOrders = sessionStorage.getItem('groupOrders');
+        if (storedGroupOrders) {
+          try {
+            setGroupOrders(JSON.parse(storedGroupOrders));
+          } catch (e) {
+            console.error('Error parsing group orders:', e);
+          }
+        }
+      }
     }
-  }, [offerId, product, offerPrice, locale, router]);
+  }, [isCartCheckout, isGroupFromUrl, orderIdsFromUrl]);
 
-  // Fetch order summary from API to get tax percentage and platform fee
+  useEffect(() => {
+    // Only redirect if we have neither valid offer data nor valid cart data
+    if (!isCartCheckout && !hasValidOfferData) {
+      router.push(`/${locale}/messages`);
+    } else if (isCartCheckout && !orderIdFromUrl && typeof window !== 'undefined' && !sessionStorage.getItem('orderId')) {
+      router.push(`/${locale}/cart`);
+    }
+  }, [isCartCheckout, hasValidOfferData, orderIdFromUrl, locale, router]);
+
+  // Fetch order summary from API (for offer flow only)
   useEffect(() => {
     const fetchOrderSummary = async () => {
-      if (!offerId) return;
+      if (!offerId || isCartCheckout) return;
 
       setIsLoadingSummary(true);
       try {
@@ -71,7 +138,7 @@ export default function PaymentPage() {
     };
 
     fetchOrderSummary();
-  }, [offerId]);
+  }, [offerId, isCartCheckout]);
 
   // Handle error messages from callback
   useEffect(() => {
@@ -99,33 +166,67 @@ export default function PaymentPage() {
 
   // Initialize Moyasar payment form
   useEffect(() => {
-    if (!isMoyasarLoaded || moyasarInitialized.current || !orderSummary) return;
+    if (!isMoyasarLoaded || moyasarInitialized.current) return;
     if (typeof window === 'undefined' || !window.Moyasar) return;
+    
+    // For offer flow, wait for order summary
+    if (!isCartCheckout && !orderSummary) return;
+    
+    // For cart flow, wait for checkout data
+    if (isCartCheckout && !cartCheckoutData && !totalFromUrl) return;
 
-    // Calculate amounts
-    const displayOfferPrice = orderSummary?.offerPrice || parseFloat(offerPrice || '0');
-    const displayShipping = orderSummary?.shippingPrice || parseFloat(shipping || '0');
-    const displayPlatformFee = orderSummary?.platformFee || 0;
-    const taxPercentage = orderSummary?.productTaxPercentage || (orderSummary?.platformTax?.percentage) || 0;
-    const subtotal = displayOfferPrice + displayShipping + displayPlatformFee;
-    const tax = taxPercentage > 0 ? subtotal * (taxPercentage / 100) : 0;
-    const totalAmount = Math.round((subtotal + tax) * 100); // Convert to halalas
+    let totalAmount: number;
+    let productDescription: string;
+    let orderId: string;
 
-    // Get orderId
-    const orderId = orderIdFromUrl || 
-      (typeof window !== 'undefined' ? sessionStorage.getItem('orderId') : null) ||
-      `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (isCartCheckout) {
+      // Cart checkout flow - use URL params as primary source
+      const cartTotal = parseFloat(totalFromUrl || '0') || cartCheckoutData?.total || 0;
+      totalAmount = Math.round(cartTotal * 100); // Convert to halalas
+      productDescription = isGroupOrder 
+        ? (locale === 'en' ? 'Multi-seller Cart Payment' : 'دفع سلة متعددة البائعين')
+        : (locale === 'en' ? 'Cart Order Payment' : 'دفع طلب السلة');
+      orderId = orderIdFromUrl || sessionStorage.getItem('orderId') || `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    } else {
+      // Offer checkout flow
+      const displayOfferPrice = orderSummary?.offerPrice || parseFloat(offerPrice || '0');
+      const displayShipping = orderSummary?.shippingPrice || parseFloat(shipping || '0');
+      const displayPlatformFee = orderSummary?.platformFee || 0;
+      const taxPercentage = orderSummary?.productTaxPercentage || (orderSummary?.platformTax?.percentage) || 0;
+      const subtotal = displayOfferPrice + displayShipping + displayPlatformFee;
+      const tax = taxPercentage > 0 ? subtotal * (taxPercentage / 100) : 0;
+      totalAmount = Math.round((subtotal + tax) * 100); // Convert to halalas
+      productDescription = `${product} - ${locale === 'en' ? 'Order Payment' : 'دفع الطلب'}`;
+      orderId = orderIdFromUrl || sessionStorage.getItem('orderId') || `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
 
     // Build callback URL
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const callbackUrl = `${origin}/${locale}/payment/callback?offerId=${offerId || ''}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice || ''}&shipping=${shipping || ''}`;
+    let callbackUrl: string;
+    
+    if (isCartCheckout) {
+      const callbackParams = new URLSearchParams({
+        type: 'cart',
+        orderId: orderId,
+      });
+      
+      // Add group order info to callback URL
+      if (isGroupOrder && orderIds.length > 0) {
+        callbackParams.set('isGroup', 'true');
+        callbackParams.set('orderIds', orderIds.join(','));
+      }
+      
+      callbackUrl = `${origin}/${locale}/payment/callback?${callbackParams.toString()}`;
+    } else {
+      callbackUrl = `${origin}/${locale}/payment/callback?offerId=${offerId || ''}&product=${encodeURIComponent(product || '')}&offerPrice=${offerPrice || ''}&shipping=${shipping || ''}`;
+    }
 
     try {
       window.Moyasar.init({
         element: '.moyasar-form',
         amount: totalAmount,
         currency: 'SAR',
-        description: `${product} - ${locale === 'en' ? 'Order Payment' : 'دفع الطلب'}`,
+        description: productDescription,
         publishable_api_key: publishableKey,
         callback_url: callbackUrl,
         methods: ['creditcard', 'applepay', 'stcpay'],
@@ -136,6 +237,9 @@ export default function PaymentPage() {
         },
         metadata: {
           orderId: orderId,
+          orderIds: isGroupOrder ? orderIds.join(',') : orderId,
+          isGroup: isGroupOrder ? 'true' : 'false',
+          type: isCartCheckout ? 'cart' : 'offer',
           offerId: offerId || '',
           product: product || '',
           size: size || '',
@@ -147,9 +251,10 @@ export default function PaymentPage() {
         on_completed: function(payment: any) {
           console.log('Payment completed:', payment);
           // Store payment info in sessionStorage for callback
-          const paymentData = {
+          const paymentData: any = {
             orderId: orderId,
             paymentId: payment?.id,
+            type: isCartCheckout ? 'cart' : 'offer',
             offerId: offerId || '',
             product: product || '',
             size: size || '',
@@ -158,6 +263,13 @@ export default function PaymentPage() {
             shipping: shipping || '0',
             totalPrice: (totalAmount / 100).toFixed(2),
           };
+          
+          // Add group order info
+          if (isGroupOrder && orderIds.length > 0) {
+            paymentData.isGroup = true;
+            paymentData.orderIds = orderIds;
+          }
+          
           sessionStorage.setItem('pendingPayment', JSON.stringify(paymentData));
         },
         on_failure: function(error: any) {
@@ -174,7 +286,7 @@ export default function PaymentPage() {
     } catch (error) {
       console.error('Error initializing Moyasar:', error);
     }
-  }, [isMoyasarLoaded, orderSummary, offerId, product, size, price, offerPrice, shipping, locale, orderIdFromUrl, publishableKey]);
+  }, [isMoyasarLoaded, orderSummary, cartCheckoutData, isCartCheckout, isGroupOrder, orderIds, offerId, product, size, price, offerPrice, shipping, locale, orderIdFromUrl, totalFromUrl, publishableKey]);
 
   // Normalize image URL
   const normalizeImageUrl = (url: string | undefined | null): string => {
@@ -203,24 +315,143 @@ export default function PaymentPage() {
     return normalized;
   };
 
-  if (!isAuthenticated || !offerId || !product || !offerPrice) {
+  // Check authentication and valid checkout data
+  if (!isAuthenticated) {
     return null;
   }
 
-  // Use order summary data if available, otherwise fall back to URL params
-  const displayProduct = orderSummary?.productTitle || product;
-  const displayOriginalPrice = orderSummary?.originalPrice || parseFloat(price || '0');
-  const displayOfferPrice = orderSummary?.offerPrice || parseFloat(offerPrice || '0');
-  const displayShipping = orderSummary?.shippingPrice || parseFloat(shipping || '0');
-  const displayPlatformFee = orderSummary?.platformFee || 0;
-  const taxPercentage = orderSummary?.productTaxPercentage || (orderSummary?.platformTax?.percentage) || 0;
-  const subtotal = displayOfferPrice + displayShipping + displayPlatformFee;
-  const tax = taxPercentage > 0 ? subtotal * (taxPercentage / 100) : 0;
-  const totalPrice = (subtotal + tax).toFixed(2);
-  const orderCurrency = orderSummary?.currency || orderSummary?.productCurrency || 'SAR';
-  const normalizedProductImage = orderSummary?.productImage 
-    ? normalizeImageUrl(orderSummary.productImage) 
-    : '';
+  if (!isCartCheckout && !hasValidOfferData) {
+    return null;
+  }
+
+  // Get display data based on checkout type
+  const getDisplayData = () => {
+    if (isCartCheckout) {
+      // Use URL params as primary source, sessionStorage as fallback
+      const cartTotal = parseFloat(totalFromUrl || '0') || cartCheckoutData?.total || 0;
+      const cartPrice = parseFloat(priceFromUrl || '0') || cartCheckoutData?.price || 0;
+      const cartShipping = parseFloat(shippingFromUrl || '0') || cartCheckoutData?.shipping || 0;
+      const cartPlatformFee = parseFloat(platformFeeFromUrl || '0') || cartCheckoutData?.platformFee || 0;
+      const cartCurrency = currencyFromUrl || cartCheckoutData?.currency || 'SAR';
+      
+      // Debug logging
+      console.log('Payment page - Cart checkout data:');
+      console.log('  URL params - total:', totalFromUrl, 'price:', priceFromUrl, 'shipping:', shippingFromUrl);
+      console.log('  sessionStorage:', cartCheckoutData);
+      console.log('  Calculated - cartPrice:', cartPrice, 'cartTotal:', cartTotal);
+      
+      const cartDisplayData = {
+        product: cartCheckoutData?.product || (locale === 'en' ? 'Cart Items' : 'منتجات السلة'),
+        originalPrice: cartPrice,
+        offerPrice: cartPrice,
+        shipping: cartShipping,
+        platformFee: cartPlatformFee,
+        taxPercentage: 0,
+        tax: 0,
+        total: cartTotal,
+        currency: cartCurrency,
+        productImage: '',
+        isCart: true,
+      };
+      
+      // Log Order Summary for cart checkout
+      console.log('📊 Order Summary (Cart Checkout):', {
+        product: cartDisplayData.product,
+        itemsTotal: cartDisplayData.offerPrice,
+        shipping: cartDisplayData.shipping,
+        platformFee: cartDisplayData.platformFee,
+        tax: cartDisplayData.tax,
+        total: cartDisplayData.total,
+        currency: cartDisplayData.currency,
+        isGroupOrder: isGroupOrder,
+        orderIds: orderIds,
+      });
+      
+      return cartDisplayData;
+    }
+
+    // Offer flow
+    const displayProduct = orderSummary?.productTitle || product;
+    const displayOriginalPrice = orderSummary?.originalPrice || parseFloat(price || '0');
+    const displayOfferPrice = orderSummary?.offerPrice || parseFloat(offerPrice || '0');
+    const displayShipping = orderSummary?.shippingPrice || parseFloat(shipping || '0');
+    const displayPlatformFee = orderSummary?.platformFee || 0;
+    const taxPercentage = orderSummary?.productTaxPercentage || (orderSummary?.platformTax?.percentage) || 0;
+    const subtotal = displayOfferPrice + displayShipping + displayPlatformFee;
+    const tax = taxPercentage > 0 ? subtotal * (taxPercentage / 100) : 0;
+    const totalPrice = subtotal + tax;
+    const orderCurrency = orderSummary?.currency || orderSummary?.productCurrency || 'SAR';
+    const normalizedProductImage = orderSummary?.productImage 
+      ? normalizeImageUrl(orderSummary.productImage) 
+      : '';
+
+    const offerDisplayData = {
+      product: displayProduct,
+      originalPrice: displayOriginalPrice,
+      offerPrice: displayOfferPrice,
+      shipping: displayShipping,
+      platformFee: displayPlatformFee,
+      taxPercentage: taxPercentage,
+      tax: tax,
+      total: totalPrice,
+      currency: orderCurrency,
+      productImage: normalizedProductImage,
+      isCart: false,
+    };
+    
+    // Log Order Summary for offer checkout
+    console.log('📊 Order Summary (Offer Checkout):', {
+      product: offerDisplayData.product,
+      originalPrice: offerDisplayData.originalPrice,
+      offerPrice: offerDisplayData.offerPrice,
+      shipping: offerDisplayData.shipping,
+      platformFee: offerDisplayData.platformFee,
+      taxPercentage: offerDisplayData.taxPercentage,
+      tax: offerDisplayData.tax,
+      subtotal: subtotal,
+      total: offerDisplayData.total,
+      currency: offerDisplayData.currency,
+      orderSummary: orderSummary,
+    });
+
+    return offerDisplayData;
+  };
+
+  const displayData = getDisplayData();
+  const isLoading = isCartCheckout ? false : isLoadingSummary;
+
+  // Log Order Summary whenever displayData changes
+  useEffect(() => {
+    if (!isLoading && displayData) {
+      console.log('📊 Order Summary Section - Current Display Data:', {
+        checkoutType: isCartCheckout ? 'cart' : 'offer',
+        isGroupOrder: isGroupOrder,
+        orderIds: orderIds.length > 0 ? orderIds : undefined,
+        displayData: {
+          product: displayData.product,
+          originalPrice: displayData.originalPrice,
+          offerPrice: displayData.offerPrice,
+          shipping: displayData.shipping,
+          platformFee: displayData.platformFee,
+          tax: displayData.tax,
+          total: displayData.total,
+          currency: displayData.currency,
+          isCart: displayData.isCart,
+        },
+        rawData: {
+          cartCheckoutData: cartCheckoutData,
+          orderSummary: orderSummary,
+          urlParams: {
+            total: totalFromUrl,
+            price: priceFromUrl,
+            shipping: shippingFromUrl,
+            platformFee: platformFeeFromUrl,
+            currency: currencyFromUrl,
+          },
+        },
+      });
+    }
+  }, [displayData, isLoading, isCartCheckout, isGroupOrder, orderIds, cartCheckoutData, orderSummary, totalFromUrl, priceFromUrl, shippingFromUrl, platformFeeFromUrl, currencyFromUrl]);
 
   return (
     <>
@@ -259,7 +490,7 @@ export default function PaymentPage() {
                 </div>
 
                 {/* Moyasar Payment Form Container */}
-                {isLoadingSummary ? (
+                {isLoading ? (
                   <div className='text-center py-12'>
                     <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-saudi-green mx-auto mb-4'></div>
                     <p className='text-deep-charcoal/60'>
@@ -297,7 +528,7 @@ export default function PaymentPage() {
                   {locale === 'en' ? 'Order Summary' : 'ملخص الطلب'}
                 </h2>
 
-                {isLoadingSummary ? (
+                {isLoading ? (
                   <div className='text-center py-8'>
                     <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-saudi-green mx-auto'></div>
                   </div>
@@ -305,40 +536,60 @@ export default function PaymentPage() {
                   <div className='space-y-4'>
                     {/* Product Info */}
                     <div>
-                      {normalizedProductImage && (
-                        <img
-                          src={normalizedProductImage}
-                          alt={displayProduct}
-                          className='w-full h-32 object-cover rounded-lg mb-3'
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <p className='font-semibold text-deep-charcoal'>{displayProduct}</p>
-                      {size && (
-                        <p className='text-sm text-deep-charcoal/60'>
-                          {locale === 'en' ? 'Size' : 'المقاس'}: {size}
-                        </p>
+                      {displayData.isCart ? (
+                        <div className='flex items-center gap-3 mb-3 p-3 bg-saudi-green/5 rounded-lg'>
+                          <HiShoppingCart className='w-8 h-8 text-saudi-green' />
+                          <div>
+                            <p className='font-semibold text-deep-charcoal'>
+                              {locale === 'en' ? 'Cart Checkout' : 'دفع السلة'}
+                            </p>
+                            <p className='text-sm text-deep-charcoal/60'>
+                              {displayData.product}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {displayData.productImage && (
+                            <img
+                              src={displayData.productImage}
+                              alt={displayData.product}
+                              className='w-full h-32 object-cover rounded-lg mb-3'
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <p className='font-semibold text-deep-charcoal'>{displayData.product}</p>
+                          {size && (
+                            <p className='text-sm text-deep-charcoal/60'>
+                              {locale === 'en' ? 'Size' : 'المقاس'}: {size}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
 
                     {/* Price Breakdown */}
                     <div className='border-t border-rich-sand/30 pt-4 space-y-2'>
+                      {!displayData.isCart && (
+                        <div className='flex justify-between text-sm'>
+                          <span className='text-deep-charcoal/70'>
+                            {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
+                          </span>
+                          <span className='text-deep-charcoal line-through'>
+                            {formatPrice(displayData.originalPrice, locale, 2, displayData.currency)}
+                          </span>
+                        </div>
+                      )}
                       <div className='flex justify-between text-sm'>
                         <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Original Price' : 'السعر الأصلي'}
-                        </span>
-                        <span className='text-deep-charcoal line-through'>
-                          {formatPrice(displayOriginalPrice, locale, 2, orderCurrency)}
-                        </span>
-                      </div>
-                      <div className='flex justify-between text-sm'>
-                        <span className='text-deep-charcoal/70'>
-                          {locale === 'en' ? 'Offer Price' : 'سعر العرض'}
+                          {displayData.isCart 
+                            ? (locale === 'en' ? 'Items Total' : 'إجمالي المنتجات')
+                            : (locale === 'en' ? 'Offer Price' : 'سعر العرض')}
                         </span>
                         <span className='font-semibold text-saudi-green'>
-                          {formatPrice(displayOfferPrice, locale, 2, orderCurrency)}
+                          {formatPrice(displayData.offerPrice, locale, 2, displayData.currency)}
                         </span>
                       </div>
                       <div className='flex justify-between text-sm'>
@@ -346,27 +597,27 @@ export default function PaymentPage() {
                           {locale === 'en' ? 'Shipping' : 'الشحن'}
                         </span>
                         <span className='text-deep-charcoal'>
-                          +{formatPrice(displayShipping, locale, 2, orderCurrency)}
+                          +{formatPrice(displayData.shipping, locale, 2, displayData.currency)}
                         </span>
                       </div>
-                      {displayPlatformFee > 0 && (
+                      {displayData.platformFee > 0 && (
                         <div className='flex justify-between text-sm'>
                           <span className='text-deep-charcoal/70'>
                             {locale === 'en' ? 'Platform Fee' : 'رسوم المنصة'}
                           </span>
                           <span className='text-deep-charcoal'>
-                            +{formatPrice(displayPlatformFee, locale, 2, orderCurrency)}
+                            +{formatPrice(displayData.platformFee, locale, 2, displayData.currency)}
                           </span>
                         </div>
                       )}
-                      {tax > 0 && (
+                      {displayData.tax > 0 && (
                         <div className='flex justify-between text-sm'>
                           <span className='text-deep-charcoal/70'>
                             {orderSummary?.platformTax?.label || 
-                             (locale === 'en' ? `Tax (${taxPercentage}%)` : `الضريبة (${taxPercentage}%)`)}
+                             (locale === 'en' ? `Tax (${displayData.taxPercentage}%)` : `الضريبة (${displayData.taxPercentage}%)`)}
                           </span>
                           <span className='text-deep-charcoal'>
-                            +{formatPrice(tax, locale, 2, orderCurrency)}
+                            +{formatPrice(displayData.tax, locale, 2, displayData.currency)}
                           </span>
                         </div>
                       )}
@@ -379,7 +630,7 @@ export default function PaymentPage() {
                           {locale === 'en' ? 'Total' : 'الإجمالي'}
                         </span>
                         <span className='text-xl font-bold text-saudi-green'>
-                          {formatPrice(parseFloat(totalPrice), locale, 2, orderCurrency)}
+                          {formatPrice(displayData.total, locale, 2, displayData.currency)}
                         </span>
                       </div>
                     </div>
@@ -390,7 +641,7 @@ export default function PaymentPage() {
                         {locale === 'en' ? 'Amount to Pay' : 'المبلغ المطلوب'}
                       </p>
                       <p className='text-2xl font-bold text-saudi-green'>
-                        {formatPrice(parseFloat(totalPrice), locale, 2, orderCurrency)}
+                        {formatPrice(displayData.total, locale, 2, displayData.currency)}
                       </p>
                     </div>
                   </div>

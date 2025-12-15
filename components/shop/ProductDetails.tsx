@@ -2,7 +2,6 @@
 
 import {
   useGetProductDetailQuery,
-  useSaveProductMutation,
 } from '@/lib/api/productsApi';
 import { useCreateOfferMutation } from '@/lib/api/offersApi';
 import { useSendMessageMutation } from '@/lib/api/chatApi';
@@ -12,6 +11,7 @@ import { formatPrice } from '@/utils/formatPrice';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/store/hooks';
+import { apiClient } from '@/lib/api/client';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -147,8 +147,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     skip: !productId,
   });
 
-  // Save product mutation
-  const [saveProduct, { isLoading: isSaving }] = useSaveProductMutation();
+  const [isBuyingNow, setIsBuyingNow] = useState(false);
 
   // Create offer mutation
   const [createOffer, { isLoading: isCreatingOffer }] =
@@ -692,49 +691,103 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                       if (!isAuthenticated) {
                         toast.error(
                           locale === 'en'
-                            ? 'Please login to add items to bag'
-                            : 'يرجى تسجيل الدخول لإضافة المنتجات إلى الحقيبة'
+                            ? 'Please login to buy this product'
+                            : 'يرجى تسجيل الدخول لشراء هذا المنتج'
                         );
                         router.push(`/${locale}/login`);
                         return;
                       }
 
-                      // Add to bag logic - call save product API
+                      setIsBuyingNow(true);
+
                       try {
-                        await saveProduct(productId).unwrap();
-                        toast.success(
-                          locale === 'en'
-                            ? 'Item added to bag!'
-                            : 'تم إضافة المنتج إلى الحقيبة!'
-                        );
+                        // Call checkout API directly with single product
+                        const response = await apiClient.post('/api/payment/checkout/', {
+                          cartItems: [productId],
+                        });
+
+                        const checkoutData = response.data;
+
+                        if (checkoutData.success && checkoutData.orderId) {
+                          // Store orderId and checkoutData in sessionStorage for payment page
+                          sessionStorage.setItem('orderId', checkoutData.orderId);
+                          sessionStorage.setItem('checkoutData', JSON.stringify(checkoutData.checkoutData));
+                          sessionStorage.setItem('checkoutType', 'cart');
+                          
+                          // Handle group orders if applicable
+                          if (checkoutData.isGroup === true) {
+                            sessionStorage.setItem('isGroupOrder', 'true');
+                            sessionStorage.setItem('orderIds', JSON.stringify(checkoutData.orderIds));
+                            if (checkoutData.orders) {
+                              sessionStorage.setItem('groupOrders', JSON.stringify(checkoutData.orders));
+                            }
+                          } else {
+                            sessionStorage.setItem('isGroupOrder', 'false');
+                          }
+                          
+                          // Redirect to payment page
+                          const params = new URLSearchParams({
+                            type: 'cart',
+                            orderId: checkoutData.orderId,
+                            total: checkoutData.checkoutData?.total?.toString() || '0',
+                            price: checkoutData.checkoutData?.price?.toString() || '0',
+                            shipping: checkoutData.checkoutData?.shipping?.toString() || '0',
+                            platformFee: checkoutData.checkoutData?.platformFee?.toString() || '0',
+                            currency: checkoutData.checkoutData?.currency || 'SAR',
+                          });
+                          
+                          if (checkoutData.isGroup === true) {
+                            params.set('isGroup', 'true');
+                            params.set('orderIds', checkoutData.orderIds.join(','));
+                          }
+                          
+                          router.push(`/${locale}/payment?${params.toString()}`);
+                        } else {
+                          throw new Error(checkoutData.error || 'Failed to create order');
+                        }
                       } catch (error: any) {
-                        // Check if it's an authentication error
-                        if (error?.status === 401 || error?.response?.status === 401) {
+                        console.error('Buy now error:', error);
+                        
+                        const errorResponse = error.response?.data || {};
+                        const errorMessage = errorResponse.error || errorResponse.message || '';
+                        
+                        // Handle specific error messages
+                        if (errorMessage.includes('not available') || errorMessage.includes('One of the products')) {
                           toast.error(
                             locale === 'en'
-                              ? 'Your session has expired. Please login again.'
-                              : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
+                              ? 'This product is no longer available.'
+                              : 'هذا المنتج لم يعد متاحًا.',
+                            { duration: 6000 }
                           );
-                          router.push(`/${locale}/login`);
-                          return;
+                        } else if (errorMessage.includes('own product')) {
+                          toast.error(
+                            locale === 'en'
+                              ? 'You cannot purchase your own product.'
+                              : 'لا يمكنك شراء منتجك الخاص.',
+                            { duration: 6000 }
+                          );
+                        } else {
+                          toast.error(
+                            errorMessage ||
+                            (locale === 'en'
+                              ? 'Failed to proceed to checkout. Please try again.'
+                              : 'فشل الانتقال إلى الدفع. يرجى المحاولة مرة أخرى.')
+                          );
                         }
-                        toast.error(
-                          locale === 'en'
-                            ? 'Failed to add item to bag. Please try again.'
-                            : 'فشل إضافة المنتج إلى الحقيبة. يرجى المحاولة مرة أخرى.'
-                        );
+                      } finally {
+                        setIsBuyingNow(false);
                       }
                     }}
-                    disabled={isSaving}
-                    className='w-full sm:flex-1 bg-white border-2 border-saudi-green text-saudi-green py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg font-semibold text-base sm:text-sm hover:bg-saudi-green/5 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                    disabled={isBuyingNow}
+                    className='w-full sm:flex-1 bg-saudi-green text-white py-3.5 sm:py-2.5 rounded-xl sm:rounded-lg font-semibold text-base sm:text-sm hover:bg-saudi-green/90 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
                   >
-                    {isSaving
+                    {isBuyingNow
                       ? locale === 'en'
-                        ? 'Adding...'
-                        : 'جاري الإضافة...'
+                        ? 'Processing...'
+                        : 'جاري المعالجة...'
                       : locale === 'en'
-                      ? 'Add to Bag'
-                      : 'أضف إلى الحقيبة'}
+                      ? 'Buy Now'
+                      : 'اشتري الآن'}
                   </button>
                 )}
               </div>
@@ -810,11 +863,6 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                     </span>
                   </div>
                   <div className='flex items-center gap-2 text-xs sm:text-xs text-deep-charcoal/60'>
-                    <span className='inline-flex items-center gap-1'>
-                      <span className='w-1.5 h-1.5 bg-emerald-500 rounded-full'></span>
-                      {locale === 'en' ? 'Active' : 'نشط'}
-                    </span>
-                    <span>•</span>
                     <span>{sellerData.sold} {locale === 'en' ? 'sold' : 'مباع'}</span>
                   </div>
                 </div>

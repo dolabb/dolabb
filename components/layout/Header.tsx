@@ -4,12 +4,9 @@ import {
   useGetProfileQuery,
   useUpdateLanguageMutation,
 } from '@/lib/api/authApi';
-import { useCreateOfferMutation } from '@/lib/api/offersApi';
-import { useGetCartQuery, useGetProductsQuery } from '@/lib/api/productsApi';
+import { useGetProductsQuery } from '@/lib/api/productsApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { logout, updateUser } from '@/lib/store/slices/authSlice';
-import { formatPrice } from '@/utils/formatPrice';
-import { toast } from '@/utils/toast';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -27,7 +24,6 @@ import {
   HiChatBubbleLeftRight,
   HiMagnifyingGlass,
   HiPencilSquare,
-  HiShoppingBag,
   HiUser,
   HiXMark,
 } from 'react-icons/hi2';
@@ -66,18 +62,9 @@ export default function Header() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [isCartDropdownOpen, setIsCartDropdownOpen] = useState(false);
-  const [offerAmounts, setOfferAmounts] = useState<Record<string, string>>({});
   const profileDropdownRef = useRef<HTMLDivElement>(null);
-  const cartDropdownRef = useRef<HTMLDivElement>(null);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Fetch cart data when authenticated
-  const { data: cartData, refetch: refetchCart } = useGetCartQuery(undefined, {
-    skip: !isAuthenticated,
-    pollingInterval: 30000, // Poll every 30 seconds to keep cart updated
-  });
 
   // Debounce search query
   useEffect(() => {
@@ -159,9 +146,6 @@ export default function Header() {
     }
   }, [profileData?.user, user, dispatch]);
 
-  const [createOffer, { isLoading: isCreatingOffer }] =
-    useCreateOfferMutation();
-
   const [updateLanguage, { isLoading: isUpdatingLanguage }] =
     useUpdateLanguageMutation();
 
@@ -207,12 +191,6 @@ export default function Header() {
       ) {
         setIsProfileDropdownOpen(false);
       }
-      if (
-        cartDropdownRef.current &&
-        !cartDropdownRef.current.contains(target)
-      ) {
-        setIsCartDropdownOpen(false);
-      }
       // For search dropdown, only close if clicking outside both input and dropdown
       // Don't close if clicking inside the dropdown (including on result items)
       if (isSearchDropdownOpen) {
@@ -230,7 +208,7 @@ export default function Header() {
       }
     };
 
-    if (isProfileDropdownOpen || isCartDropdownOpen || isSearchDropdownOpen) {
+    if (isProfileDropdownOpen || isSearchDropdownOpen) {
       // Use a delay to allow clicks inside dropdown to process first
       const timeoutId = setTimeout(() => {
         document.addEventListener('click', handleClickOutside);
@@ -241,83 +219,7 @@ export default function Header() {
         document.removeEventListener('click', handleClickOutside);
       };
     }
-  }, [isProfileDropdownOpen, isCartDropdownOpen, isSearchDropdownOpen]);
-
-  const handleCreateOffer = async (productId: string) => {
-    const offerAmount = parseFloat(offerAmounts[productId] || '0');
-    if (!offerAmount || offerAmount <= 0) {
-      toast.error(
-        locale === 'en'
-          ? 'Please enter a valid offer amount'
-          : 'يرجى إدخال مبلغ عرض صحيح'
-      );
-      return;
-    }
-
-    // Check if user has required address fields
-    const userProfile = currentUser;
-    const missingFields: string[] = [];
-
-    const shippingAddress =
-      userProfile?.shipping_address || userProfile?.shippingAddress;
-    const zipCode = userProfile?.zip_code || userProfile?.zipCode;
-    const houseNumber = userProfile?.house_number || userProfile?.houseNumber;
-
-    if (!shippingAddress || shippingAddress.trim() === '') {
-      missingFields.push(locale === 'en' ? 'shipping address' : 'عنوان الشحن');
-    }
-    if (!zipCode || zipCode.trim() === '') {
-      missingFields.push(locale === 'en' ? 'zip code' : 'الرمز البريدي');
-    }
-    if (!houseNumber || houseNumber.trim() === '') {
-      missingFields.push(locale === 'en' ? 'house number' : 'رقم المنزل');
-    }
-
-    if (missingFields.length > 0) {
-      toast.error(
-        locale === 'en'
-          ? `Please update your profile to add ${missingFields.join(', ')}`
-          : `يرجى تحديث ملفك الشخصي لإضافة ${missingFields.join('، ')}`
-      );
-      return;
-    }
-
-    try {
-      await createOffer({ productId, offerAmount }).unwrap();
-      toast.success(
-        locale === 'en'
-          ? 'Offer created successfully!'
-          : 'تم إنشاء العرض بنجاح!'
-      );
-      setOfferAmounts(prev => {
-        const newAmounts = { ...prev };
-        delete newAmounts[productId];
-        return newAmounts;
-      });
-      // Refetch cart after creating offer
-      await refetchCart();
-    } catch (error: unknown) {
-      // Check for specific error messages from API
-      const errorData =
-        error && typeof error === 'object' && 'data' in error
-          ? (error as { data?: { error?: string; message?: string } })?.data
-          : undefined;
-      const apiError = errorData?.error || errorData?.message;
-
-      if (apiError === 'You cannot make an offer on your own product') {
-        toast.error(
-          locale === 'en'
-            ? 'You cannot make an offer on your own product'
-            : 'لا يمكنك تقديم عرض على منتجك الخاص'
-        );
-      } else {
-        toast.error(
-          apiError ||
-            (locale === 'en' ? 'Failed to create offer' : 'فشل إنشاء العرض')
-        );
-      }
-    }
-  };
+  }, [isProfileDropdownOpen, isSearchDropdownOpen]);
 
   const toggleLanguage = async () => {
     const newLocale = locale === 'en' ? 'ar' : 'en';
@@ -523,137 +425,6 @@ export default function Header() {
           >
             {isAuthenticated || isAffiliate ? (
               <>
-                {/* Cart Dropdown (hidden for affiliates) */}
-                {(!mounted || !isAffiliate) && (
-                  <div className='relative' ref={cartDropdownRef}>
-                    <button
-                      onClick={async () => {
-                        const newState = !isCartDropdownOpen;
-                        setIsCartDropdownOpen(newState);
-                        // Refetch cart when opening dropdown
-                        if (newState && isAuthenticated) {
-                          await refetchCart();
-                        }
-                      }}
-                      className='text-deep-charcoal hover:text-saudi-green transition-colors flex group cursor-pointer'
-                      title={locale === 'en' ? 'Cart' : 'السلة'}
-                    >
-                      <HiShoppingBag className='w-6 h-6 transition-transform group-hover:scale-110' />
-                      {cartData?.itemCount && cartData.itemCount > 0 && (
-                        <span className='absolute top-0 right-0 bg-saudi-green text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none'>
-                          {cartData.itemCount > 9 ? '9+' : cartData.itemCount}
-                        </span>
-                      )}
-                    </button>
-                    {isCartDropdownOpen && (
-                      <div
-                        className={`absolute ${
-                          isRTL ? 'left-0' : 'right-0'
-                        } mt-2 w-80 bg-white rounded-lg shadow-lg border border-rich-sand/30 z-50 max-h-[600px] overflow-y-auto`}
-                      >
-                        <div className='p-4 border-b border-rich-sand/30'>
-                          <h3 className='font-semibold text-deep-charcoal'>
-                            {locale === 'en' ? 'Shopping Cart' : 'سلة التسوق'}
-                          </h3>
-                          {cartData?.itemCount && cartData.itemCount > 0 && (
-                            <p className='text-sm text-deep-charcoal/70 mt-1'>
-                              {cartData.itemCount}{' '}
-                              {locale === 'en' ? 'item(s)' : 'عنصر'}
-                            </p>
-                          )}
-                        </div>
-                        {cartData?.cart && cartData.cart.length > 0 ? (
-                          <div className='p-2'>
-                            {cartData.cart.map(item => (
-                              <div
-                                key={item.id}
-                                className='flex gap-3 p-3 border-b border-rich-sand/20 last:border-b-0 hover:bg-rich-sand/10 transition-colors'
-                              >
-                                <div className='relative w-16 h-16 rounded-lg overflow-hidden bg-rich-sand/20 flex-shrink-0'>
-                                  <Image
-                                    src={item.image}
-                                    alt={item.title}
-                                    fill
-                                    className='object-cover'
-                                    unoptimized
-                                  />
-                                </div>
-                                <div className='flex-1 min-w-0'>
-                                  <h4 className='font-medium text-sm text-deep-charcoal truncate'>
-                                    {item.title}
-                                  </h4>
-                                  <p className='text-sm font-semibold text-saudi-green mt-1'>
-                                    {locale === 'ar' ? 'ر.س' : 'SAR'}{' '}
-                                    {item.price.toFixed(2)}
-                                  </p>
-                                  <div className='mt-2 space-y-2'>
-                                    <input
-                                      type='number'
-                                      placeholder={
-                                        locale === 'en'
-                                          ? 'Offer amount'
-                                          : 'مبلغ العرض'
-                                      }
-                                      value={offerAmounts[item.id] || ''}
-                                      onChange={e =>
-                                        setOfferAmounts(prev => ({
-                                          ...prev,
-                                          [item.id]: e.target.value,
-                                        }))
-                                      }
-                                      className='w-full px-2 py-1 text-sm border border-rich-sand/30 rounded focus:outline-none focus:ring-2 focus:ring-saudi-green'
-                                      min='0'
-                                      step='0.01'
-                                    />
-                                    <button
-                                      onClick={() => handleCreateOffer(item.id)}
-                                      disabled={isCreatingOffer}
-                                      className='w-full px-3 py-1.5 bg-saudi-green text-white text-sm font-medium rounded hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
-                                    >
-                                      {isCreatingOffer
-                                        ? locale === 'en'
-                                          ? 'Creating...'
-                                          : 'جاري الإنشاء...'
-                                        : locale === 'en'
-                                        ? 'Proceed to make offer'
-                                        : 'المتابعة لعمل عرض'}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                            <div className='p-3 border-t border-rich-sand/30 mt-2'>
-                              <div className='flex justify-between items-center mb-2'>
-                                <span className='font-semibold text-deep-charcoal'>
-                                  {locale === 'en' ? 'Total' : 'الإجمالي'}
-                                </span>
-                                <span className='font-bold text-saudi-green'>
-                                  {formatPrice(cartData.totalAmount, locale)}
-                                </span>
-                              </div>
-                              <Link
-                                href={`/${locale}/cart`}
-                                onClick={() => setIsCartDropdownOpen(false)}
-                                className='block w-full text-center px-4 py-2 bg-saudi-green text-white rounded hover:bg-saudi-green/90 transition-colors font-medium text-sm'
-                              >
-                                {locale === 'en' ? 'View Cart' : 'عرض السلة'}
-                              </Link>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className='p-8 text-center'>
-                            <HiShoppingBag className='w-12 h-12 text-deep-charcoal/30 mx-auto mb-3' />
-                            <p className='text-deep-charcoal/70 text-sm'>
-                              {locale === 'en'
-                                ? 'Your cart is empty'
-                                : 'سلة التسوق فارغة'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
                 {/* Messages (hidden for affiliates) */}
                 {(!mounted || !isAffiliate) && (
                   <Link
@@ -898,24 +669,6 @@ export default function Header() {
             <nav className='flex flex-col space-y-3' suppressHydrationWarning>
               {isAuthenticated || isAffiliate ? (
                 <>
-                  {/* Cart (hidden for affiliates) */}
-                  {(!mounted || !isAffiliate) && (
-                    <Link
-                      href={`/${locale}/cart`}
-                      className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <div className='relative'>
-                        <HiShoppingBag className='w-5 h-5' />
-                        {cartData?.itemCount && cartData.itemCount > 0 && (
-                          <span className='absolute -top-1 -right-1 bg-saudi-green text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none'>
-                            {cartData.itemCount > 9 ? '9+' : cartData.itemCount}
-                          </span>
-                        )}
-                      </div>
-                      {locale === 'en' ? 'Cart' : 'السلة'}
-                    </Link>
-                  )}
                   {/* Messages (hidden for affiliates) */}
                   {(!mounted || !isAffiliate) && (
                     <Link
