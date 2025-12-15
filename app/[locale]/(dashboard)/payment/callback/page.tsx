@@ -78,68 +78,130 @@ export default function PaymentCallbackPage() {
             // Check status from URL first - if paid, we can proceed even if verification fails
             const urlStatus = status || 'initiated';
             
-            // Retry verification up to 5 times with delay (in case 3DS is still processing)
-            let verifiedPayment = null;
-            let paymentStatus = urlStatus; // Start with URL status
-            let maxRetries = 5;
-            let retryCount = 0;
-            let verificationFailed = false;
-
-            // Only retry if status is 'initiated', otherwise use URL status
-            if (urlStatus === 'initiated') {
-              while (retryCount < maxRetries && paymentStatus === 'initiated') {
-                try {
-                  // Call Next.js API route for verification (which calls Moyasar directly)
-                  // This avoids Django backend configuration issues
-                  console.log(`Calling Next.js /api/payment/verify/ (attempt ${retryCount + 1})`);
-                  
-                  // Use Next.js API route instead of Django backend
-                  const verifyResponse = await fetch(`/api/payment/verify/?id=${paymentId}`, {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  });
-                  
-                  if (!verifyResponse.ok) {
-                    throw new Error(`Verification failed with status: ${verifyResponse.status}`);
-                  }
-                  
+            // Declare variables at function scope for use throughout the verification logic
+            let verifiedPayment: any = null;
+            let paymentStatus = urlStatus;
+            
+            // IMPORTANT: If URL status is 'paid', proceed directly to success
+            // This handles cases where verification API fails but payment is actually successful
+            if (urlStatus === 'paid') {
+              console.log('URL status is "paid" - proceeding to success page. Verification will be attempted but won\'t block success.');
+              
+              // Try to verify once to get payment details, but don't block on failure
+              try {
+                // Try Next.js API route first (preferred)
+                const verifyResponse = await fetch(`/api/payment/verify/?id=${paymentId}`, {
+                  method: 'GET',
+                  headers: { 'Content-Type': 'application/json' },
+                });
+                
+                if (verifyResponse.ok) {
                   const verifyResult = await verifyResponse.json();
-                  
-                  console.log(`Payment verification attempt ${retryCount + 1}:`, verifyResult);
-                  
                   if (verifyResult.success && verifyResult.payment) {
                     verifiedPayment = verifyResult.payment;
-                    paymentStatus = verifiedPayment.status;
-                    verificationFailed = false;
-                    
-                    // Log complete verification response
-                    console.log('Complete Payment Verification Response (Next.js API):', {
-                      status: verifyResponse.status,
-                      statusText: verifyResponse.statusText,
-                      body: verifyResult,
-                      attempt: retryCount + 1,
-                    });
+                    console.log('Verification successful via Next.js API:', verifyResult);
+                  }
+                }
+              } catch (nextJsError: any) {
+                console.warn('Next.js API verification failed, trying Django backend:', nextJsError);
+                
+                // Fallback to Django backend if Next.js fails
+                try {
+                  const djangoResponse = await apiClient.post('/api/payment/verify/', {
+                    paymentId: paymentId,
+                    offerId: pendingPayment?.offerId || offerId || null,
+                    orderId: orderId || null,
+                  });
+                  
+                  // Handle Django backend response format according to implementation doc
+                  // Success: {success: true, payment: {status: 'paid', ...}}
+                  // Error: {success: false, error: '...'}
+                  if (djangoResponse.data?.success && djangoResponse.data?.payment) {
+                    verifiedPayment = djangoResponse.data.payment;
+                    console.log('Verification successful via Django backend:', djangoResponse.data);
+                  } else if (djangoResponse.data?.success === false) {
+                    // Django backend returned error, but URL status is 'paid' so we proceed anyway
+                    console.warn('Django backend returned error, but URL status is paid. Proceeding with success:', djangoResponse.data?.error);
+                  }
+                } catch (djangoError: any) {
+                  // Handle 400/500 errors from Django backend
+                  const errorMessage = djangoError.response?.data?.error || djangoError.message;
+                  console.warn('Django backend verification failed (400/500), but proceeding with success since URL status is paid:', errorMessage);
+                  // Don't block - payment is confirmed as paid from URL
+                }
+              }
+              
+              // Proceed to success flow with verified payment (or null if verification failed)
+              // Payment status is confirmed as 'paid' from URL
+              verifiedPayment = verifiedPayment || {
+                id: paymentId,
+                status: 'paid',
+                amount: pendingPayment?.totalPrice ? Math.round(parseFloat(pendingPayment.totalPrice) * 100) : 0,
+              };
+              
+              // Set paymentStatus to 'paid' so success flow is triggered
+              paymentStatus = 'paid';
+              
+              // Skip all the retry logic and go directly to success flow
+              // The code below will check paymentStatus === 'paid' and proceed
+            } else {
+              // URL status is 'initiated' or 'failed' - need to verify
+              // Retry verification up to 5 times with delay (in case 3DS is still processing)
+              paymentStatus = urlStatus;
+              let maxRetries = 5;
+              let retryCount = 0;
 
-                    // If payment is paid, break out of retry loop
-                    if (paymentStatus === 'paid') {
-                      break;
+              while (retryCount < maxRetries && paymentStatus === 'initiated') {
+                try {
+                  // Try Next.js API route first (preferred)
+                  console.log(`Calling Next.js /api/payment/verify/ (attempt ${retryCount + 1})`);
+                  
+                  const verifyResponse = await fetch(`/api/payment/verify/?id=${paymentId}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                  });
+                  
+                  if (verifyResponse.ok) {
+                    const verifyResult = await verifyResponse.json();
+                    console.log(`Payment verification attempt ${retryCount + 1}:`, verifyResult);
+                    
+                    if (verifyResult.success && verifyResult.payment) {
+                      verifiedPayment = verifyResult.payment;
+                      paymentStatus = verifiedPayment.status;
+                      
+                      // If payment is paid, break out of retry loop
+                      if (paymentStatus === 'paid') {
+                        break;
+                      }
                     }
+                  } else {
+                    throw new Error(`Verification failed with status: ${verifyResponse.status}`);
                   }
                 } catch (verifyError: any) {
                   console.error(`Verification attempt ${retryCount + 1} failed:`, verifyError);
-                  verificationFailed = true;
                   
-                  // If URL status is 'paid' and verification fails, we can still proceed
-                  // This handles cases where verification API has issues but payment is actually successful
-                  if (urlStatus === 'paid') {
-                    console.log('Verification API failed but URL status is paid. Proceeding with payment success.');
-                    paymentStatus = 'paid';
-                    break;
+                  // Try Django backend as fallback
+                  try {
+                    console.log(`Trying Django backend as fallback (attempt ${retryCount + 1})`);
+                    const djangoResponse = await apiClient.post('/api/payment/verify/', {
+                      paymentId: paymentId,
+                      offerId: pendingPayment?.offerId || offerId || null,
+                      orderId: orderId || null,
+                    });
+                    
+                    if (djangoResponse.data?.success && djangoResponse.data?.payment) {
+                      verifiedPayment = djangoResponse.data.payment;
+                      paymentStatus = verifiedPayment.status;
+                      console.log('Django backend verification successful:', djangoResponse.data);
+                      
+                      if (paymentStatus === 'paid') {
+                        break;
+                      }
+                    }
+                  } catch (djangoError: any) {
+                    console.error('Django backend verification also failed:', djangoError);
+                    // Continue to retry
                   }
-                  
-                  // Continue to retry if we haven't exceeded max retries
                 }
 
                 // If still initiated, wait before retrying
@@ -150,32 +212,12 @@ export default function PaymentCallbackPage() {
                   break;
                 }
               }
-            } else {
-              // URL status is already 'paid' or 'failed' - use it directly
-              paymentStatus = urlStatus;
-              console.log(`Using payment status from URL: ${urlStatus}`);
               
-              // Still try to verify once to get payment details, but don't block on failure
-              if (urlStatus === 'paid') {
-                try {
-                  // Use Next.js API route for verification
-                  const verifyResponse = await fetch(`/api/payment/verify/?id=${paymentId}`, {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  });
-                  
-                  if (verifyResponse.ok) {
-                    const verifyResult = await verifyResponse.json();
-                    if (verifyResult.success && verifyResult.payment) {
-                      verifiedPayment = verifyResult.payment;
-                    }
-                  }
-                } catch (verifyError: any) {
-                  console.error('Verification failed but URL status is paid. Proceeding with success:', verifyError);
-                  // Don't block - payment is already confirmed as paid from URL
-                }
+              // After retries, check final status
+              if (paymentStatus === 'initiated') {
+                // Payment still initiated after retries
+                console.error('Payment still in initiated status after retries. 3DS may not have completed.');
+                // Will be handled by the initiated check below
               }
             }
 
