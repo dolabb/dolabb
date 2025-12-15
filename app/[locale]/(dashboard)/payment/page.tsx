@@ -111,13 +111,21 @@ export default function PaymentPage() {
   }, [isCartCheckout, isGroupFromUrl, orderIdsFromUrl]);
 
   useEffect(() => {
+    // Check if there's an error parameter - if so, don't redirect (error page will handle it)
+    const error = searchParams.get('error');
+    if (error) {
+      // Error parameter present - don't redirect, let error handling show the message
+      return;
+    }
+    
     // Only redirect if we have neither valid offer data nor valid cart data
+    // AND there's no error parameter (to avoid redirecting away from error messages)
     if (!isCartCheckout && !hasValidOfferData) {
       router.push(`/${locale}/messages`);
     } else if (isCartCheckout && !orderIdFromUrl && typeof window !== 'undefined' && !sessionStorage.getItem('orderId')) {
       router.push(`/${locale}/cart`);
     }
-  }, [isCartCheckout, hasValidOfferData, orderIdFromUrl, locale, router]);
+  }, [isCartCheckout, hasValidOfferData, orderIdFromUrl, locale, router, searchParams]);
 
   // Fetch order summary from API (for offer flow only)
   useEffect(() => {
