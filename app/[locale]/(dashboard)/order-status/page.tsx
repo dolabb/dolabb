@@ -30,12 +30,13 @@ export default function OrderStatusPage() {
   const isRTL = locale === 'ar';
 
   const offerId = searchParams.get('offerId');
+  const orderId = searchParams.get('orderId'); // Support orderId for direct purchases
   const product = searchParams.get('product');
 
   const { data: paymentsData, isLoading, error, refetch } = useGetPaymentsQuery({});
   const [updateOrderStatus, { isLoading: isUpdating }] = useUpdateOrderStatusMutation();
   
-  // Get detailed offer information including payment status
+  // Get detailed offer information including payment status (only for offer-based purchases)
   const { data: offerDetailData, isLoading: isLoadingOfferDetail } = useGetOfferDetailQuery(
     offerId || '',
     { skip: !offerId }
@@ -64,9 +65,48 @@ export default function OrderStatusPage() {
     }
   }, []);
   
-  // Find the order/payment by offerId (check both API and localStorage)
-  const order = payments.find((payment: any) => payment.offerId === offerId) ||
-    localPayments.find((payment: any) => payment.offerId === offerId);
+  // Find the order/payment by orderId (for direct purchases) or offerId (for offer-based purchases)
+  // Priority: orderId > offerId
+  // Try multiple matching strategies:
+  // 1. Match by payment.id === orderId
+  // 2. Match by payment.orderNumber === orderId (in case orderId is actually orderNumber)
+  // 3. Match by localStorage payment.id or orderId
+  const order = orderId
+    ? // Direct purchase - find by orderId (try multiple fields)
+      payments.find((payment: Payment) => 
+        payment.id === orderId || 
+        (payment as any).orderNumber === orderId
+      ) ||
+      localPayments.find((payment: any) => 
+        payment.id === orderId || 
+        payment.orderId === orderId ||
+        payment.orderNumber === orderId
+      )
+    : // Offer-based purchase - find by offerId
+      offerId
+      ? payments.find((payment: any) => payment.offerId === offerId) ||
+        localPayments.find((payment: any) => payment.offerId === offerId)
+      : null;
+
+  // Debug logging
+  useEffect(() => {
+    if (orderId || offerId) {
+      console.log('Order Status Page - Search Parameters:', {
+        orderId,
+        offerId,
+        product,
+        paymentsCount: payments.length,
+        localPaymentsCount: localPayments.length,
+        foundOrder: !!order,
+        orderDetails: order ? {
+          id: order.id,
+          orderNumber: (order as any).orderNumber,
+          status: order.status,
+          offerId: (order as any).offerId,
+        } : null,
+      });
+    }
+  }, [orderId, offerId, product, payments, localPayments, order]);
   
   // Get payment status from offer detail if available
   const offerDetail = offerDetailData?.offer;
@@ -75,14 +115,14 @@ export default function OrderStatusPage() {
   useEffect(() => {
     if (order) {
       setTrackingNumber(order.trackingNumber || '');
-      setSelectedStatus(order.status || 'ready');
+      setSelectedStatus('delivered');
     }
   }, [order]);
   
   // Update status from offer detail if order is not available
   useEffect(() => {
     if (!order && offerDetail) {
-      setSelectedStatus('ready');
+      setSelectedStatus('delivered');
     }
   }, [order, offerDetail]);
 
@@ -110,42 +150,71 @@ export default function OrderStatusPage() {
       return;
     }
 
-    const status = selectedStatus || order.status || 'shipped';
+    const status = selectedStatus || 'delivered';
 
-    if (status === 'shipped' && !trackingNumber.trim()) {
-      toast.error(
-        locale === 'en'
-          ? 'Please enter a tracking number'
-          : 'يرجى إدخال رقم التتبع'
-      );
-      return;
-    }
+    // Note: Proof of shipment is optional for delivered status
+
+    // Log request details
+    console.log('=== UPDATE ORDER STATUS REQUEST ===');
+    console.log('Order ID:', order.id);
+    console.log('Order Number:', (order as any).orderNumber);
+    console.log('Status:', status);
+    console.log('Tracking Number:', trackingNumber.trim() || 'N/A');
+    console.log('Has Shipment Proof:', !!shipmentProof);
+    console.log('Current Order Status:', order.status);
+    console.log('===================================');
 
     try {
-      // Upload proof if provided
+      // Upload proof if provided (use chat upload endpoint like shipping page does)
       let proofUrl = '';
       if (shipmentProof) {
+        console.log('Uploading shipment proof via chat upload endpoint...');
         const formData = new FormData();
         formData.append('file', shipmentProof);
 
-        const uploadResponse = await apiClient.post(
-          `/api/user/payments/${order.id}/shipment-proof/`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        );
-        proofUrl = uploadResponse.data.proofUrl || '';
+        try {
+          const uploadResponse = await apiClient.post('/api/chat/upload/', formData);
+          
+          console.log('=== SHIPMENT PROOF UPLOAD RESPONSE ===');
+          console.log('Status:', uploadResponse.status);
+          console.log('Data:', uploadResponse.data);
+          console.log('=====================================');
+          
+          proofUrl = uploadResponse.data.fileUrl || uploadResponse.data.proofUrl || '';
+        } catch (uploadError: any) {
+          console.error('=== SHIPMENT PROOF UPLOAD ERROR ===');
+          console.error('Error:', uploadError);
+          console.error('Response:', uploadError.response);
+          console.error('Status:', uploadError.response?.status);
+          console.error('Data:', uploadError.response?.data);
+          console.error('===================================');
+          
+          // Continue with status update even if proof upload fails
+          toast.warning(
+            locale === 'en'
+              ? 'Proof upload failed, but continuing with status update...'
+              : 'فشل رفع الإثبات، ولكن سيتم متابعة تحديث الحالة...'
+          );
+        }
       }
 
-      // Update order status
-      await updateOrderStatus({
+      // Update order status to delivered
+      console.log('Calling updateOrderStatus mutation...');
+      const updatePayload = {
         orderId: order.id,
-        status: status,
+        status: 'delivered',
         trackingNumber: trackingNumber.trim() || undefined,
-      }).unwrap();
+        shipmentProof: shipmentProof || undefined,
+        shipmentProofUrl: proofUrl || undefined,
+      };
+      console.log('Update Payload:', updatePayload);
+      console.log('API Endpoint:', `/api/user/payments/${order.id}/update-status/`);
+
+      const result = await updateOrderStatus(updatePayload).unwrap();
+
+      console.log('=== UPDATE ORDER STATUS SUCCESS ===');
+      console.log('Response:', result);
+      console.log('===================================');
 
       toast.success(
         locale === 'en'
@@ -154,12 +223,31 @@ export default function OrderStatusPage() {
       );
       refetch();
     } catch (error: any) {
-      toast.error(
-        error?.data?.message ||
-          (locale === 'en'
-            ? 'Failed to update order status'
-            : 'فشل تحديث حالة الطلب')
-      );
+      console.error('=== UPDATE ORDER STATUS ERROR ===');
+      console.error('Full Error Object:', error);
+      console.error('Error Message:', error?.message);
+      console.error('Error Data:', error?.data);
+      console.error('Error Response:', error?.response);
+      console.error('Response Status:', error?.response?.status);
+      console.error('Response Data:', error?.response?.data);
+      console.error('Response Headers:', error?.response?.headers);
+      console.error('Request URL:', error?.config?.url);
+      console.error('Request Method:', error?.config?.method);
+      console.error('Request Data:', error?.config?.data);
+      console.error('================================');
+
+      const errorMessage = 
+        error?.data?.message || 
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        (locale === 'en'
+          ? 'Failed to update order status'
+          : 'فشل تحديث حالة الطلب');
+
+      console.error('Final Error Message:', errorMessage);
+
+      toast.error(errorMessage);
     }
   };
 
@@ -191,22 +279,46 @@ export default function OrderStatusPage() {
   };
 
   // Show error only if we don't have order and offer detail is not loading or not available
-  if (!order && !isLoadingOfferDetail && !offerDetail) {
+  // Also check if we're still loading payments data
+  if (!order && !isLoading && !isLoadingOfferDetail && !offerDetail) {
     return (
       <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
         <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-            <p className='text-deep-charcoal/70'>
+            <p className='text-deep-charcoal/70 mb-2'>
               {locale === 'en'
                 ? 'Order not found'
                 : 'الطلب غير موجود'}
             </p>
+            {(orderId || offerId) && (
+              <p className='text-sm text-deep-charcoal/50 mb-4'>
+                {locale === 'en'
+                  ? `Looking for: ${orderId ? `Order ID: ${orderId}` : `Offer ID: ${offerId}`}`
+                  : `البحث عن: ${orderId ? `رقم الطلب: ${orderId}` : `رقم العرض: ${offerId}`}`}
+              </p>
+            )}
             <button
               onClick={() => router.back()}
-              className='mt-4 px-4 py-2 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors'
+              className='mt-4 px-4 py-2 bg-saudi-green text-white rounded-lg hover:bg-saudi-green/90 transition-colors cursor-pointer'
             >
               {locale === 'en' ? 'Go Back' : 'العودة'}
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show loading state while fetching data
+  if (isLoading && !order) {
+    return (
+      <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
+        <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
+            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-saudi-green mx-auto mb-4'></div>
+            <p className='text-deep-charcoal/70'>
+              {locale === 'en' ? 'Loading order details...' : 'جاري تحميل تفاصيل الطلب...'}
+            </p>
           </div>
         </div>
       </div>
@@ -229,7 +341,7 @@ export default function OrderStatusPage() {
         <div className='mb-6'>
           <button
             onClick={() => router.back()}
-            className='flex items-center gap-2 text-deep-charcoal/70 hover:text-deep-charcoal mb-4 transition-colors'
+            className='flex items-center gap-2 text-deep-charcoal/70 hover:text-deep-charcoal mb-4 transition-colors cursor-pointer'
           >
             <HiArrowLeft className='w-5 h-5' />
             <span>{locale === 'en' ? 'Back' : 'العودة'}</span>
@@ -357,23 +469,11 @@ export default function OrderStatusPage() {
                   {locale === 'en' ? 'Shipment Status' : 'حالة الشحن'}
                 </label>
                 <select
-                  value={selectedStatus || order?.status || 'ready'}
+                  value='delivered'
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green'
+                  className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green cursor-pointer'
                   disabled={!isPaid || isUpdating}
                 >
-                  <option value='ready'>
-                    {locale === 'en' ? 'Ready' : 'جاهز'}
-                  </option>
-                  <option value='shipped'>
-                    {locale === 'en' ? 'Shipped' : 'تم الشحن'}
-                  </option>
-                  <option value='reached_at_courier'>
-                    {locale === 'en' ? 'Reached at Courier' : 'وصل للشاحن'}
-                  </option>
-                  <option value='out_for_delivery'>
-                    {locale === 'en' ? 'Out for Delivery' : 'قيد التسليم'}
-                  </option>
                   <option value='delivered'>
                     {locale === 'en' ? 'Delivered' : 'تم التسليم'}
                   </option>
@@ -384,8 +484,11 @@ export default function OrderStatusPage() {
               <div className='mb-4'>
                 <label className='block text-sm font-medium text-deep-charcoal mb-2'>
                   {locale === 'en'
-                    ? 'Proof of Shipment (Optional)'
-                    : 'إثبات الشحن (اختياري)'}
+                    ? 'Proof of Shipment'
+                    : 'إثبات الشحن'}
+                  <span className='text-deep-charcoal/60 font-normal ml-1'>
+                    {locale === 'en' ? '(Optional)' : '(اختياري)'}
+                  </span>
                 </label>
                 <div className='flex items-center gap-4'>
                   <label className='flex items-center gap-2 px-4 py-2 border border-rich-sand/30 rounded-lg cursor-pointer hover:bg-rich-sand/10 transition-colors'>
@@ -427,16 +530,19 @@ export default function OrderStatusPage() {
               <button
                 onClick={handleUpdateStatus}
                 disabled={!isPaid || isUpdating}
-                className='w-full px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                className='w-full px-6 py-3 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2'
               >
-                <HiTruck className='w-5 h-5' />
-                {isUpdating
-                  ? locale === 'en'
-                    ? 'Updating...'
-                    : 'جاري التحديث...'
-                  : locale === 'en'
-                  ? 'Update Status'
-                  : 'تحديث الحالة'}
+                {isUpdating ? (
+                  <>
+                    <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-white'></div>
+                    <span>{locale === 'en' ? 'Updating...' : 'جاري التحديث...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <HiTruck className='w-5 h-5' />
+                    <span>{locale === 'en' ? 'Update Status' : 'تحديث الحالة'}</span>
+                  </>
+                )}
               </button>
 
               {!isPaid && (

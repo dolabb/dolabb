@@ -89,8 +89,9 @@ export const ordersApi = baseApi.injectEndpoints({
           formData.append('shipmentProofUrl', shipmentProofUrl);
         }
 
+        // Use endpoint from documentation: /api/products/payments/<order_id>/ship/
         return {
-          url: `/api/user/payments/${orderId}/ship/`,
+          url: `/api/products/payments/${orderId}/ship/`,
           method: 'PUT',
           data: formData,
         };
@@ -100,13 +101,40 @@ export const ordersApi = baseApi.injectEndpoints({
 
     updateOrderStatus: builder.mutation<
       { success: boolean; order: Payment },
-      { orderId: string; status: string; trackingNumber?: string }
+      { orderId: string; status: string; trackingNumber?: string; shipmentProof?: File; shipmentProofUrl?: string }
     >({
-      query: ({ orderId, status, trackingNumber }) => ({
-        url: `/api/user/payments/${orderId}/update-status/`,
-        method: 'PUT',
-        data: { status, trackingNumber },
-      }),
+      query: ({ orderId, status, trackingNumber, shipmentProof, shipmentProofUrl }) => {
+        // Use endpoint matching shipOrder pattern: /api/products/payments/<order_id>/status/
+        // Support both JSON and FormData depending on whether shipmentProof is provided
+        if (shipmentProof || shipmentProofUrl) {
+          const formData = new FormData();
+          formData.append('status', status);
+          if (trackingNumber) {
+            formData.append('trackingNumber', trackingNumber);
+          }
+          if (shipmentProof) {
+            formData.append('shipmentProof', shipmentProof);
+          } else if (shipmentProofUrl) {
+            formData.append('shipmentProofUrl', shipmentProofUrl);
+          }
+          
+          return {
+            url: `/api/user/payments/${orderId}/update-status/`,
+            method: 'PUT',
+            data: formData,
+          };
+        } else {
+          // JSON request for status update without file
+          return {
+            url: `/api/user/payments/${orderId}/update-status/`,
+            method: 'PUT',
+            data: { 
+              status, 
+              ...(trackingNumber && { trackingNumber }) 
+            },
+          };
+        }
+      },
       invalidatesTags: ['Order'],
     }),
 

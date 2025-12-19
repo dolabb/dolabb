@@ -3,12 +3,14 @@
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { useState } from 'react';
-import { HiCheckCircle, HiExclamationTriangle } from 'react-icons/hi2';
+import { useRouter } from 'next/navigation';
+import { HiCheckCircle, HiExclamationTriangle, HiEye } from 'react-icons/hi2';
 import { useGetPaymentsQuery } from '@/lib/api/ordersApi';
 import Pagination from '@/components/shared/Pagination';
 
 export default function SaleHistoryTab() {
   const locale = useLocale();
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -187,6 +189,20 @@ export default function SaleHistoryTab() {
                   </div>
                 </div>
               )}
+              
+              {/* View Status Button for Direct Purchases */}
+              <div className='mt-4'>
+                <button
+                  onClick={() => {
+                    // Navigate to order status page with order ID
+                    router.push(`/${locale}/order-status?orderId=${payment.id}`);
+                  }}
+                  className='w-full sm:w-auto px-4 py-2.5 bg-deep-charcoal text-white rounded-lg font-medium hover:bg-deep-charcoal/90 transition-colors cursor-pointer text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg'
+                >
+                  <HiEye className='w-4 h-4' />
+                  {locale === 'en' ? 'View Status' : 'عرض الحالة'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

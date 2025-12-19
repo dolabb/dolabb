@@ -382,7 +382,30 @@ export default function BuyerContent() {
   const orders = ordersData?.orders || [];
 
   // Get offers from API response
-  const offers = offersData?.offers || [];
+  // Filter out direct purchases - only show actual offers from negotiation process
+  // Direct purchases should be shown in SaleHistoryTab, not in offers section
+  const allOffers = offersData?.offers || [];
+  const offers = allOffers.filter((offer: Offer) => {
+    // Filter out direct purchases (buy now)
+    // Direct purchases can be identified by:
+    // 1. Having orderStatus (like "packed") but no negotiation history
+    // 2. Having status "paid" but never went through pending/accepted states
+    // 3. Not having offerAmount (direct purchase at full price)
+    
+    // If it has orderStatus like "packed", "shipped", etc., it's a direct purchase
+    if (offer.orderStatus && ['packed', 'shipped', 'delivered', 'ready'].includes(offer.orderStatus)) {
+      return false; // This is a direct purchase, exclude from offers
+    }
+    
+    // If it has orderStatus but no offerAmount, it's likely a direct purchase
+    if (offer.orderStatus && !offer.offerAmount) {
+      return false;
+    }
+    
+    // Only show offers that have an offerId and went through negotiation
+    // Offers should have offerAmount (negotiated price) or have been in pending/accepted states
+    return offer.id && offer.id.trim() !== '' && (offer.offerAmount || offer.status === 'pending' || offer.status === 'accepted' || offer.status === 'countered');
+  });
 
   // Note: We don't need a WebSocket connection here
   // The backend API should handle sending WebSocket messages to both parties
