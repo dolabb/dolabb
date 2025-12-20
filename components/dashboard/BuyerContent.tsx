@@ -24,6 +24,7 @@ import PaymentsTab from './PaymentsTab';
 import CounterOfferModal from '@/components/shared/CounterOfferModal';
 import ReviewModal from '@/components/shared/ReviewModal';
 import DisputeModal from '@/components/shared/DisputeModal';
+import PurchaseHistoryTab from './PurchaseHistoryTab';
 import { canUserPurchaseProduct } from '@/utils/productValidation';
 
 // Separate component for offer item to use hooks properly
@@ -316,15 +317,15 @@ export default function BuyerContent() {
   // Get tab from URL parameter, default based on user role
   const tabParam = searchParams.get('tab');
   const defaultTab = isSeller ? 'offers' : 'orders';
-  const initialTab = (tabParam === 'offers' || tabParam === 'orders') ? tabParam : defaultTab;
+  const initialTab = (tabParam === 'offers' || tabParam === 'orders' || tabParam === 'purchaseHistory') ? tabParam : defaultTab;
   
-  // For sellers, only show offers tab; for buyers, show orders and offers tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'offers'>(initialTab);
+  // For sellers, only show offers tab; for buyers, show orders, offers, and purchase history tabs
+  const [activeTab, setActiveTab] = useState<'orders' | 'offers' | 'purchaseHistory'>(initialTab as 'orders' | 'offers' | 'purchaseHistory');
   
   // Update active tab when URL parameter changes
   useEffect(() => {
-    if (tabParam === 'offers' || tabParam === 'orders') {
-      setActiveTab(tabParam);
+    if (tabParam === 'offers' || tabParam === 'orders' || tabParam === 'purchaseHistory') {
+      setActiveTab(tabParam as 'orders' | 'offers' | 'purchaseHistory');
     }
   }, [tabParam]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -558,10 +559,10 @@ export default function BuyerContent() {
         </h1>
         {/* Tabs */}
         {!isSeller && (
-        <div className='flex gap-4 mb-6 border-b border-rich-sand/30'>
+        <div className='flex gap-4 mb-6 border-b border-rich-sand/30 overflow-x-auto scrollbar-hide'>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'orders'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
@@ -571,13 +572,23 @@ export default function BuyerContent() {
           </button>
           <button
             onClick={() => setActiveTab('offers')}
-            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer ${
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'offers'
                 ? 'border-saudi-green text-saudi-green'
                 : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
             }`}
           >
             {locale === 'en' ? 'Offers' : 'العروض'}
+          </button>
+          <button
+            onClick={() => setActiveTab('purchaseHistory')}
+            className={`px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+              activeTab === 'purchaseHistory'
+                ? 'border-saudi-green text-saudi-green'
+                : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+            }`}
+          >
+            {locale === 'en' ? 'Purchase History' : 'سجل المشتريات'}
           </button>
         </div>
         )}
@@ -586,10 +597,29 @@ export default function BuyerContent() {
         {!isSeller && activeTab === 'orders' && (
           <div>
             {isLoadingOrders ? (
-              <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
-                <p className='text-deep-charcoal/70'>
-                  {locale === 'en' ? 'Loading orders...' : 'جاري تحميل الطلبات...'}
-                </p>
+              <div className='space-y-4 mb-6'>
+                {[...Array(3)].map((_, index) => (
+                  <div
+                    key={index}
+                    className='bg-white rounded-lg border border-rich-sand/30 p-4 flex flex-col sm:flex-row gap-4'
+                  >
+                    <div className='relative w-full sm:w-24 h-24 bg-rich-sand/20 rounded-lg skeleton-shimmer' />
+                    <div className='flex-1 space-y-3'>
+                      <div className='h-6 bg-rich-sand/30 rounded w-3/4 skeleton-shimmer' />
+                      <div className='space-y-2'>
+                        <div className='h-4 bg-rich-sand/30 rounded w-1/2 skeleton-shimmer' />
+                        <div className='h-4 bg-rich-sand/30 rounded w-1/3 skeleton-shimmer' />
+                        <div className='h-4 bg-rich-sand/30 rounded w-1/4 skeleton-shimmer' />
+                      </div>
+                      <div className='h-6 bg-rich-sand/30 rounded w-32 skeleton-shimmer' />
+                    </div>
+                    <div className='flex flex-col gap-2 sm:w-40'>
+                      <div className='h-6 bg-rich-sand/30 rounded-full w-20 skeleton-shimmer' />
+                      <div className='h-10 bg-rich-sand/30 rounded-lg w-full skeleton-shimmer' />
+                      <div className='h-10 bg-rich-sand/30 rounded-lg w-full skeleton-shimmer' />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : orders.length === 0 ? (
               <div className='bg-white rounded-lg border border-rich-sand/30 p-8 text-center'>
@@ -602,6 +632,7 @@ export default function BuyerContent() {
             <div className='space-y-4 mb-6'>
                   {paginatedOrders.map(order => {
                     const statusBadge = getStatusBadge(order.status);
+                    const isPaid = order.paymentStatus === 'completed';
                     const firstImageRaw = order.product?.images?.[0] || '';
                     
                     // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
@@ -692,12 +723,20 @@ export default function BuyerContent() {
                     </div>
                   </div>
                         <div className='flex flex-col gap-2 sm:w-40'>
+                          {/* Payment Status Badge */}
+                          {isPaid && (
+                            <span className='px-3 py-1 rounded-full text-xs font-medium text-center bg-emerald-100 text-emerald-700 border border-emerald-300'>
+                              {locale === 'en' ? 'Paid' : 'مدفوع'}
+                            </span>
+                          )}
+                          
+                          {/* Shipping Status Badge */}
                           <span className={`px-3 py-1 rounded-full text-xs font-medium text-center ${statusBadge.color}`}>
                             {statusBadge.label[locale as 'en' | 'ar'] || statusBadge.label.en}
                           </span>
                           
-                          {/* Review button - Show for delivered orders that haven't been reviewed */}
-                          {order.status === 'delivered' && !order.reviewSubmitted && (
+                          {/* Review button - Show for paid orders that haven't been reviewed */}
+                          {isPaid && !order.reviewSubmitted && (
                             <button
                               onClick={() => {
                                 setSelectedOrderForReview(order);
@@ -709,8 +748,8 @@ export default function BuyerContent() {
                             </button>
                           )}
                           
-                          {/* Report/Dispute button - Show for delivered orders */}
-                          {order.status === 'delivered' && (
+                          {/* Report/Dispute button - Show for paid orders */}
+                          {isPaid && (
                             <button
                               onClick={() => {
                                 setSelectedOrderForDispute(order);
@@ -736,6 +775,11 @@ export default function BuyerContent() {
               </>
             )}
           </div>
+        )}
+
+        {/* Purchase History Tab - Only for buyers */}
+        {!isSeller && activeTab === 'purchaseHistory' && (
+          <PurchaseHistoryTab />
         )}
 
         {/* Offers Tab - Show for sellers directly, or when activeTab is 'offers' for buyers */}

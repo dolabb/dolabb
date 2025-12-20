@@ -48,6 +48,7 @@ export function useBrowseFilters(locale: string) {
     maxPrice: searchParams.get('maxPrice') || '',
     size: searchParams.get('size') || '',
     color: searchParams.get('color') || '',
+    search: searchParams.get('search') || '',
     // Map API condition values back to user-friendly names for display
     condition: (() => {
       const apiCondition = searchParams.get('condition') || '';
@@ -79,6 +80,7 @@ export function useBrowseFilters(locale: string) {
     if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
     if (filters.size) params.set('size', filters.size);
     if (filters.color) params.set('color', filters.color);
+    if (filters.search) params.set('search', filters.search);
     // Map condition user-friendly names to API values for URL
     if (filters.condition) {
       const conditionMap: Record<string, string> = {
@@ -110,6 +112,7 @@ export function useBrowseFilters(locale: string) {
       size?: string;
       color?: string;
       condition?: string;
+      search?: string;
       sortBy?: 'newest' | 'price: low to high' | 'price: high to low' | 'relevance';
     } = {
       page: filters.page,
@@ -127,6 +130,7 @@ export function useBrowseFilters(locale: string) {
     if (filters.maxPrice) params.maxPrice = parseInt(filters.maxPrice);
     if (filters.size) params.size = filters.size;
     if (filters.color) params.color = filters.color;
+    if (filters.search && filters.search.trim()) params.search = filters.search.trim();
     // Map condition user-friendly names to API values
     if (filters.condition) {
       const conditionMap: Record<string, string> = {
@@ -343,6 +347,7 @@ export function useBrowseFilters(locale: string) {
       maxPrice: '',
       size: '',
       color: '',
+      search: '',
       condition: '',
       sortBy: 'Relevance',
       page: 1,
@@ -358,6 +363,7 @@ export function useBrowseFilters(locale: string) {
     filters.maxPrice ||
     filters.size ||
     filters.color ||
+    filters.search ||
     filters.condition;
 
   return {

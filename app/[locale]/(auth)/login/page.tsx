@@ -162,7 +162,21 @@ export default function LoginPage() {
             : `مرحباً بعودتك، ${result.user.full_name}!`
         );
 
-        // Redirect based on role
+        // Check for return URL (e.g., from product page when user tried to buy/make offer)
+        if (typeof window !== 'undefined') {
+          const returnUrl = localStorage.getItem('returnUrl');
+          if (returnUrl) {
+            // Clear the return URL
+            localStorage.removeItem('returnUrl');
+            // Redirect to the stored return URL
+            setTimeout(() => {
+              router.push(returnUrl);
+            }, 1000);
+            return;
+          }
+        }
+
+        // Redirect based on role (default behavior)
         setTimeout(() => {
           if (result.user.role === 'seller') {
             router.push(`/${locale}/my-store`);

@@ -76,22 +76,98 @@ export interface CreateReviewRequest {
 // Dispute interfaces
 export type DisputeType = 'product_quality' | 'delivery_issue' | 'payment_dispute';
 
-export interface Dispute {
+export interface DisputeMessage {
   id: string;
-  orderId: string;
-  buyerId: string;
-  sellerId: string;
-  disputeType: DisputeType;
-  description: string;
-  status: 'pending' | 'resolved' | 'closed';
+  message: string;
+  senderType: 'buyer' | 'admin';
+  senderId: string;
+  senderName: string;
   createdAt: string;
-  resolvedAt?: string;
+}
+
+export interface DisputeTimeline {
+  action: string;
+  date: string;
+  by: string;
+}
+
+export interface DisputeDetail {
+  id: string;
+  caseNumber: string;
+  type: DisputeType;
+  buyer: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  seller: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  order: {
+    id: string;
+    orderNumber: string;
+  };
+  item: {
+    id: string;
+    title: string;
+    price: number;
+  };
+  description: string;
+  status: 'open' | 'resolved' | 'closed';
+  adminNotes: string;
+  resolution: string;
+  created_at: string;
+  updated_at: string;
+  messages: DisputeMessage[];
+  timeline: DisputeTimeline[];
+}
+
+export interface DisputeListItem {
+  _id: string;
+  caseNumber: string;
+  type: DisputeType;
+  buyerName: string;
+  sellerName: string;
+  orderId: string;
+  itemTitle: string;
+  description: string;
+  status: 'open' | 'resolved' | 'closed';
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+export interface DisputesListResponse {
+  success: boolean;
+  disputes: DisputeListItem[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+  };
+}
+
+export interface DisputeDetailResponse {
+  success: boolean;
+  dispute: DisputeDetail;
 }
 
 export interface CreateDisputeRequest {
   orderId: string;
   disputeType: DisputeType;
   description: string;
+}
+
+export interface AddDisputeCommentRequest {
+  message: string;
+}
+
+export interface AddDisputeCommentResponse {
+  success: boolean;
+  message: string;
+  comment: DisputeMessage;
 }
 
 // Order interface with reviewSubmitted field
@@ -184,15 +260,62 @@ export const buyerApi = baseApi.injectEndpoints({
 
     // Report Seller (Create Dispute)
     createDispute: builder.mutation<
-      { success: boolean; dispute: Dispute },
+      { success: boolean; message: string; dispute: any },
       CreateDisputeRequest
     >({
       query: (data) => ({
         url: '/api/user/disputes/create/',
         method: 'POST',
+        data: {
+          orderId: data.orderId,
+          disputeType: data.disputeType,
+          description: data.description,
+        },
+      }),
+      invalidatesTags: ['Order', 'Dispute'],
+    }),
+
+    // Get My Disputes
+    getMyDisputes: builder.query<
+      DisputesListResponse,
+      { page?: number; limit?: number; status?: 'open' | 'resolved' | 'closed' }
+    >({
+      query: (params = {}) => ({
+        url: '/api/user/disputes/',
+        method: 'GET',
+        params: {
+          page: params.page || 1,
+          limit: params.limit || 20,
+          ...(params.status && { status: params.status }),
+        },
+      }),
+      providesTags: ['Dispute'],
+    }),
+
+    // Get My Dispute Details
+    getMyDisputeDetails: builder.query<DisputeDetailResponse, string>({
+      query: (disputeId) => ({
+        url: `/api/user/disputes/${disputeId}/`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, disputeId) => [
+        { type: 'Dispute', id: disputeId },
+      ],
+    }),
+
+    // Add Dispute Comment (Buyer)
+    addDisputeComment: builder.mutation<
+      AddDisputeCommentResponse,
+      { disputeId: string; data: AddDisputeCommentRequest }
+    >({
+      query: ({ disputeId, data }) => ({
+        url: `/api/user/disputes/${disputeId}/comments/`,
+        method: 'POST',
         data,
       }),
-      invalidatesTags: ['Order'],
+      invalidatesTags: (result, error, { disputeId }) => [
+        { type: 'Dispute', id: disputeId },
+      ],
     }),
   }),
 });
@@ -204,5 +327,8 @@ export const {
   useGetSellerRatingQuery,
   useGetSellerReviewsQuery,
   useCreateDisputeMutation,
+  useGetMyDisputesQuery,
+  useGetMyDisputeDetailsQuery,
+  useAddDisputeCommentMutation,
 } = buyerApi;
 

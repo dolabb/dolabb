@@ -13,7 +13,7 @@ import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HiArrowLeft, HiPencil, HiTrash } from 'react-icons/hi2';
 
 interface ItemDetailViewProps {
@@ -30,6 +30,11 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [sellerImageError, setSellerImageError] = useState(false);
+  
+  // Image zoom state
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   // Only fetch if itemId is valid
   const {
@@ -91,6 +96,27 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
       const error = err as { data?: { message?: string } };
       toast.error(error?.data?.message || 'Failed to delete product');
     }
+  };
+
+  // Handle image hover for zoom
+  const handleImageHover = () => {
+    setIsZoomed(true);
+  };
+
+  // Handle image leave
+  const handleImageLeave = () => {
+    setIsZoomed(false);
+  };
+
+  // Handle mouse move for zoom effect
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imageContainerRef.current) return;
+    
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    setMousePosition({ x, y });
   };
 
   if (isLoading) {
@@ -199,14 +225,36 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
             {/* Images */}
             <div>
               {/* Main Image */}
-              <div className='relative aspect-square bg-rich-sand/20 rounded-lg overflow-hidden mb-4'>
+              <div
+                ref={imageContainerRef}
+                className='relative aspect-square bg-rich-sand/20 rounded-lg overflow-hidden mb-4'
+                style={{
+                  cursor: isZoomed
+                    ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23006747' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3Cline x1='8' y1='11' x2='14' y2='11'/%3E%3Cline x1='11' y1='8' x2='11' y2='14'/%3E%3C/svg%3E") 12 12, zoom-out`
+                    : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23006747' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3Cline x1='11' y1='8' x2='11' y2='14'/%3E%3Cline x1='8' y1='11' x2='14' y2='11'/%3E%3C/svg%3E") 12 12, zoom-in`,
+                }}
+                onMouseEnter={handleImageHover}
+                onMouseLeave={handleImageLeave}
+                onMouseMove={handleImageMouseMove}
+              >
                 {mainImage ? (
                   <Image
                     src={mainImage.replace(/\s+/g, '')}
                     alt={product?.title || 'Product image'}
                     fill
-                    className='object-contain'
+                    className='object-contain transition-transform duration-200 ease-out'
+                    style={
+                      isZoomed
+                        ? {
+                            transform: `scale(2.5)`,
+                            transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`,
+                          }
+                        : {
+                            transform: 'scale(1)',
+                          }
+                    }
                     unoptimized
+                    draggable={false}
                   />
                 ) : (
                   <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>

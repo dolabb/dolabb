@@ -11,6 +11,7 @@ interface ProductsGridProps {
   filters: {
     page: number;
     limit: number;
+    search?: string;
   };
   onPageChange: (page: number) => void;
   locale: string;
@@ -24,22 +25,68 @@ export default function ProductsGrid({
   onPageChange,
   locale,
 }: ProductsGridProps) {
+  if (error) {
+    return (
+      <div className='text-center py-12'>
+        <div className='max-w-md mx-auto'>
+          <div className='mb-4'>
+            <svg
+              className='mx-auto h-12 w-12 text-red-500'
+              fill='none'
+              viewBox='0 0 24 24'
+              stroke='currentColor'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+              />
+            </svg>
+          </div>
+          <p className='text-lg font-semibold text-deep-charcoal mb-2'>
+            {locale === 'en' ? 'Error loading products' : 'خطأ في تحميل المنتجات'}
+          </p>
+          <p className='text-deep-charcoal/70 text-sm'>
+            {locale === 'en'
+              ? 'Please try again later or refresh the page.'
+              : 'يرجى المحاولة مرة أخرى لاحقاً أو تحديث الصفحة.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className='bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300'
-          >
-            <div className='relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer' />
-            <div className='p-4'>
-              <div className='h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer' />
-              <div className='h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer' />
-              <div className='h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
+      <div className='space-y-4'>
+        {filters.search && (
+          <div className='text-center py-4'>
+            <div className='inline-flex items-center gap-2 text-deep-charcoal/70'>
+              <div className='animate-spin rounded-full h-5 w-5 border-2 border-saudi-green border-t-transparent' />
+              <span className='text-sm'>
+                {locale === 'en'
+                  ? `Searching for "${filters.search}"...`
+                  : `جاري البحث عن "${filters.search}"...`}
+              </span>
             </div>
           </div>
-        ))}
+        )}
+        <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className='bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300'
+            >
+              <div className='relative aspect-square overflow-hidden bg-rich-sand/20 skeleton-shimmer' />
+              <div className='p-4'>
+                <div className='h-4 bg-rich-sand/30 rounded w-3/4 mb-1 skeleton-shimmer' />
+                <div className='h-3 bg-rich-sand/30 rounded w-1/2 mb-2 skeleton-shimmer' />
+                <div className='h-5 bg-rich-sand/30 rounded w-20 skeleton-shimmer' />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -47,11 +94,41 @@ export default function ProductsGrid({
   if (!products || products.length === 0) {
     return (
       <div className='text-center py-12'>
-        <p className='text-deep-charcoal/70'>
-          {locale === 'en'
-            ? 'No products found'
-            : 'لم يتم العثور على منتجات'}
-        </p>
+        <div className='max-w-md mx-auto'>
+          <div className='mb-4'>
+            <svg
+              className='mx-auto h-16 w-16 text-deep-charcoal/30'
+              fill='none'
+              viewBox='0 0 24 24'
+              stroke='currentColor'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+              />
+            </svg>
+          </div>
+          <p className='text-lg font-semibold text-deep-charcoal mb-2'>
+            {filters.search
+              ? locale === 'en'
+                ? `No products found for "${filters.search}"`
+                : `لم يتم العثور على منتجات لـ "${filters.search}"`
+              : locale === 'en'
+                ? 'No products found'
+                : 'لم يتم العثور على منتجات'}
+          </p>
+          <p className='text-deep-charcoal/70 text-sm'>
+            {filters.search
+              ? locale === 'en'
+                ? 'Try adjusting your search terms or browse all products.'
+                : 'حاول تعديل مصطلحات البحث أو تصفح جميع المنتجات.'
+              : locale === 'en'
+                ? 'Try adjusting your filters to see more products.'
+                : 'حاول تعديل المرشحات لرؤية المزيد من المنتجات.'}
+          </p>
+        </div>
       </div>
     );
   }

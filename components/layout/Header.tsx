@@ -62,6 +62,7 @@ export default function Header() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isNavigatingToSearch, setIsNavigatingToSearch] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -316,16 +317,40 @@ export default function Header() {
                       setIsSearchDropdownOpen(true);
                     }
                   }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      e.preventDefault();
+                      // Navigate to browse page with search query
+                      const searchUrl = `/${locale}/browse?search=${encodeURIComponent(searchQuery.trim())}`;
+                      const query = searchQuery.trim();
+                      setSearchQuery('');
+                      setIsSearchDropdownOpen(false);
+                      setIsNavigatingToSearch(true);
+                      router.push(searchUrl);
+                      // Reset navigation state after a short delay
+                      setTimeout(() => setIsNavigatingToSearch(false), 1000);
+                    }
+                  }}
                   className={`w-full py-2 rounded-full border border-saudi-green/30 hover:border-saudi-green bg-white focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${
                     isRTL ? 'px-4 pr-10 pl-4' : 'px-4 pl-10 pr-4'
                   }`}
                   dir={isRTL ? 'rtl' : 'ltr'}
                 />
-                <HiMagnifyingGlass
-                  className={`absolute top-2.5 w-5 h-5 text-deep-charcoal/50 ${
-                    isRTL ? 'right-3' : 'left-3'
-                  }`}
-                />
+                {isNavigatingToSearch ? (
+                  <div
+                    className={`absolute top-2.5 ${
+                      isRTL ? 'right-3' : 'left-3'
+                    }`}
+                  >
+                    <div className='animate-spin rounded-full h-5 w-5 border-2 border-saudi-green border-t-transparent' />
+                  </div>
+                ) : (
+                  <HiMagnifyingGlass
+                    className={`absolute top-2.5 w-5 h-5 text-deep-charcoal/50 ${
+                      isRTL ? 'right-3' : 'left-3'
+                    }`}
+                  />
+                )}
                 {/* Search Results Dropdown */}
                 {isSearchDropdownOpen && (
                   <div
@@ -560,16 +585,40 @@ export default function Header() {
                     setIsSearchDropdownOpen(true);
                   }
                 }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    e.preventDefault();
+                    // Navigate to browse page with search query
+                    const searchUrl = `/${locale}/browse?search=${encodeURIComponent(searchQuery.trim())}`;
+                    setSearchQuery('');
+                    setIsSearchDropdownOpen(false);
+                    setIsMobileMenuOpen(false);
+                    setIsNavigatingToSearch(true);
+                    router.push(searchUrl);
+                    // Reset navigation state after a short delay
+                    setTimeout(() => setIsNavigatingToSearch(false), 1000);
+                  }
+                }}
                 className={`w-full py-2 rounded-full border border-saudi-green/30 hover:border-saudi-green bg-white focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${
                   isRTL ? 'px-4 pr-10 pl-4' : 'px-4 pl-10 pr-4'
                 }`}
                 dir={isRTL ? 'rtl' : 'ltr'}
               />
-              <HiMagnifyingGlass
-                className={`absolute top-2.5 w-5 h-5 text-deep-charcoal/50 ${
-                  isRTL ? 'right-3' : 'left-3'
-                }`}
-              />
+              {isNavigatingToSearch ? (
+                <div
+                  className={`absolute top-2.5 ${
+                    isRTL ? 'right-3' : 'left-3'
+                  }`}
+                >
+                  <div className='animate-spin rounded-full h-5 w-5 border-2 border-saudi-green border-t-transparent' />
+                </div>
+              ) : (
+                <HiMagnifyingGlass
+                  className={`absolute top-2.5 w-5 h-5 text-deep-charcoal/50 ${
+                    isRTL ? 'right-3' : 'left-3'
+                  }`}
+                />
+              )}
               {/* Search Results Dropdown - Mobile */}
               {isSearchDropdownOpen && (
                 <div

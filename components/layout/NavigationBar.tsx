@@ -16,6 +16,7 @@ import {
   HiTag,
   HiUser,
   HiUserGroup,
+  HiChatBubbleLeftRight,
 } from 'react-icons/hi2';
 
 // Style Image Component with error handling
@@ -255,6 +256,17 @@ export default function NavigationBar() {
         ? 'Buyer'
         : 'المشتري',
     },
+    // Show Disputes link only for buyers
+    ...(!isSeller
+      ? [
+          {
+            key: 'disputes',
+            href: `/${locale}/disputes`,
+            icon: HiChatBubbleLeftRight,
+            label: locale === 'en' ? 'Disputes' : 'النزاعات',
+          },
+        ]
+      : []),
   ];
 
   // If affiliate, don't show navigation bar

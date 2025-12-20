@@ -12,6 +12,7 @@ interface ActiveFiltersProps {
     maxPrice: string;
     size: string;
     color: string;
+    search: string;
     condition: string;
   };
   apiCategories: { category: string; subcategories: string[] }[];
@@ -60,6 +61,7 @@ export default function ActiveFilters({
     filters.maxPrice ||
     filters.size ||
     filters.color ||
+    filters.search ||
     filters.condition;
 
   if (!hasActiveFilters) return null;
@@ -98,6 +100,17 @@ export default function ActiveFilters({
   return (
     <div className='flex flex-wrap items-center gap-3 mb-6'>
       <div className='flex flex-wrap items-center gap-2 flex-1'>
+        {filters.search && (
+          <span className='inline-flex items-center gap-2 px-3 py-1.5 bg-saudi-green/10 text-saudi-green rounded-full text-sm font-medium'>
+            {locale === 'en' ? 'Search' : 'بحث'}: "{filters.search}"
+            <button
+              onClick={() => onClearFilter('search')}
+              className='hover:text-saudi-green/80 transition-colors'
+            >
+              <HiXMark className='w-4 h-4' />
+            </button>
+          </span>
+        )}
         {filters.category && filters.subcategory && (
           <span className='inline-flex items-center gap-2 px-3 py-1.5 bg-saudi-green/10 text-saudi-green rounded-full text-sm font-medium'>
             {getCategoryName()} / {getSubcategoryName()}

@@ -9,7 +9,7 @@ import OfferModal from '@/components/shared/OfferModal';
 import { toast } from '@/utils/toast';
 import { formatPrice } from '@/utils/formatPrice';
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAppSelector } from '@/lib/store/hooks';
 import { apiClient } from '@/lib/api/client';
 import Image from 'next/image';
@@ -118,6 +118,7 @@ const ProductDetailsSkeleton = ({ isRTL }: { isRTL: boolean }) => (
 export default function ProductDetails({ productId }: ProductDetailsProps) {
   const locale = useLocale();
   const router = useRouter();
+  const pathname = usePathname();
   const isRTL = locale === 'ar';
   const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const currentUser = useAppSelector(state => state.auth.user);
@@ -137,6 +138,11 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     tags: false,
   });
   const carouselIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Image zoom state
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch product from API
   const {
@@ -243,15 +249,28 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
     if (carouselIntervalRef.current) {
       clearInterval(carouselIntervalRef.current);
     }
+    setIsZoomed(true);
   };
 
   // Resume carousel on mouse leave
   const handleImageLeave = () => {
+    setIsZoomed(false);
     if (productImages.length > 1) {
       carouselIntervalRef.current = setInterval(() => {
         setSelectedImage(prev => (prev + 1) % productImages.length);
       }, 4000);
     }
+  };
+
+  // Handle mouse move for zoom effect
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imageContainerRef.current) return;
+    
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    setMousePosition({ x, y });
   };
 
   const toggleSection = (section: string) => {
@@ -270,6 +289,10 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
           ? 'Please login to make an offer'
           : 'يرجى تسجيل الدخول لعمل عرض'
       );
+      // Store return URL for redirect after login
+      if (typeof window !== 'undefined' && pathname) {
+        localStorage.setItem('returnUrl', pathname);
+      }
       router.push(`/${locale}/login`);
       return;
     }
@@ -334,6 +357,10 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             ? 'Your session has expired. Please login again.'
             : 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.'
         );
+        // Store return URL for redirect after login
+        if (typeof window !== 'undefined' && pathname) {
+          localStorage.setItem('returnUrl', pathname);
+        }
         router.push(`/${locale}/login`);
       }
     } catch (error: any) {
@@ -499,9 +526,18 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             <div className='sticky top-20'>
               {/* Main Image Carousel */}
               <div
-                className='relative aspect-square bg-rich-sand/20 rounded-lg overflow-hidden mb-3'
+                ref={imageContainerRef}
+                className={`relative aspect-square bg-rich-sand/20 rounded-lg overflow-hidden mb-3 ${
+                  isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+                }`}
+                style={{
+                  cursor: isZoomed
+                    ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23006747' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3Cline x1='8' y1='11' x2='14' y2='11'/%3E%3Cline x1='11' y1='8' x2='11' y2='14'/%3E%3C/svg%3E") 12 12, zoom-out`
+                    : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23006747' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3Cline x1='11' y1='8' x2='11' y2='14'/%3E%3Cline x1='8' y1='11' x2='14' y2='11'/%3E%3C/svg%3E") 12 12, zoom-in`,
+                }}
                 onMouseEnter={handleImageHover}
                 onMouseLeave={handleImageLeave}
+                onMouseMove={handleImageMouseMove}
               >
                 {productImages.length > 0 ? (
                   productImages.map((img, index) => {
@@ -524,12 +560,23 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             : img
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
-                        className={`w-full h-full object-cover transition-opacity duration-500 ${
+                        className={`w-full h-full object-cover transition-transform duration-200 ease-out ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
                         }`}
+                        style={
+                          isZoomed && selectedImage === index
+                            ? {
+                                transform: `scale(2.5)`,
+                                transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`,
+                              }
+                            : {
+                                transform: 'scale(1)',
+                              }
+                        }
                         onError={() => setImageError(true)}
+                        draggable={false}
                       />
                     ) : (
                       <Image
@@ -543,13 +590,24 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
                         fill
-                        className={`object-cover transition-opacity duration-500 ${
+                        className={`object-cover transition-transform duration-200 ease-out ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
                         }`}
+                        style={
+                          isZoomed && selectedImage === index
+                            ? {
+                                transform: `scale(2.5)`,
+                                transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`,
+                              }
+                            : {
+                                transform: 'scale(1)',
+                              }
+                        }
                         onError={() => setImageError(true)}
                         unoptimized={shouldUnoptimize}
+                        draggable={false}
                       />
                     );
                   })
@@ -668,6 +726,10 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           ? 'Please login to make an offer'
                           : 'يرجى تسجيل الدخول لعمل عرض'
                       );
+                      // Store return URL for redirect after login
+                      if (typeof window !== 'undefined' && pathname) {
+                        localStorage.setItem('returnUrl', pathname);
+                      }
                       router.push(`/${locale}/login`);
                       return;
                     }
@@ -694,6 +756,10 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             ? 'Please login to buy this product'
                             : 'يرجى تسجيل الدخول لشراء هذا المنتج'
                         );
+                        // Store return URL for redirect after login
+                        if (typeof window !== 'undefined' && pathname) {
+                          localStorage.setItem('returnUrl', pathname);
+                        }
                         router.push(`/${locale}/login`);
                         return;
                       }
@@ -877,6 +943,10 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           ? 'Please login to chat with the seller'
                           : 'يرجى تسجيل الدخول للدردشة مع البائع'
                       );
+                      // Store return URL for redirect after login
+                      if (typeof window !== 'undefined' && pathname) {
+                        localStorage.setItem('returnUrl', pathname);
+                      }
                       router.push(`/${locale}/login`);
                       return;
                     }

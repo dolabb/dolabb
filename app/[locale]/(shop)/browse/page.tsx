@@ -43,7 +43,13 @@ export default function BrowsePage() {
       >
         {/* Header */}
         <h1 className='text-3xl font-bold text-deep-charcoal mb-6'>
-          {locale === 'en' ? 'Browse Products' : 'تصفح المنتجات'}
+          {filters.search
+            ? locale === 'en'
+              ? `Search Results for "${filters.search}"`
+              : `نتائج البحث عن "${filters.search}"`
+            : locale === 'en'
+              ? 'Browse Products'
+              : 'تصفح المنتجات'}
         </h1>
 
         {/* Filter Bar */}
