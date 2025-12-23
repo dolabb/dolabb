@@ -2,6 +2,7 @@
 
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { HiArrowLeft } from 'react-icons/hi2';
 import type { ConversationUser, OnlineUserDetail } from '../types';
 import { formatUsername } from '../utils';
@@ -26,6 +27,7 @@ export default function ChatHeader({
   onBack,
 }: ChatHeaderProps) {
   const locale = useLocale();
+  const router = useRouter();
   
   // Enhance with online user details if available
   let displayUser = selectedConversation.otherUser;
@@ -89,7 +91,11 @@ export default function ChatHeader({
       >
         <HiArrowLeft className='w-5 h-5 text-deep-charcoal' />
       </button>
-      <div className='relative w-10 h-10 rounded-full overflow-visible flex-shrink-0'>
+      <button
+        onClick={() => router.push(`/${locale}/user/${selectedConversation.otherUser.id}`)}
+        className='relative w-10 h-10 rounded-full overflow-visible flex-shrink-0 cursor-pointer hover:ring-2 ring-saudi-green/50 transition-all'
+        title={locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}
+      >
         <div className='w-10 h-10 rounded-full overflow-hidden bg-rich-sand/20'>
           {normalizedProfileImage ? (
             normalizedProfileImage.startsWith('/api/cdn') ? (
@@ -122,8 +128,12 @@ export default function ChatHeader({
         {isOnline && (
           <div className='absolute top-0 hidden right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full z-10'></div>
         )}
-      </div>
-      <div className='flex-1 min-w-0'>
+      </button>
+      <button
+        onClick={() => setIsProfileModalOpen(true)}
+        className='flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity'
+        title={locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}
+      >
         <div className='flex items-center gap-2'>
           <h3 className='font-semibold text-deep-charcoal truncate'>
             {formattedUsername}
@@ -142,7 +152,8 @@ export default function ChatHeader({
             ? 'Offline'
             : 'غير متصل'}
         </p>
-      </div>
+      </button>
+
     </div>
   );
 }

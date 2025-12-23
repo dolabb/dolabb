@@ -190,7 +190,22 @@ export interface BuyerOrder {
   totalPrice: number;
   shippingAddress?: any;
   trackingNumber?: string;
-  reviewSubmitted: boolean; // New field - shows if review was already submitted
+  reviewSubmitted?: boolean; // Shows if review was already submitted
+  reviewStatus?: 'submitted' | 'not_submitted'; // Review status
+  review?: {
+    id: string;
+    rating: number;
+    comment?: string;
+    createdAt: string;
+  } | null;
+  disputeStatus?: 'none' | 'open' | 'resolved' | 'closed'; // Dispute status
+  dispute?: {
+    id: string;
+    caseNumber: string;
+    type: 'product_quality' | 'delivery_issue' | 'payment_dispute';
+    status: 'open' | 'resolved' | 'closed';
+    createdAt: string;
+  } | null;
 }
 
 export const buyerApi = baseApi.injectEndpoints({
@@ -232,18 +247,19 @@ export const buyerApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // Get Seller Rating
+    // Get Seller Rating (public endpoint)
     getSellerRating: builder.query<SellerRatingResponse, string>({
       query: (sellerId) => ({
         url: `/api/user/reviews/seller/${sellerId}/rating/`,
         method: 'GET',
+        skipAuth: true, // Public endpoint
       }),
       providesTags: (result, error, sellerId) => [
         { type: 'Review', id: `seller-${sellerId}` },
       ],
     }),
 
-    // Get Seller Reviews/Comments
+    // Get Seller Reviews/Comments (public endpoint)
     getSellerReviews: builder.query<
       SellerReviewsResponse,
       { sellerId: string; page?: number; limit?: number }
@@ -252,6 +268,7 @@ export const buyerApi = baseApi.injectEndpoints({
         url: `/api/user/reviews/seller/${sellerId}/`,
         method: 'GET',
         params: { page, limit },
+        skipAuth: true, // Public endpoint
       }),
       providesTags: (result, error, { sellerId }) => [
         { type: 'Review', id: `seller-reviews-${sellerId}` },

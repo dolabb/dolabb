@@ -4,6 +4,7 @@ import {
   useGetProfileQuery,
   useUpdateLanguageMutation,
 } from '@/lib/api/authApi';
+import { useGetUnreadStatusQuery } from '@/lib/api/chatApi';
 import { useGetProductsQuery } from '@/lib/api/productsApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { logout, updateUser } from '@/lib/store/slices/authSlice';
@@ -11,13 +12,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  startTransition,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   HiArrowRightOnRectangle,
   HiBars3,
@@ -36,11 +31,22 @@ export default function Header() {
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
   const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
+  const isOnMessagesPage = pathname?.includes('/messages');
+
+  // Fetch unread messages status using the dedicated API endpoint
+  const { data: unreadStatusData } = useGetUnreadStatusQuery(undefined, {
+    skip: !isAuthenticated || isOnMessagesPage,
+    // Poll every 30 seconds to keep unread status updated
+    pollingInterval: 30000,
+  });
+
+  // Get unread status from API response
+  const hasUnreadMessages = unreadStatusData?.hasUnreadMessages || false;
+  const totalUnreadCount = unreadStatusData?.totalUnreadCount || 0;
 
   // Check if user is affiliate - initialize from localStorage
-  // Use useState with function to avoid hydration mismatch
+  // Always start as false to match server render, then update after mount
   const [isAffiliate, setIsAffiliate] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   const handleLogout = () => {
     if (isAffiliate) {
@@ -147,15 +153,7 @@ export default function Header() {
     }
   }, [profileData?.user, user, dispatch]);
 
-  const [updateLanguage, { isLoading: isUpdatingLanguage }] =
-    useUpdateLanguageMutation();
-
-  // Mark component as mounted to prevent hydration mismatch
-  useLayoutEffect(() => {
-    startTransition(() => {
-      setMounted(true);
-    });
-  }, []);
+  const [updateLanguage] = useUpdateLanguageMutation();
 
   // Initialize affiliate status after mount to avoid hydration mismatch
   // Re-check when pathname changes (e.g., after login redirect)
@@ -301,8 +299,11 @@ export default function Header() {
           )}
 
           {/* Search Bar - Desktop (hidden for affiliates) */}
-          {(!mounted || !isAffiliate) && (
-            <div className='hidden md:flex flex-1 max-w-xl mx-8'>
+          {!isAffiliate && (
+            <div
+              className='hidden md:flex flex-1 max-w-xl mx-8'
+              suppressHydrationWarning
+            >
               <div className='relative w-full'>
                 <input
                   ref={searchInputRef}
@@ -321,7 +322,9 @@ export default function Header() {
                     if (e.key === 'Enter' && searchQuery.trim()) {
                       e.preventDefault();
                       // Navigate to browse page with search query
-                      const searchUrl = `/${locale}/browse?search=${encodeURIComponent(searchQuery.trim())}`;
+                      const searchUrl = `/${locale}/browse?search=${encodeURIComponent(
+                        searchQuery.trim()
+                      )}`;
                       const query = searchQuery.trim();
                       setSearchQuery('');
                       setIsSearchDropdownOpen(false);
@@ -451,13 +454,24 @@ export default function Header() {
             {isAuthenticated || isAffiliate ? (
               <>
                 {/* Messages (hidden for affiliates) */}
-                {(!mounted || !isAffiliate) && (
+                {!isAffiliate && (
                   <Link
                     href={`/${locale}/messages`}
                     className='text-deep-charcoal hover:text-saudi-green transition-colors relative group'
                     title={locale === 'en' ? 'Messages' : 'الرسائل'}
+                    suppressHydrationWarning
                   >
                     <HiChatBubbleLeftRight className='w-6 h-6 transition-transform group-hover:scale-110' />
+                    {!isOnMessagesPage && hasUnreadMessages && (
+                      <span
+                        className='absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white'
+                        title={
+                          locale === 'en'
+                            ? `${totalUnreadCount} unread messages`
+                            : `${totalUnreadCount} رسائل غير مقروءة`
+                        }
+                      ></span>
+                    )}
                   </Link>
                 )}
                 {/* Profile Dropdown */}
@@ -519,8 +533,11 @@ export default function Header() {
                 </div>
               </>
             ) : (
-              (!mounted || !isAffiliate) && (
-                <>
+              !isAffiliate && (
+                <div
+                  suppressHydrationWarning
+                  className='flex items-center gap-3'
+                >
                   <Link
                     href={`/${locale}/affiliate/login`}
                     className='px-4 py-2 rounded-full bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold text-sm shadow-md hover:shadow-lg hover:scale-105 font-display flex items-center gap-1.5'
@@ -542,7 +559,7 @@ export default function Header() {
                   >
                     {locale === 'en' ? 'Sign Up' : 'إنشاء حساب'}
                   </Link>
-                </>
+                </div>
               )
             )}
             <button
@@ -569,8 +586,8 @@ export default function Header() {
         </div>
 
         {/* Mobile Search (hidden for affiliates) */}
-        {(!mounted || !isAffiliate) && (
-          <div className='md:hidden pb-4'>
+        {!isAffiliate && (
+          <div className='md:hidden pb-4' suppressHydrationWarning>
             <div className='relative'>
               <input
                 ref={searchInputRef}
@@ -589,7 +606,9 @@ export default function Header() {
                   if (e.key === 'Enter' && searchQuery.trim()) {
                     e.preventDefault();
                     // Navigate to browse page with search query
-                    const searchUrl = `/${locale}/browse?search=${encodeURIComponent(searchQuery.trim())}`;
+                    const searchUrl = `/${locale}/browse?search=${encodeURIComponent(
+                      searchQuery.trim()
+                    )}`;
                     setSearchQuery('');
                     setIsSearchDropdownOpen(false);
                     setIsMobileMenuOpen(false);
@@ -606,9 +625,7 @@ export default function Header() {
               />
               {isNavigatingToSearch ? (
                 <div
-                  className={`absolute top-2.5 ${
-                    isRTL ? 'right-3' : 'left-3'
-                  }`}
+                  className={`absolute top-2.5 ${isRTL ? 'right-3' : 'left-3'}`}
                 >
                   <div className='animate-spin rounded-full h-5 w-5 border-2 border-saudi-green border-t-transparent' />
                 </div>
@@ -719,14 +736,25 @@ export default function Header() {
               {isAuthenticated || isAffiliate ? (
                 <>
                   {/* Messages (hidden for affiliates) */}
-                  {(!mounted || !isAffiliate) && (
+                  {!isAffiliate && (
                     <Link
                       href={`/${locale}/messages`}
-                      className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
+                      className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 relative'
                       onClick={() => setIsMobileMenuOpen(false)}
+                      suppressHydrationWarning
                     >
                       <HiChatBubbleLeftRight className='w-5 h-5' />
                       {locale === 'en' ? 'Messages' : 'الرسائل'}
+                      {!isOnMessagesPage && hasUnreadMessages && (
+                        <span
+                          className='absolute left-5 top-2 w-2.5 h-2.5 bg-red-500 rounded-full border border-white'
+                          title={
+                            locale === 'en'
+                              ? `${totalUnreadCount} unread messages`
+                              : `${totalUnreadCount} رسائل غير مقروءة`
+                          }
+                        ></span>
+                      )}
                     </Link>
                   )}
                   {/* View Profile - Mobile */}
@@ -765,8 +793,8 @@ export default function Header() {
                   </button>
                 </>
               ) : (
-                (!mounted || !isAffiliate) && (
-                  <>
+                !isAffiliate && (
+                  <div suppressHydrationWarning className='flex flex-col gap-3'>
                     <Link
                       href={`/${locale}/affiliate/login`}
                       className='flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-saudi-green text-white hover:bg-saudi-green/90 transition-all duration-200 font-semibold shadow-md hover:shadow-lg font-display'
@@ -790,7 +818,7 @@ export default function Header() {
                     >
                       {locale === 'en' ? 'Sign Up' : 'إنشاء حساب'}
                     </Link>
-                  </>
+                  </div>
                 )
               )}
               {/* Language Toggle - Only for non-authenticated users */}

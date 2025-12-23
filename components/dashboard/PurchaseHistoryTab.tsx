@@ -2,10 +2,10 @@
 
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { HiCheckCircle, HiEye, HiTruck } from 'react-icons/hi2';
+import { HiCheckCircle, HiTruck } from 'react-icons/hi2';
 import { useGetPaymentsQuery } from '@/lib/api/ordersApi';
 import { useCreateReviewMutation, useCreateDisputeMutation } from '@/lib/api/buyerApi';
 import { toast } from '@/utils/toast';
@@ -21,10 +21,31 @@ export default function PurchaseHistoryTab() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { data: paymentsData, isLoading, refetch } = useGetPaymentsQuery({
+  const { data: paymentsData, isLoading, refetch, error } = useGetPaymentsQuery({
     page: currentPage,
     limit: itemsPerPage,
+    paymentStatus: 'completed', // Only fetch completed/paid payments
   });
+
+  // Log purchase history API request and response for debugging
+  useEffect(() => {
+    console.log('=== PURCHASE HISTORY API DEBUG ===');
+    console.log('Request params:', {
+      page: currentPage,
+      limit: itemsPerPage,
+      paymentStatus: 'completed',
+    });
+    console.log('Expected API URL:', '/api/user/payments/?paymentStatus=completed&page=' + currentPage + '&limit=' + itemsPerPage);
+    if (paymentsData) {
+      console.log('Purchase history API response:', paymentsData);
+      console.log('Response success:', paymentsData.success);
+      console.log('Orders count:', paymentsData.orders?.length || paymentsData.payments?.length || 0);
+    }
+    if (error) {
+      console.error('Purchase history API error:', error);
+    }
+    console.log('================================');
+  }, [paymentsData, error, currentPage, itemsPerPage]);
 
   const [createReview, { isLoading: isSubmittingReview }] = useCreateReviewMutation();
   const [createDispute, { isLoading: isSubmittingDispute }] = useCreateDisputeMutation();
@@ -37,13 +58,12 @@ export default function PurchaseHistoryTab() {
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [selectedOrderForDispute, setSelectedOrderForDispute] = useState<any>(null);
 
-  const payments = paymentsData?.payments || [];
+  // Handle both 'orders' and 'payments' response structure
+  const orders = paymentsData?.orders || paymentsData?.payments || [];
   const pagination = paymentsData?.pagination;
 
-  // Filter only paid orders for buyers
-  const paidOrders = payments.filter(
-    (payment) => payment.paymentStatus === 'completed' || payment.paymentStatus === 'paid' || payment.status === 'paid'
-  );
+  // All orders from API are already paid/completed, no need to filter
+  const paidOrders = orders;
 
   // Handle review submission
   const handleSubmitReview = async (orderId: string, rating: number, comment?: string) => {
@@ -188,8 +208,6 @@ export default function PurchaseHistoryTab() {
           const firstImageRaw = productInfo.images?.[0] || '';
           const firstImage = firstImageRaw ? normalizeImageUrl(firstImageRaw) : '';
           const isPaid = payment.paymentStatus === 'completed' || payment.paymentStatus === 'paid' || payment.status === 'paid';
-          const canReview = isPaid && !(payment as any).reviewSubmitted;
-          const canReport = isPaid;
 
           return (
             <div
@@ -285,46 +303,6 @@ export default function PurchaseHistoryTab() {
                       <HiTruck className='w-4 h-4' />
                       {locale === 'en' ? 'Shipped' : 'تم الشحن'}
                     </span>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className='mt-4 flex flex-wrap gap-2'>
-                  {/* View Status Button */}
-                  <button
-                    onClick={() => {
-                      router.push(`/${locale}/order-status?orderId=${payment.id}`);
-                    }}
-                    className='flex items-center gap-2 px-4 py-2 bg-deep-charcoal text-white rounded-lg text-sm font-medium hover:bg-deep-charcoal/90 transition-colors cursor-pointer'
-                  >
-                    <HiEye className='w-4 h-4' />
-                    {locale === 'en' ? 'View Status' : 'عرض الحالة'}
-                  </button>
-
-                  {/* Review Button */}
-                  {canReview && (
-                    <button
-                      onClick={() => {
-                        setSelectedOrderForReview(payment);
-                        setIsReviewModalOpen(true);
-                      }}
-                      className='flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors cursor-pointer'
-                    >
-                      {locale === 'en' ? 'Review' : 'تقييم'}
-                    </button>
-                  )}
-
-                  {/* Report/Dispute Button */}
-                  {canReport && (
-                    <button
-                      onClick={() => {
-                        setSelectedOrderForDispute(payment);
-                        setIsDisputeModalOpen(true);
-                      }}
-                      className='flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer'
-                    >
-                      {locale === 'en' ? 'Report Issue' : 'الإبلاغ عن مشكلة'}
-                    </button>
                   )}
                 </div>
               </div>

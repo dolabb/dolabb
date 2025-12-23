@@ -99,6 +99,22 @@ export const productsApi = baseApi.injectEndpoints({
       providesTags: ['Product'],
     }),
 
+    // Get Products by Seller ID (public endpoint)
+    getProductsBySellerId: builder.query<
+      { success: boolean; products: Product[]; pagination: PaginationMeta },
+      { sellerId: string; page?: number; limit?: number; status?: string }
+    >({
+      query: ({ sellerId, page = 1, limit = 10, status = 'active' }) => ({
+        url: `/api/user/seller/${sellerId}/products/`,
+        method: 'GET',
+        params: { page, limit, status },
+        skipAuth: true, // Public endpoint
+      }),
+      providesTags: (result, error, { sellerId }) => [
+        { type: 'Product', id: `sellerProducts-${sellerId}` },
+      ],
+    }),
+
     // Save Product (Add to Wishlist/Cart)
     saveProduct: builder.mutation<
       { success: boolean; isSaved: boolean },
@@ -285,4 +301,5 @@ export const {
   useGetCategoryFiltersQuery,
   useGetCartQuery,
   useGetHeroSectionQuery,
+  useGetProductsBySellerIdQuery,
 } = productsApi;

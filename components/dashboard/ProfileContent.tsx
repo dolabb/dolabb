@@ -427,8 +427,20 @@ export default function ProfileContent() {
       console.log('Profile API Response:', profileData);
       console.log('Profile Image URL:', profileData.user?.profile_image);
     }
+    // Only log errors that have meaningful information
     if (profileError) {
-      console.error('Profile API Error:', profileError);
+      // Check if error has actual error data (RTK Query errors have 'data' and 'status' properties)
+      const errorObj = profileError as any;
+      const hasErrorData = 
+        (errorObj?.data && typeof errorObj.data === 'object' && Object.keys(errorObj.data).length > 0) ||
+        (errorObj?.status && errorObj.status >= 400) ||
+        (errorObj?.message && typeof errorObj.message === 'string') ||
+        (errorObj?.error && typeof errorObj.error === 'string');
+      
+      if (hasErrorData) {
+        console.error('Profile API Error:', profileError);
+      }
+      // Silently ignore empty error objects (common with RTK Query when query is skipped or not yet executed)
     }
   }, [profileData, profileError]);
 

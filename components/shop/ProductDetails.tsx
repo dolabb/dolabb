@@ -207,6 +207,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
 
   // Get seller data from product (computed early to use in hooks)
   const sellerData = {
+    id: product?.seller?.id || '',
     username: product?.seller?.username || 'Unknown',
     rating: product?.seller?.rating || 0,
     reviews: 0, // Not available in API
@@ -527,7 +528,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
               {/* Main Image Carousel */}
               <div
                 ref={imageContainerRef}
-                className={`relative aspect-square bg-rich-sand/20 rounded-lg overflow-hidden mb-3 ${
+                className={`relative aspect-square bg-transparent rounded-lg overflow-hidden mb-3 ${
                   isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
                 }`}
                 style={{
@@ -560,7 +561,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             : img
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
-                        className={`w-full h-full object-cover transition-transform duration-200 ease-out ${
+                        className={`w-full h-full object-contain transition-transform duration-200 ease-out ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
@@ -590,7 +591,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                         }
                         alt={`${product.title || 'Product'} ${index + 1}`}
                         fill
-                        className={`object-cover transition-transform duration-200 ease-out ${
+                        className={`object-contain transition-transform duration-200 ease-out ${
                           selectedImage === index
                             ? 'opacity-100'
                             : 'opacity-0 absolute'
@@ -612,7 +613,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                     );
                   })
                 ) : (
-                  <div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-rich-sand to-saudi-green/10'>
+                  <div className='w-full h-full flex items-center justify-center bg-transparent'>
                     <span className='text-deep-charcoal/40 text-sm text-center px-4'>
                       {product.title || 'No Image'}
                     </span>
@@ -652,7 +653,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                           alt={`${product.title || 'Product'} thumbnail ${
                             index + 1
                           }`}
-                          className='w-full h-full object-cover'
+                          className='w-full h-full object-contain'
                         />
                       ) : (
                         <Image
@@ -661,7 +662,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
                             index + 1
                           }`}
                           fill
-                          className='object-cover'
+                          className='object-contain'
                           unoptimized={
                             img.includes('unsplash.com') ||
                             img.includes('cloudinary.com') ||
@@ -892,46 +893,104 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
             {/* Seller Information */}
             <div className='bg-white rounded-xl sm:rounded-lg border border-rich-sand/20 p-4 sm:p-5 shadow-sm'>
               <div className='flex items-center gap-3 sm:gap-3 mb-3 sm:mb-3'>
-                <div className='relative w-14 h-14 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-rich-sand/30 shrink-0 ring-2 ring-saudi-green/20'>
-                  {sellerData.profileImage && !sellerImageError ? (
-                    <Image
-                      key={sellerData.profileImage}
-                      src={sellerData.profileImage}
-                      alt={sellerData.username}
-                      fill
-                      className='object-cover'
-                      unoptimized
-                      onError={() => {
-                        setSellerImageError(true);
-                      }}
-                    />
-                  ) : (
-                    <div className='w-full h-full flex items-center justify-center bg-saudi-green text-white font-bold text-lg sm:text-xs'>
-                      {sellerData.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className='flex-1 min-w-0'>
-                  <div className='flex items-center gap-2 mb-0.5 sm:mb-1'>
-                    <div className='font-bold text-deep-charcoal text-base sm:text-sm'>
-                      {sellerData.username}
-                    </div>
-                  </div>
-                  <div className='flex items-center gap-1.5 mb-1'>
-                    {[...Array(sellerData.rating)].map((_, i) => (
-                      <FaStar
-                        key={i}
-                        className='w-3.5 h-3.5 sm:w-3 sm:h-3 text-amber-400 fill-current'
+                {isAuthenticated && sellerData?.id ? (
+                  <button
+                    onClick={() => {
+                      router.push(`/${locale}/user/${sellerData.id}`);
+                    }}
+                    className='relative w-14 h-14 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-rich-sand/30 shrink-0 ring-2 ring-saudi-green/20 hover:ring-saudi-green transition-all cursor-pointer'
+                    title={locale === 'en' ? 'View Seller Profile' : 'عرض ملف البائع'}
+                  >
+                    {sellerData.profileImage && !sellerImageError ? (
+                      <Image
+                        key={sellerData.profileImage}
+                        src={sellerData.profileImage}
+                        alt={sellerData.username}
+                        fill
+                        className='object-cover'
+                        unoptimized
+                        onError={() => {
+                          setSellerImageError(true);
+                        }}
                       />
-                    ))}
-                    <span className='text-sm sm:text-xs text-deep-charcoal/70 font-medium'>
-                      {sellerData.rating > 0 ? sellerData.rating.toFixed(1) : locale === 'en' ? 'New' : 'جديد'}
-                    </span>
+                    ) : (
+                      <div className='w-full h-full flex items-center justify-center bg-saudi-green text-white font-bold text-lg sm:text-xs'>
+                        {sellerData.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
+                ) : (
+                  <div className='relative w-14 h-14 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-rich-sand/30 shrink-0 ring-2 ring-saudi-green/20'>
+                    {sellerData.profileImage && !sellerImageError ? (
+                      <Image
+                        key={sellerData.profileImage}
+                        src={sellerData.profileImage}
+                        alt={sellerData.username}
+                        fill
+                        className='object-cover'
+                        unoptimized
+                        onError={() => {
+                          setSellerImageError(true);
+                        }}
+                      />
+                    ) : (
+                      <div className='w-full h-full flex items-center justify-center bg-saudi-green text-white font-bold text-lg sm:text-xs'>
+                        {sellerData.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                   </div>
-                  <div className='flex items-center gap-2 text-xs sm:text-xs text-deep-charcoal/60'>
-                    <span>{sellerData.sold} {locale === 'en' ? 'sold' : 'مباع'}</span>
+                )}
+                {isAuthenticated && sellerData?.id ? (
+                  <button
+                    onClick={() => {
+                      router.push(`/${locale}/user/${sellerData.id}`);
+                    }}
+                    className='flex-1 min-w-0 text-left hover:opacity-80 transition-opacity cursor-pointer'
+                    title={locale === 'en' ? 'View Seller Profile' : 'عرض ملف البائع'}
+                  >
+                    <div className='flex items-center gap-2 mb-0.5 sm:mb-1'>
+                      <div className='font-bold text-deep-charcoal text-base sm:text-sm'>
+                        {sellerData.username}
+                      </div>
+                    </div>
+                    <div className='flex items-center gap-1.5 mb-1'>
+                      {[...Array(sellerData.rating)].map((_, i) => (
+                        <FaStar
+                          key={i}
+                          className='w-3.5 h-3.5 sm:w-3 sm:h-3 text-amber-400 fill-current'
+                        />
+                      ))}
+                      <span className='text-sm sm:text-xs text-deep-charcoal/70 font-medium'>
+                        {sellerData.rating > 0 ? sellerData.rating.toFixed(1) : locale === 'en' ? 'New' : 'جديد'}
+                      </span>
+                    </div>
+                    <div className='flex items-center gap-2 text-xs sm:text-xs text-deep-charcoal/60'>
+                      <span>{sellerData.sold} {locale === 'en' ? 'sold' : 'مباع'}</span>
+                    </div>
+                  </button>
+                ) : (
+                  <div className='flex-1 min-w-0'>
+                    <div className='flex items-center gap-2 mb-0.5 sm:mb-1'>
+                      <div className='font-bold text-deep-charcoal text-base sm:text-sm'>
+                        {sellerData?.username || 'Unknown'}
+                      </div>
+                    </div>
+                    <div className='flex items-center gap-1.5 mb-1'>
+                      {[...Array(sellerData?.rating || 0)].map((_, i) => (
+                        <FaStar
+                          key={i}
+                          className='w-3.5 h-3.5 sm:w-3 sm:h-3 text-amber-400 fill-current'
+                        />
+                      ))}
+                      <span className='text-sm sm:text-xs text-deep-charcoal/70 font-medium'>
+                        {sellerData?.rating > 0 ? sellerData.rating.toFixed(1) : locale === 'en' ? 'New' : 'جديد'}
+                      </span>
+                    </div>
+                    <div className='flex items-center gap-2 text-xs sm:text-xs text-deep-charcoal/60'>
+                      <span>{sellerData?.sold || 0} {locale === 'en' ? 'sold' : 'مباع'}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               {canPurchase ? (
                 <button
@@ -1338,6 +1397,7 @@ export default function ProductDetails({ productId }: ProductDetailsProps) {
         isLoading={isCreatingOffer || isSendingMessage}
         currency={(product as any).Currency || (product as any).currency || product.currency}
       />
+
     </div>
   );
 }

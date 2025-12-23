@@ -36,11 +36,12 @@ export interface Payment extends Order {
     username: string;
     profileImage?: string;
   };
-  platformFee: number;
-  sellerPayout: number;
+  platformFee?: number;
+  sellerPayout?: number;
   affiliateCode?: string;
   shipmentProof?: string; // NEW: Shipment proof URL
   paymentStatus?: 'pending' | 'completed' | 'failed' | 'paid';
+  reviewSubmitted?: boolean; // Indicates if review was already submitted
 }
 
 export interface PaginationMeta {
@@ -64,14 +65,18 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     getPayments: builder.query<
-      { payments: Payment[]; pagination: PaginationMeta },
-      { status?: string; page?: number; limit?: number }
+      { success?: boolean; payments?: Payment[]; orders?: Payment[]; pagination: PaginationMeta },
+      { status?: string; paymentStatus?: string; page?: number; limit?: number }
     >({
-      query: (params) => ({
-        url: '/api/user/payments/',
-        method: 'GET',
-        params,
-      }),
+      query: (params) => {
+        // Log the params being sent
+        console.log('getPayments API - params being sent:', params);
+        return {
+          url: '/api/user/payments/',
+          method: 'GET',
+          params,
+        };
+      },
       providesTags: ['Order'],
     }),
 

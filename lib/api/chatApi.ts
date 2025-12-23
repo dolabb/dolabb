@@ -81,6 +81,17 @@ export const chatApi = baseApi.injectEndpoints({
         },
       }),
     }),
+
+    getUnreadStatus: builder.query<
+      { success: boolean; hasUnreadMessages: boolean; totalUnreadCount: number },
+      void
+    >({
+      query: () => ({
+        url: '/api/chat/unread-status/',
+        method: 'GET',
+      }),
+      providesTags: ['Conversation'],
+    }),
   }),
 });
 
@@ -89,5 +100,6 @@ export const {
   useGetMessagesQuery,
   useSendMessageMutation,
   useUploadChatFileMutation,
+  useGetUnreadStatusQuery,
 } = chatApi;
 

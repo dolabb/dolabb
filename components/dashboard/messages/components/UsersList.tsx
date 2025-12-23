@@ -2,6 +2,7 @@
 
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import type { ConversationUser, OnlineUserDetail } from '../types';
 import { formatUsername } from '../utils';
 
@@ -27,6 +28,7 @@ export default function UsersList({
   showChat,
 }: UsersListProps) {
   const locale = useLocale();
+  const router = useRouter();
 
   return (
     <div
@@ -54,37 +56,48 @@ export default function UsersList({
           </div>
         ) : conversations.length === 0 ? (
           <div className='p-4 text-center text-deep-charcoal/60'>
-            {locale === 'en'
-              ? 'No conversations yet'
-              : 'لا توجد محادثات بعد'}
+            {locale === 'en' ? 'No conversations yet' : 'لا توجد محادثات بعد'}
           </div>
         ) : (
           conversations.map(conv => {
             // Enhance with online user details if available
             let displayUser = conv.otherUser;
             if (onlineUsersDetails && onlineUsersDetails.length > 0) {
-              const onlineUserDetail = onlineUsersDetails.find(u => u.id === conv.otherUser.id);
+              const onlineUserDetail = onlineUsersDetails.find(
+                u => u.id === conv.otherUser.id
+              );
               if (onlineUserDetail) {
                 displayUser = {
                   ...conv.otherUser,
-                  username: onlineUserDetail.username || conv.otherUser.username,
-                  profileImage: onlineUserDetail.profileImage || conv.otherUser.profileImage,
+                  username:
+                    onlineUserDetail.username || conv.otherUser.username,
+                  profileImage:
+                    onlineUserDetail.profileImage ||
+                    conv.otherUser.profileImage,
                 };
               }
             }
-            
+
             const formattedUsername = formatUsername(displayUser.username);
             const isOnline =
               isWebSocketConnected &&
-              (onlineUsers.includes(conv.otherUser.id) || conv.otherUser.isOnline);
+              (onlineUsers.includes(conv.otherUser.id) ||
+                conv.otherUser.isOnline);
 
             // Normalize profile image URL - convert cdn.dolabb.com URLs to use Next.js proxy
-            const normalizeImageUrl = (url: string | undefined | null): string => {
-              if (!url || url.trim() === '' || url === 'undefined' || url === 'null') {
+            const normalizeImageUrl = (
+              url: string | undefined | null
+            ): string => {
+              if (
+                !url ||
+                url.trim() === '' ||
+                url === 'undefined' ||
+                url === 'null'
+              ) {
                 return '';
               }
               const trimmed = url.trim().replace(/\s+/g, '');
-              
+
               // If URL starts with http://, convert to https://
               let normalized = trimmed.startsWith('http://')
                 ? trimmed.replace('http://', 'https://')
@@ -103,26 +116,34 @@ export default function UsersList({
                   return `/api/cdn${path}`;
                 } catch {
                   // If URL parsing fails, try simple string replacement
-                  const path = normalized.replace('https://cdn.dolabb.com', '').replace('http://cdn.dolabb.com', '');
+                  const path = normalized
+                    .replace('https://cdn.dolabb.com', '')
+                    .replace('http://cdn.dolabb.com', '');
                   return `/api/cdn${path}`;
                 }
               }
               return normalized;
             };
 
-            const normalizedProfileImage = normalizeImageUrl(displayUser.profileImage);
+            const normalizedProfileImage = normalizeImageUrl(
+              displayUser.profileImage
+            );
 
             return (
-              <button
+              <div
                 key={conv.id}
-                onClick={() => onSelectConversation(conv)}
-                className={`w-full p-4 flex items-center gap-3 hover:bg-rich-sand/10 transition-colors text-left cursor-pointer ${
-                  selectedConversation?.id === conv.id
-                    ? 'bg-saudi-green/5'
-                    : ''
+                className={`w-full p-4 flex items-center gap-3 hover:bg-rich-sand/10 transition-colors ${
+                  selectedConversation?.id === conv.id ? 'bg-saudi-green/5' : ''
                 }`}
               >
-                <div className='relative w-12 h-12 rounded-full overflow-visible flex-shrink-0'>
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    router.push(`/${locale}/user/${conv.otherUser.id}`);
+                  }}
+                  className='relative w-12 h-12 rounded-full overflow-visible flex-shrink-0 cursor-pointer hover:ring-2 ring-saudi-green/50 transition-all z-10'
+                  title={locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}
+                >
                   <div className='w-12 h-12 rounded-full overflow-hidden bg-rich-sand/20'>
                     {normalizedProfileImage ? (
                       normalizedProfileImage.startsWith('/api/cdn') ? (
@@ -130,8 +151,9 @@ export default function UsersList({
                           src={normalizedProfileImage}
                           alt={formattedUsername}
                           className='w-full h-full object-cover'
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
+                          onError={e => {
+                            (e.target as HTMLImageElement).style.display =
+                              'none';
                           }}
                         />
                       ) : (
@@ -142,7 +164,10 @@ export default function UsersList({
                           className='object-cover w-12 h-12 rounded-full'
                           unoptimized
                           onError={() => {
-                            console.error('Profile image failed to load:', normalizedProfileImage);
+                            console.error(
+                              'Profile image failed to load:',
+                              normalizedProfileImage
+                            );
                           }}
                         />
                       )
@@ -155,30 +180,37 @@ export default function UsersList({
                   {isOnline && (
                     <div className='absolute top-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full z-10'></div>
                   )}
-                </div>
-                <div className='flex-1 min-w-0'>
+                </button>
+                <button
+                  onClick={() => onSelectConversation(conv)}
+                  className='flex-1 min-w-0 text-left cursor-pointer'
+                >
                   <div className='flex items-center justify-between mb-1'>
                     <h3 className='font-semibold text-deep-charcoal truncate'>
                       {formattedUsername}
                     </h3>
-                    {isOnline && (
-                      <span className='text-xs text-green-600 font-medium flex-shrink-0 ml-2 flex items-center gap-1'>
-                        <span className='w-2 h-2 bg-green-500 rounded-full'></span>
-                        {locale === 'en' ? 'Online' : 'متصل'}
-                      </span>
-                    )}
+                    <div className='flex items-center gap-2 flex-shrink-0 ml-2'>
+                      {isOnline && (
+                        <span className='text-xs text-green-600 font-medium flex items-center gap-1'>
+                          <span className='w-2 h-2 bg-green-500 rounded-full'></span>
+                          {locale === 'en' ? 'Online' : 'متصل'}
+                        </span>
+                      )}
+                      {parseInt(conv.unreadCount || '0') > 0 && (
+                        <span className='inline-flex items-center justify-center min-w-[20px] h-5 px-2 rounded-full bg-green-500 text-white text-xs font-semibold'>
+                          {parseInt(conv.unreadCount) > 99
+                            ? '99+'
+                            : conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className='text-sm text-deep-charcoal/70 truncate'>
                     {conv.lastMessage ||
                       (locale === 'en' ? 'No messages' : 'لا توجد رسائل')}
                   </p>
-                </div>
-                {parseInt(conv.unreadCount) > 0 && (
-                  <span className='bg-saudi-green text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0'>
-                    {conv.unreadCount}
-                  </span>
-                )}
-              </button>
+                </button>
+              </div>
             );
           })
         )}
@@ -186,4 +218,3 @@ export default function UsersList({
     </div>
   );
 }
-

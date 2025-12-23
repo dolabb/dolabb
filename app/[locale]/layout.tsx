@@ -2,6 +2,7 @@ import Footer from '@/components/layout/Footer';
 import Header from '@/components/layout/Header';
 import NavigationBar from '@/components/layout/NavigationBar';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import { locales } from '@/i18n';
 import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
@@ -35,12 +36,14 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <AuthProvider>
-        <div className='min-h-screen flex flex-col'>
-          <Header />
-          <NavigationBar />
-          <main className='grow pt-32 md:pt-20 relative z-10'>{children}</main>
-          <Footer />
-        </div>
+        <WebSocketProvider>
+          <div className='min-h-screen flex flex-col'>
+            <Header />
+            <NavigationBar />
+            <main className='grow pt-32 md:pt-20 relative z-10'>{children}</main>
+            <Footer />
+          </div>
+        </WebSocketProvider>
       </AuthProvider>
     </NextIntlClientProvider>
   );

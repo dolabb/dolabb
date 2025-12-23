@@ -155,6 +155,21 @@ export const authApi = baseApi.injectEndpoints({
         skipAuth,
       }),
     }),
+
+    // Get user profile by user ID (public endpoint)
+    getUserProfileById: builder.query<
+      { success: boolean; user: User; sellerRating?: any },
+      string
+    >({
+      query: (userId) => ({
+        url: `/api/auth/profile/${userId}/`,
+        method: 'GET',
+        skipAuth: true, // Public endpoint
+      }),
+      providesTags: (result, error, userId) => [
+        { type: 'User', id: userId },
+      ],
+    }),
   }),
 });
 
@@ -174,5 +189,6 @@ export const {
   useAffiliateForgotPasswordMutation,
   useAffiliateResetPasswordMutation,
   useUpdateLanguageMutation,
+  useGetUserProfileByIdQuery,
 } = authApi;
 

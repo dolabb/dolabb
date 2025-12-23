@@ -379,6 +379,29 @@ export default function BuyerContent() {
     }
   }, [offersError]);
 
+  // Log orders API response
+  useEffect(() => {
+    if (ordersData) {
+      console.log('=== ORDERS API RESPONSE ===');
+      console.log('Full response:', ordersData);
+      console.log('Orders count:', ordersData.orders?.length || 0);
+      console.log('Pagination:', ordersData.pagination);
+      if (ordersData.orders && ordersData.orders.length > 0) {
+        console.log('First order sample:', ordersData.orders[0]);
+      }
+      console.log('===========================');
+    }
+  }, [ordersData]);
+
+  // Log orders error if any
+  useEffect(() => {
+    if (ordersError) {
+      console.error('=== ORDERS API ERROR ===');
+      console.error('Error:', ordersError);
+      console.error('========================');
+    }
+  }, [ordersError]);
+
   // Get orders from API response
   const orders = ordersData?.orders || [];
 
@@ -736,7 +759,7 @@ export default function BuyerContent() {
                           </span>
                           
                           {/* Review button - Show for paid orders that haven't been reviewed */}
-                          {isPaid && !order.reviewSubmitted && (
+                          {isPaid && !order.reviewSubmitted && order.reviewStatus !== 'submitted' && (
                             <button
                               onClick={() => {
                                 setSelectedOrderForReview(order);
@@ -750,15 +773,32 @@ export default function BuyerContent() {
                           
                           {/* Report/Dispute button - Show for paid orders */}
                           {isPaid && (
-                            <button
-                              onClick={() => {
-                                setSelectedOrderForDispute(order);
-                                setIsDisputeModalOpen(true);
-                              }}
-                              className='flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer'
-                            >
-                              {locale === 'en' ? 'Report Issue' : 'الإبلاغ عن مشكلة'}
-                            </button>
+                            <>
+                              {/* Show "Report Issue" button if dispute status is 'none' or no dispute exists */}
+                              {(order.disputeStatus === 'none' || !order.disputeStatus || !order.dispute || order.dispute === null) && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrderForDispute(order);
+                                    setIsDisputeModalOpen(true);
+                                  }}
+                                  className='flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer'
+                                >
+                                  {locale === 'en' ? 'Report Issue' : 'الإبلاغ عن مشكلة'}
+                                </button>
+                              )}
+                              
+                              {/* Show "View Dispute" button if dispute status is 'open', 'resolved', or 'closed' */}
+                              {(order.disputeStatus === 'open' || order.disputeStatus === 'resolved' || order.disputeStatus === 'closed') && order.dispute && (
+                                <button
+                                  onClick={() => {
+                                    router.push(`/${locale}/disputes/${order.dispute?.id}`);
+                                  }}
+                                  className='flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors cursor-pointer'
+                                >
+                                  {locale === 'en' ? 'View Dispute' : 'عرض النزاع'}
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                   </div>

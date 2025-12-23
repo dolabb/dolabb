@@ -2,16 +2,16 @@
 
 import { useGetConversationsQuery } from '@/lib/api/chatApi';
 import { useAppSelector } from '@/lib/store/hooks';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import ChatArea from './messages/components/ChatArea';
 import ChatHeader from './messages/components/ChatHeader';
 import MessageInput from './messages/components/MessageInput';
 import UsersList from './messages/components/UsersList';
 import { useMessages } from './messages/hooks/useMessages';
 import { useOffers } from './messages/hooks/useOffers';
-import { useWebSocket } from './messages/hooks/useWebSocket';
 import type { ConversationUser, Message } from './messages/types';
 
 export default function MessagesContent() {
@@ -55,6 +55,16 @@ export default function MessagesContent() {
   const isQueryInitialized =
     !isLoadingConversations && !isFetchingConversations;
 
+  // Use global WebSocket context
+  const {
+    wsRef,
+    isConnected: isWebSocketConnected,
+    isConnecting,
+    onlineUsers,
+    onlineUsersDetails,
+    connectToConversation,
+  } = useWebSocketContext();
+
   // Use messages hook
   const {
     isLoadingMessages,
@@ -71,24 +81,98 @@ export default function MessagesContent() {
     messages,
   });
 
-  // Use WebSocket hook
-  const {
-    isConnecting,
-    isWebSocketConnected,
-    otherUserOnlineStatus,
-    onlineUsers,
-    onlineUsersDetails,
-    wsRef,
-    initializeConversation,
-  } = useWebSocket({
-    conversationId,
-    selectedConversation,
-    setMessages,
-    refetchConversations,
-    user,
-    setConversationId,
-    isQueryInitialized,
-  });
+  const [otherUserOnlineStatus, setOtherUserOnlineStatus] = useState<boolean>(false);
+
+  // Set up WebSocket message handler for current conversation
+  // This will handle real-time message updates when WebSocket is connected
+  useEffect(() => {
+    if (!conversationId || !wsRef.current) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Get current conversationId at the time of message processing
+        const currentConvId = conversationId;
+        
+        // Only process messages for current conversation
+        if (data.conversationId !== currentConvId && data.type !== 'online_users') {
+          return;
+        }
+
+        if (data.type === 'chat_message' && data.message && data.conversationId === currentConvId) {
+          const isMyMessage = data.message.senderId === user?.id || 
+                              data.message.isSender === true ||
+                              data.message.sender === 'me';
+
+          const newMessage: Message = {
+            id: data.message.id,
+            text: data.message.text || '',
+            sender: data.message.sender || (isMyMessage ? 'me' : 'other'),
+            timestamp: data.message.timestamp || data.message.createdAt,
+            rawTimestamp: data.message.timestamp || data.message.createdAt,
+            attachments: data.message.attachments || [],
+            senderId: data.message.senderId,
+            receiverId: data.message.receiverId,
+            offerId: data.message.offerId,
+            productId: data.message.productId,
+            messageType: data.message.messageType || 'text',
+          };
+
+          setMessages(prev => {
+            // Double-check conversationId hasn't changed
+            if (conversationId !== currentConvId) {
+              return prev; // Don't add message if conversation changed
+            }
+            
+            // Check if message already exists
+            if (prev.some(msg => msg.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage].sort((a, b) => {
+              const timeA = a.rawTimestamp ? new Date(a.rawTimestamp).getTime() : 0;
+              const timeB = b.rawTimestamp ? new Date(b.rawTimestamp).getTime() : 0;
+              return timeA - timeB;
+            });
+          });
+
+          // Refetch conversations to update last message
+          refetchConversations();
+        }
+
+        if (data.type === 'online_users' && selectedConversation) {
+          const isOtherUserOnline = data.onlineUsers?.includes(selectedConversation.otherUser.id);
+          setOtherUserOnlineStatus(isOtherUserOnline || false);
+        }
+
+        // Handle offer messages
+        if ((data.type === 'offer_sent' || data.type === 'offer_countered' || 
+             data.type === 'offer_accepted' || data.type === 'offer_rejected') && 
+            data.offer && data.conversationId === currentConvId) {
+          // Refetch conversations and messages to get updated offer status
+          refetchConversations();
+          if (conversationId === currentConvId) {
+            refetchMessages();
+          }
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
+      }
+    };
+
+    // Only add listener if WebSocket is open
+    if (wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.addEventListener('message', handleMessage);
+    }
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.removeEventListener('message', handleMessage);
+      }
+    };
+  }, [conversationId, wsRef, user, selectedConversation, setMessages, refetchConversations, refetchMessages]);
 
   // Use offers hook
   const { sendOffer, counterOffer, acceptOffer, rejectOffer } = useOffers({
@@ -119,7 +203,7 @@ export default function MessagesContent() {
           status?: string;
           isOnline?: boolean;
         }>;
-        lastMessage?: string | { text?: string };
+        lastMessage?: string | { text?: string; senderId?: string; isSender?: boolean };
         lastMessageAt?: string;
         updatedAt?: string;
         unreadCount?: number | string;
@@ -167,6 +251,20 @@ export default function MessagesContent() {
                 : conv.otherUser?.status === 'active');
 
         const convId = conv.conversationId || conv.id || '';
+        
+        // Check if last message was sent by current user
+        // Only show unread count for received messages, not sent messages
+        const lastMessageObj = typeof conv.lastMessage === 'object' ? conv.lastMessage : null;
+        const isLastMessageFromMe = 
+          lastMessageObj?.senderId === user?.id || 
+          lastMessageObj?.isSender === true;
+        
+        // Only show unread count if there are unread messages AND the last message wasn't sent by the user
+        // This ensures we only show indicators for received/unseen messages, not sent messages
+        const unreadCount = isLastMessageFromMe 
+          ? '0' 
+          : (conv.unreadCount?.toString() || '0');
+        
         return {
           id: conv.id || conv.conversationId || '',
           conversationId: convId,
@@ -184,7 +282,7 @@ export default function MessagesContent() {
               ? conv.lastMessage
               : conv.lastMessage?.text || '',
           lastMessageAt: conv.lastMessageAt || conv.updatedAt,
-          unreadCount: conv.unreadCount?.toString() || '0',
+          unreadCount: unreadCount,
           productId: conv.productId,
         };
       }
@@ -287,23 +385,37 @@ export default function MessagesContent() {
     });
 
   const handleUserSelect = async (conversation: ConversationUser) => {
+    const convId = conversation.conversationId || conversation.id;
     const isSameConversation =
       selectedConversation?.id === conversation.id &&
+      conversationId === convId &&
       wsRef.current &&
       wsRef.current.readyState === WebSocket.OPEN;
 
-    if (selectedConversation?.id !== conversation.id) {
-      setMessages([]);
+    // Clear messages immediately when switching to a different conversation
+    if (selectedConversation?.id !== conversation.id || conversationId !== convId) {
+      setMessages([]); // Clear messages first
     }
 
     setSelectedConversation(conversation);
     setShowChat(true);
 
-    // Set conversationId immediately from conversation data to trigger message loading
-    const convId = conversation.conversationId || conversation.id;
+    // Set conversationId to trigger message loading
     if (convId) {
       const previousConvId = conversationId;
+      
+      // Set conversationId immediately - this will trigger the query to refetch
       setConversationId(convId);
+      
+      // Refetch conversations to update unread count when conversation is opened
+      // This ensures the unread badge disappears when user opens the conversation
+      if (parseInt(conversation.unreadCount || '0') > 0) {
+        // Small delay to allow messages to load first, then update conversations
+        setTimeout(() => {
+          refetchConversations();
+        }, 500);
+      }
+      
       console.log('💬 [CONVERSATION SELECTED] Setting conversationId:', {
         conversationId: convId,
         previousConversationId: previousConvId,
@@ -311,25 +423,17 @@ export default function MessagesContent() {
         timestamp: new Date().toISOString(),
       });
       
-      // Always refetch messages when selecting a conversation to ensure we have the latest messages
-      // This is especially important when coming back to a conversation
-      // Use a small delay to ensure conversationId state is updated
+      // If same conversation, refetch to get latest messages
       if (previousConvId === convId) {
-        // Same conversation - refetch to get latest messages
-        refetchMessages();
+        setTimeout(() => {
+          refetchMessages();
+        }, 100);
       }
-      // If conversationId changed, the query will automatically refetch due to refetchOnMountOrArgChange
     }
 
-    if (!isSameConversation) {
-      if (wsRef.current && selectedConversation?.id !== conversation.id) {
-        wsRef.current.close(1000, 'Switching conversation');
-        wsRef.current = null;
-      }
-
-      if (conversation.otherUser.id) {
-        await initializeConversation(conversation.otherUser.id);
-      }
+    // Connect to conversation using global WebSocket if not already connected
+    if (!isSameConversation && convId) {
+      connectToConversation(convId);
     }
   };
 
@@ -362,20 +466,12 @@ export default function MessagesContent() {
         }
       }
       
-      // If no conversation exists, create one by initializing it
+      // If no conversation exists, we need to create it via API
+      // For now, just refetch conversations - the user can manually start a conversation
       if (targetUserId) {
         hasSelectedFromQueryRef.current = true;
         hasAutoSelectedRef.current = true;
-        
-        // Initialize conversation (this will create it if it doesn't exist)
-        initializeConversation(targetUserId).then(() => {
-          // After creating conversation, refetch to get the new conversation
-          refetchConversations();
-        }).catch((error) => {
-          console.error('Error initializing conversation:', error);
-          hasSelectedFromQueryRef.current = false;
-          hasAutoSelectedRef.current = false;
-        });
+        refetchConversations();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -426,12 +522,12 @@ export default function MessagesContent() {
 
   const handleBackToUsers = () => {
     setShowChat(false);
-    if (wsRef.current) {
-      wsRef.current.close(1000, 'User left chat');
-      wsRef.current = null;
-    }
+    setSelectedConversation(null);
+    // Don't disconnect WebSocket - keep it connected for notifications
     setConversationId(null);
     setMessages([]);
+    // Refetch conversations to update unread counts after closing chat
+    refetchConversations();
   };
 
   const handleMessageSent = () => {

@@ -2,6 +2,8 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import type { AxiosError } from 'axios';
 import { apiClient } from './client';
 
+const BASE_URL = 'https://dolabb-backend-2vsj.onrender.com';
+
 // Custom base query using axios
 const axiosBaseQuery =
   ({ baseUrl }: { baseUrl: string }) =>
@@ -51,7 +53,25 @@ const axiosBaseQuery =
         skipAuth, // Pass skipAuth flag to interceptor
       };
 
+      // Log API requests for payments endpoint
+      if (finalUrl.includes('/api/user/payments/')) {
+        console.log('=== PAYMENTS API REQUEST ===');
+        console.log('URL:', finalUrl);
+        console.log('Method:', method);
+        console.log('Params:', params);
+        console.log('Full URL will be:', `${BASE_URL}${finalUrl}${params ? '?' + new URLSearchParams(params as any).toString() : ''}`);
+        console.log('============================');
+      }
+
       const result = await apiClient(requestConfig);
+      
+      // Log API responses for payments endpoint
+      if (finalUrl.includes('/api/user/payments/')) {
+        console.log('=== PAYMENTS API RESPONSE ===');
+        console.log('Status:', result.status);
+        console.log('Data:', result.data);
+        console.log('=============================');
+      }
       return { data: result.data };
     } catch (axiosError: any) {
       const err = axiosError as AxiosError;

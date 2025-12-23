@@ -324,9 +324,52 @@ export function useMessages({
 
       // Merge with existing messages instead of replacing
       setMessages(prev => {
+        // CRITICAL: If prev messages are from a different conversation, clear them first
+        // We can detect this by checking if prev has messages but none match the current conversation
+        // For now, we'll check if prev is empty or if we're on page 1, we'll replace messages
+        // The component should clear messages when switching conversations
+        
         // On first page load (page 1), replace messages but preserve optimistic and WebSocket messages
         // On subsequent pages, prepend older messages
         if (currentPage === 1) {
+          // Check if we're loading a different conversation by comparing message participants
+          // If API messages have different sender/receiver IDs than prev messages, it's a new conversation
+          const apiSenderIds = new Set(
+            formattedMessages.map(m => m.senderId).filter(Boolean)
+          );
+          const apiReceiverIds = new Set(
+            formattedMessages.map(m => m.receiverId).filter(Boolean)
+          );
+          const prevSenderIds = new Set(
+            prev.map(m => m.senderId).filter(Boolean)
+          );
+          const prevReceiverIds = new Set(
+            prev.map(m => m.receiverId).filter(Boolean)
+          );
+          
+          // If no overlap in participants, it's a different conversation - replace messages
+          const hasOverlap = 
+            (apiSenderIds.size > 0 && Array.from(apiSenderIds).some(id => prevSenderIds.has(id) || prevReceiverIds.has(id))) ||
+            (apiReceiverIds.size > 0 && Array.from(apiReceiverIds).some(id => prevSenderIds.has(id) || prevReceiverIds.has(id)));
+          
+          // If prev is empty or it's a different conversation, just use API messages
+          if (prev.length === 0 || (!hasOverlap && formattedMessages.length > 0)) {
+            console.log('🔄 [MESSAGES] Replacing messages - new conversation detected', {
+              prevLength: prev.length,
+              apiLength: formattedMessages.length,
+              hasOverlap,
+            });
+            return formattedMessages.sort((a, b) => {
+              try {
+                const timeA = a.rawTimestamp ? new Date(a.rawTimestamp).getTime() : 0;
+                const timeB = b.rawTimestamp ? new Date(b.rawTimestamp).getTime() : 0;
+                return timeA - timeB;
+              } catch {
+                return a.id.localeCompare(b.id);
+              }
+            });
+          }
+          
           // For page 1, we should prioritize API messages (they are the source of truth)
           // But we need to preserve:
           // 1. Optimistic messages (temp IDs) that haven't been confirmed by API yet
