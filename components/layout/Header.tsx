@@ -3,11 +3,13 @@
 import {
   useGetProfileQuery,
   useUpdateLanguageMutation,
+  useUpdateProfileMutation,
 } from '@/lib/api/authApi';
 import { useGetUnreadStatusQuery } from '@/lib/api/chatApi';
 import { useGetProductsQuery } from '@/lib/api/productsApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { logout, updateUser } from '@/lib/store/slices/authSlice';
+import { toast } from '@/utils/toast';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -129,13 +131,18 @@ export default function Header() {
   }, [searchQuery]);
 
   // Fetch profile data to check for address fields and get updated role
-  const { data: profileData } = useGetProfileQuery(undefined, {
-    skip: !isAuthenticated,
-  });
+  const { data: profileData, refetch: refetchProfile } = useGetProfileQuery(
+    undefined,
+    {
+      skip: !isAuthenticated,
+    }
+  );
 
   // Use profile data if available, otherwise fall back to Redux user
   // This ensures we have the most up-to-date role from the API
   const currentUser = profileData?.user || user;
+  const isSeller = currentUser?.role === 'seller';
+  const isBuyer = currentUser?.role === 'buyer';
 
   // Update Redux store when profile data changes (especially role)
   useEffect(() => {
@@ -154,6 +161,50 @@ export default function Header() {
   }, [profileData?.user, user, dispatch]);
 
   const [updateLanguage] = useUpdateLanguageMutation();
+  const [updateProfile, { isLoading: isSwitchingRole }] =
+    useUpdateProfileMutation();
+
+  // Handle role switching
+  const toggleRole = async () => {
+    if (!currentUser || isSwitchingRole) return;
+
+    const newRole = currentUser.role === 'seller' ? 'buyer' : 'seller';
+
+    try {
+      await updateProfile({ role: newRole }).unwrap();
+
+      // Optimistically update Redux store immediately for instant UI feedback
+      if (user) {
+        dispatch(updateUser({ ...user, role: newRole }));
+      }
+
+      // Refetch profile to get updated role from server
+      const result = await refetchProfile();
+
+      // Update Redux store with fresh data from server
+      if (result.data?.user) {
+        dispatch(updateUser(result.data.user));
+      }
+
+      // Show success message
+      const message =
+        locale === 'en'
+          ? `Switched to ${newRole === 'seller' ? 'Seller' : 'Buyer'} mode`
+          : `تم التبديل إلى وضع ${newRole === 'seller' ? 'البائع' : 'المشتري'}`;
+      toast.success(message);
+    } catch (error) {
+      console.error('Failed to switch role:', error);
+      // Revert optimistic update on error
+      if (user) {
+        dispatch(updateUser({ ...user, role: currentUser.role }));
+      }
+      const message =
+        locale === 'en'
+          ? 'Failed to switch role. Please try again.'
+          : 'فشل التبديل. يرجى المحاولة مرة أخرى.';
+      toast.error(message);
+    }
+  };
 
   // Initialize affiliate status after mount to avoid hydration mismatch
   // Re-check when pathname changes (e.g., after login redirect)
@@ -480,10 +531,10 @@ export default function Header() {
                     onClick={() =>
                       setIsProfileDropdownOpen(!isProfileDropdownOpen)
                     }
-                    className='text-deep-charcoal hover:text-saudi-green transition-colors relative group cursor-pointer'
+                    className='relative flex items-center justify-center w-10 h-10 rounded-full bg-rich-sand/20 hover:bg-saudi-green/10 text-deep-charcoal hover:text-saudi-green transition-all duration-200 group cursor-pointer border-2 border-transparent hover:border-saudi-green/30'
                     title={locale === 'en' ? 'Profile' : 'الملف الشخصي'}
                   >
-                    <HiUser className='w-6 h-6 transition-transform group-hover:scale-110' />
+                    <HiUser className='w-5 h-5 transition-transform group-hover:scale-110' />
                   </button>
                   {isProfileDropdownOpen && (
                     <div
@@ -516,6 +567,7 @@ export default function Header() {
                           </span>
                         </Link>
                       )}
+                      <div className='border-t border-rich-sand/30 my-1'></div>
                       <button
                         onClick={() => {
                           handleLogout();
@@ -562,12 +614,64 @@ export default function Header() {
                 </div>
               )
             )}
+            {/* Role Switch Toggle - Only for authenticated users with seller/buyer role */}
+            {isAuthenticated && !isAffiliate && (isSeller || isBuyer) && (
+              <div className='flex items-center gap-3'>
+                <span
+                  className={`text-xs font-medium whitespace-nowrap transition-colors ${
+                    !isSeller
+                      ? 'text-saudi-green font-semibold'
+                      : 'text-deep-charcoal/70'
+                  }`}
+                >
+                  {locale === 'en' ? 'Buyer' : 'مشتري'}
+                </span>
+                <button
+                  onClick={toggleRole}
+                  disabled={isSwitchingRole}
+                  className='relative inline-flex h-7 w-14 items-center rounded-full bg-rich-sand/30 transition-colors focus:outline-none focus:ring-2 focus:ring-saudi-green focus:ring-offset-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rich-sand/40 overflow-hidden'
+                  role='switch'
+                  aria-checked={isSeller}
+                  aria-label={
+                    locale === 'en'
+                      ? 'Switch between buyer and seller mode'
+                      : 'التبديل بين وضع المشتري والبائع'
+                  }
+                >
+                  {isSwitchingRole ? (
+                    <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 border-2 border-saudi-green border-t-transparent rounded-full animate-spin'></div>
+                  ) : (
+                    <span
+                      className={`absolute h-5 w-5 rounded-full shadow-md transition-all duration-200 ease-in-out ${
+                        isSeller
+                          ? isRTL
+                            ? 'left-1 bg-saudi-green'
+                            : 'right-1 bg-saudi-green'
+                          : isRTL
+                          ? 'right-1 bg-white'
+                          : 'left-1 bg-white'
+                      }`}
+                    />
+                  )}
+                </button>
+                <span
+                  className={`text-xs font-medium whitespace-nowrap transition-colors ${
+                    isSeller
+                      ? 'text-saudi-green font-semibold'
+                      : 'text-deep-charcoal/70'
+                  }`}
+                >
+                  {locale === 'en' ? 'Seller' : 'بائع'}
+                </span>
+              </div>
+            )}
+            {/* Language Toggle */}
             <button
               onClick={toggleLanguage}
-              className='px-6 py-2 rounded-full border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer'
+              className='relative flex items-center justify-center w-10 h-10 rounded-full bg-rich-sand/20 hover:bg-saudi-green/10 text-deep-charcoal hover:text-saudi-green transition-all duration-200 font-semibold text-sm border-2 border-transparent hover:border-saudi-green/30 cursor-pointer group'
+              title={locale === 'en' ? 'Switch to Arabic' : 'التبديل إلى الإنجليزية'}
             >
-              <span className='text-base'>{locale === 'en' ? 'ع' : 'EN'}</span>
-              <span className='text-xs'>{locale === 'en' ? 'AR' : 'EN'}</span>
+              <span className='text-base font-bold'>{locale === 'en' ? 'ع' : 'EN'}</span>
             </button>
           </nav>
 
@@ -764,11 +868,13 @@ export default function Header() {
                         ? `/${locale}/affiliate/profile`
                         : `/${locale}/profile`
                     }
-                    className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2'
+                    className='flex items-center gap-3 px-4 py-3 rounded-lg bg-rich-sand/10 hover:bg-saudi-green/10 text-deep-charcoal hover:text-saudi-green transition-all duration-200 font-medium border border-rich-sand/30 hover:border-saudi-green/30'
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <HiUser className='w-5 h-5' />
-                    {locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}
+                    <div className='flex items-center justify-center w-8 h-8 rounded-full bg-rich-sand/20 text-saudi-green'>
+                      <HiUser className='w-4 h-4' />
+                    </div>
+                    <span>{locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}</span>
                   </Link>
                   {/* Logout - Mobile */}
                   <button
@@ -781,15 +887,80 @@ export default function Header() {
                     <HiArrowRightOnRectangle className='w-5 h-5' />
                     {locale === 'en' ? 'Logout' : 'تسجيل الخروج'}
                   </button>
+                  {/* Role Switch Toggle - Mobile */}
+                  {isAuthenticated && !isAffiliate && (isSeller || isBuyer) && (
+                    <div className='flex items-center justify-between w-full px-2 py-2.5'>
+                      <span className='text-sm font-medium text-deep-charcoal'>
+                        {locale === 'en' ? 'Mode' : 'الوضع'}
+                      </span>
+                      <div className='flex items-center gap-3'>
+                        <span
+                          className={`text-xs font-medium transition-colors ${
+                            !isSeller
+                              ? 'text-saudi-green font-semibold'
+                              : 'text-deep-charcoal/50'
+                          }`}
+                        >
+                          {locale === 'en' ? 'Buyer' : 'مشتري'}
+                        </span>
+                        <button
+                          onClick={toggleRole}
+                          disabled={isSwitchingRole}
+                          className='relative inline-flex h-7 w-14 items-center rounded-full bg-rich-sand/30 transition-colors focus:outline-none focus:ring-2 focus:ring-saudi-green focus:ring-offset-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden'
+                          role='switch'
+                          aria-checked={isSeller}
+                          aria-label={
+                            locale === 'en'
+                              ? 'Switch between buyer and seller mode'
+                              : 'التبديل بين وضع المشتري والبائع'
+                          }
+                        >
+                          {isSwitchingRole ? (
+                            <div className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 border-2 border-saudi-green border-t-transparent rounded-full animate-spin'></div>
+                          ) : (
+                            <span
+                              className={`absolute h-5 w-5 rounded-full shadow-md transition-all duration-200 ease-in-out ${
+                                isSeller
+                                  ? isRTL
+                                    ? 'left-1 bg-saudi-green'
+                                    : 'right-1 bg-saudi-green'
+                                  : isRTL
+                                  ? 'right-1 bg-white'
+                                  : 'left-1 bg-white'
+                              }`}
+                            />
+                          )}
+                        </button>
+                        <span
+                          className={`text-xs font-medium transition-colors ${
+                            isSeller
+                              ? 'text-saudi-green font-semibold'
+                              : 'text-deep-charcoal/50'
+                          }`}
+                        >
+                          {locale === 'en' ? 'Seller' : 'بائع'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   {/* Language Toggle - Mobile */}
                   <button
                     onClick={toggleLanguage}
-                    className='flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold shadow-sm hover:shadow-md cursor-pointer'
+                    className='flex items-center justify-between w-full px-4 py-3 rounded-lg bg-rich-sand/10 hover:bg-saudi-green/10 text-deep-charcoal hover:text-saudi-green transition-all duration-200 font-semibold border border-rich-sand/30 hover:border-saudi-green/30 cursor-pointer'
                   >
-                    <span className='text-base font-bold'>
-                      {locale === 'en' ? 'ع' : 'EN'}
+                    <span className='text-sm font-medium'>
+                      {locale === 'en' ? 'Language' : 'اللغة'}
                     </span>
-                    {locale === 'en' ? 'العربية' : 'English'}
+                    <div className='flex items-center gap-2'>
+                      <span className='text-sm'>
+                        {locale === 'en' ? 'العربية' : 'English'}
+                      </span>
+                      <div className='flex items-center justify-center w-8 h-8 rounded-full bg-rich-sand/20 text-saudi-green'>
+                        <span className='text-base font-bold'>
+                          {locale === 'en' ? 'ع' : 'EN'}
+                        </span>
+                      </div>
+                    </div>
                   </button>
                 </>
               ) : (
@@ -825,14 +996,10 @@ export default function Header() {
               {!isAuthenticated && !isAffiliate && (
                 <button
                   onClick={toggleLanguage}
-                  className='px-4 py-2 rounded-lg border border-saudi-green/30 bg-white text-saudi-green hover:bg-saudi-green hover:text-white transition-all duration-200 font-semibold text-sm shadow-sm hover:shadow-md flex items-center gap-2 w-fit cursor-pointer'
+                  className='relative flex items-center justify-center w-10 h-10 rounded-full bg-rich-sand/20 hover:bg-saudi-green/10 text-deep-charcoal hover:text-saudi-green transition-all duration-200 font-semibold text-sm border-2 border-transparent hover:border-saudi-green/30 cursor-pointer group'
+                  title={locale === 'en' ? 'Switch to Arabic' : 'التبديل إلى الإنجليزية'}
                 >
-                  <span className='text-base'>
-                    {locale === 'en' ? 'ع' : 'EN'}
-                  </span>
-                  <span className='text-xs'>
-                    {locale === 'en' ? 'AR' : 'EN'}
-                  </span>
+                  <span className='text-base font-bold'>{locale === 'en' ? 'ع' : 'EN'}</span>
                 </button>
               )}
             </nav>

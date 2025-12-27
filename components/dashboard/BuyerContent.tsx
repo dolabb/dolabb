@@ -17,9 +17,10 @@ import {
   useCreateDisputeMutation 
 } from '@/lib/api/buyerApi';
 import { useSendMessageMutation } from '@/lib/api/chatApi';
-import { toast } from '@/utils/toast';
+import { useGetProfileQuery } from '@/lib/api/authApi';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { updateUser } from '@/lib/store/slices/authSlice';
 import { formatPrice } from '@/utils/formatPrice';
-import { useAppSelector } from '@/lib/store/hooks';
 import PaymentsTab from './PaymentsTab';
 import CounterOfferModal from '@/components/shared/CounterOfferModal';
 import ReviewModal from '@/components/shared/ReviewModal';
@@ -311,16 +312,48 @@ export default function BuyerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isRTL = locale === 'ar';
+  const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
   const isSeller = user?.role === 'seller';
+  const isBuyer = user?.role === 'buyer';
   
-  // Get tab from URL parameter, default based on user role
+  // Fetch profile to get latest role
+  const { data: profileData, refetch: refetchProfile } = useGetProfileQuery(undefined, {
+    skip: !user,
+  });
+  const currentUser = profileData?.user || user;
+  const currentIsSeller = currentUser?.role === 'seller';
+  const currentIsBuyer = currentUser?.role === 'buyer';
+  
+  // Update Redux store when profile data changes
+  useEffect(() => {
+    if (profileData?.user) {
+      dispatch(updateUser(profileData.user));
+    }
+  }, [profileData?.user, dispatch]);
+  
+  // Mode selector: 'seller' or 'buyer' - sellers always see seller mode, buyers see buyer mode
+  // Sellers cannot switch to buyer mode - they only see offers
+  const activeMode: 'seller' | 'buyer' = currentIsSeller ? 'seller' : 'buyer';
+  
+  // Get tab from URL parameter, default based on active mode
   const tabParam = searchParams.get('tab');
-  const defaultTab = isSeller ? 'offers' : 'orders';
+  const defaultTab = activeMode === 'seller' ? 'offers' : 'orders';
   const initialTab = (tabParam === 'offers' || tabParam === 'orders' || tabParam === 'purchaseHistory') ? tabParam : defaultTab;
   
-  // For sellers, only show offers tab; for buyers, show orders, offers, and purchase history tabs
+  // Tabs: for seller mode show offers, for buyer mode show orders/offers/purchaseHistory
   const [activeTab, setActiveTab] = useState<'orders' | 'offers' | 'purchaseHistory'>(initialTab as 'orders' | 'offers' | 'purchaseHistory');
+  
+  // Refetch profile when window gains focus to sync with header role switch
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        refetchProfile();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, refetchProfile]);
   
   // Update active tab when URL parameter changes
   useEffect(() => {
@@ -337,9 +370,9 @@ export default function BuyerContent() {
   const [rejectOffer, { isLoading: isRejecting }] = useRejectOfferMutation();
   const [counterOffer, { isLoading: isCountering }] = useCounterOfferMutation();
 
-  // Fetch buyer orders from API
+  // Fetch buyer orders from API - fetch when in buyer mode
   const { data: ordersData, isLoading: isLoadingOrders, error: ordersError, refetch: refetchOrders } = useGetBuyerOrdersQuery({}, {
-    skip: isSeller, // Only fetch for buyers
+    skip: activeMode === 'seller', // Only fetch when in buyer mode
   });
   
   // Buyer review and dispute mutations
@@ -576,12 +609,15 @@ export default function BuyerContent() {
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
         {/* Page Title */}
         <h1 className='text-2xl md:text-3xl font-bold text-deep-charcoal mb-6'>
-          {isSeller 
-            ? (locale === 'en' ? 'Received Offers' : 'العروض المستلمة')
+          {activeMode === 'seller'
+            ? (locale === 'en' ? 'Seller Dashboard' : 'لوحة البائع')
             : (locale === 'en' ? 'Buyer Dashboard' : 'لوحة المشتري')}
         </h1>
-        {/* Tabs */}
-        {!isSeller && (
+        
+        {/* Mode Tabs - Seller/Buyer Mode Selector - Only show for sellers */}
+        
+        {/* Feature Tabs - Different tabs based on active mode */}
+        {activeMode === 'buyer' && (
         <div className='flex gap-4 mb-6 border-b border-rich-sand/30 overflow-x-auto scrollbar-hide'>
           <button
             onClick={() => setActiveTab('orders')}
@@ -616,8 +652,8 @@ export default function BuyerContent() {
         </div>
         )}
 
-        {/* Orders Tab - Only for buyers */}
-        {!isSeller && activeTab === 'orders' && (
+        {/* Orders Tab - Only in buyer mode */}
+        {activeMode === 'buyer' && activeTab === 'orders' && (
           <div>
             {isLoadingOrders ? (
               <div className='space-y-4 mb-6'>
@@ -817,13 +853,13 @@ export default function BuyerContent() {
           </div>
         )}
 
-        {/* Purchase History Tab - Only for buyers */}
-        {!isSeller && activeTab === 'purchaseHistory' && (
+        {/* Purchase History Tab - Only in buyer mode */}
+        {activeMode === 'buyer' && activeTab === 'purchaseHistory' && (
           <PurchaseHistoryTab />
         )}
 
-        {/* Offers Tab - Show for sellers directly, or when activeTab is 'offers' for buyers */}
-        {(isSeller || activeTab === 'offers') && (
+        {/* Offers Tab - Show in seller mode or when activeTab is 'offers' in buyer mode */}
+        {(activeMode === 'seller' || (activeMode === 'buyer' && activeTab === 'offers')) && (
           <div className='space-y-4'>
             {isLoadingOffers ? (
               <div className='space-y-4'>

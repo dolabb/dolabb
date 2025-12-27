@@ -76,8 +76,8 @@ export const authApi = baseApi.injectEndpoints({
     // Update Profile
     updateProfile: builder.mutation<{ success: boolean; user: User }, ProfileUpdateRequest>({
       query: (data) => ({
-        url: '/api/auth/profile/update/',
-        method: 'PUT',
+        url: '/api/auth/profile/',
+        method: 'PATCH',
         data,
       }),
       invalidatesTags: ['User'],

@@ -9,11 +9,14 @@ import { useGetMyDisputesQuery } from '@/lib/api/buyerApi';
 import { toast } from '@/utils/toast';
 import Pagination from '@/components/shared/Pagination';
 import type { DisputeListItem } from '@/lib/api/buyerApi';
+import { useAppSelector } from '@/lib/store/hooks';
 
 export default function DisputesContent() {
   const locale = useLocale();
   const router = useRouter();
   const isRTL = locale === 'ar';
+  const user = useAppSelector((state) => state.auth.user);
+  const isSeller = user?.role === 'seller';
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'closed' | 'all'>('all');
   const itemsPerPage = 10;
@@ -188,7 +191,11 @@ export default function DisputesContent() {
             </p>
             <p className='text-deep-charcoal/50 text-sm'>
               {locale === 'en'
-                ? 'You have not created any disputes yet.'
+                ? isSeller
+                  ? 'You have no disputes related to your products yet.'
+                  : 'You have not created any disputes yet.'
+                : isSeller
+                ? 'لا توجد نزاعات متعلقة بمنتجاتك حتى الآن.'
                 : 'لم تقم بإنشاء أي نزاعات حتى الآن.'}
             </p>
           </div>
@@ -234,12 +241,21 @@ export default function DisputesContent() {
                             </span>{' '}
                             {dispute.itemTitle}
                           </p>
-                          <p>
-                            <span className='font-medium'>
-                              {locale === 'en' ? 'Seller:' : 'البائع:'}
-                            </span>{' '}
-                            {dispute.sellerName}
-                          </p>
+                          {isSeller ? (
+                            <p>
+                              <span className='font-medium'>
+                                {locale === 'en' ? 'Buyer:' : 'المشتري:'}
+                              </span>{' '}
+                              {dispute.buyerName}
+                            </p>
+                          ) : (
+                            <p>
+                              <span className='font-medium'>
+                                {locale === 'en' ? 'Seller:' : 'البائع:'}
+                              </span>{' '}
+                              {dispute.sellerName}
+                            </p>
+                          )}
                           <p className='line-clamp-2'>{dispute.description}</p>
                         </div>
 

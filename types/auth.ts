@@ -74,6 +74,7 @@ export interface ProfileUpdateRequest {
   shipping_address?: string;
   zip_code?: string;
   house_number?: string;
+  role?: 'buyer' | 'seller';
 }
 
 export interface UserResponse {

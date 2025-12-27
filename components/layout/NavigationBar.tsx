@@ -2,6 +2,7 @@
 
 import { navigationCategories, StyleCategory } from '@/data/navigation';
 import { useAppSelector } from '@/lib/store/hooks';
+import { useGetProfileQuery } from '@/lib/api/authApi';
 import { gsap } from 'gsap';
 import { useLocale, useTranslations } from 'next-intl';
 import Image from 'next/image';
@@ -65,8 +66,18 @@ export default function NavigationBar() {
   const pathname = usePathname();
   const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const user = useAppSelector(state => state.auth.user);
-  const isSeller = user?.role === 'seller';
   const isRTL = locale === 'ar';
+  
+  // Fetch profile to get latest role (for role switching)
+  const { data: profileData } = useGetProfileQuery(undefined, {
+    skip: !isAuthenticated,
+  });
+  
+  // Use profile data if available, otherwise fall back to Redux user
+  // This ensures we have the most up-to-date role from the API
+  const currentUser = profileData?.user || user;
+  const isSeller = currentUser?.role === 'seller';
+  const isBuyer = currentUser?.role === 'buyer';
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [clickedCategory, setClickedCategory] = useState<string | null>(null);
   const [, setHoveredCategory] = useState<string | null>(null);
@@ -225,6 +236,7 @@ export default function NavigationBar() {
   );
 
   // User Navigation Items (for authenticated users)
+  // Show "My Store" only when user is in seller mode (not in buyer mode)
   const userNavItems = [
     {
       key: 'home',
@@ -232,12 +244,17 @@ export default function NavigationBar() {
       icon: HiHome,
       label: locale === 'en' ? 'Home' : 'الرئيسية',
     },
-    {
-      key: 'my-store',
-      href: `/${locale}/my-store`,
-      icon: HiShoppingBag,
-      label: locale === 'en' ? 'My Store' : 'متجري',
-    },
+    // Only show "My Store" when user is in seller mode
+    ...(isSeller
+      ? [
+          {
+            key: 'my-store',
+            href: `/${locale}/my-store`,
+            icon: HiShoppingBag,
+            label: locale === 'en' ? 'My Store' : 'متجري',
+          },
+        ]
+      : []),
     {
       key: 'profile',
       href: `/${locale}/profile`,
@@ -256,17 +273,13 @@ export default function NavigationBar() {
         ? 'Buyer'
         : 'المشتري',
     },
-    // Show Disputes link only for buyers
-    ...(!isSeller
-      ? [
-          {
-            key: 'disputes',
-            href: `/${locale}/disputes`,
-            icon: HiChatBubbleLeftRight,
-            label: locale === 'en' ? 'Disputes' : 'النزاعات',
-          },
-        ]
-      : []),
+    // Show Disputes link for both buyers and sellers
+    {
+      key: 'disputes',
+      href: `/${locale}/disputes`,
+      icon: HiChatBubbleLeftRight,
+      label: locale === 'en' ? 'Disputes' : 'النزاعات',
+    },
   ];
 
   // If affiliate, don't show navigation bar

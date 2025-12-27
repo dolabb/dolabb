@@ -91,6 +91,23 @@ export interface DisputeTimeline {
   by: string;
 }
 
+export interface DisputeEvidence {
+  id: string;
+  url: string;
+  filename: string;
+  originalFilename: string;
+  type: 'image' | 'document';
+  contentType: string;
+  description?: string;
+  uploadedBy: {
+    id: string;
+    name: string;
+    type: 'buyer' | 'seller' | 'admin'; // Uploader type
+  };
+  uploaded_at?: string;
+  uploadedAt?: string; // Support both naming conventions
+}
+
 export interface DisputeDetail {
   id: string;
   caseNumber: string;
@@ -122,6 +139,7 @@ export interface DisputeDetail {
   updated_at: string;
   messages: DisputeMessage[];
   timeline: DisputeTimeline[];
+  evidence?: DisputeEvidence[];
 }
 
 export interface DisputeListItem {
@@ -168,6 +186,17 @@ export interface AddDisputeCommentResponse {
   success: boolean;
   message: string;
   comment: DisputeMessage;
+}
+
+export interface UploadDisputeEvidenceRequest {
+  file: File;
+  description?: string;
+}
+
+export interface UploadDisputeEvidenceResponse {
+  success: boolean;
+  message: string;
+  evidence: DisputeEvidence;
 }
 
 // Order interface with reviewSubmitted field
@@ -306,7 +335,16 @@ export const buyerApi = baseApi.injectEndpoints({
           ...(params.status && { status: params.status }),
         },
       }),
-      providesTags: ['Dispute'],
+      providesTags: (result) =>
+        result
+          ? [
+              'Dispute',
+              ...result.disputes.map(({ _id }) => ({
+                type: 'Dispute' as const,
+                id: _id,
+              })),
+            ]
+          : ['Dispute'],
     }),
 
     // Get My Dispute Details
@@ -317,7 +355,10 @@ export const buyerApi = baseApi.injectEndpoints({
       }),
       providesTags: (result, error, disputeId) => [
         { type: 'Dispute', id: disputeId },
+        'Dispute', // Also provide general tag to link with list query
       ],
+      // Always refetch on mount to ensure fresh data (fixes status mismatch)
+      refetchOnMountOrArgChange: true,
     }),
 
     // Add Dispute Comment (Buyer)
@@ -330,6 +371,28 @@ export const buyerApi = baseApi.injectEndpoints({
         method: 'POST',
         data,
       }),
+      invalidatesTags: (result, error, { disputeId }) => [
+        { type: 'Dispute', id: disputeId },
+      ],
+    }),
+
+    // Upload Dispute Evidence (Buyer)
+    uploadDisputeEvidence: builder.mutation<
+      UploadDisputeEvidenceResponse,
+      { disputeId: string; data: UploadDisputeEvidenceRequest }
+    >({
+      query: ({ disputeId, data }) => {
+        const formData = new FormData();
+        formData.append('file', data.file);
+        if (data.description) {
+          formData.append('description', data.description);
+        }
+        return {
+          url: `/api/products/disputes/${disputeId}/evidence/`,
+          method: 'POST',
+          data: formData,
+        };
+      },
       invalidatesTags: (result, error, { disputeId }) => [
         { type: 'Dispute', id: disputeId },
       ],
@@ -347,5 +410,6 @@ export const {
   useGetMyDisputesQuery,
   useGetMyDisputeDetailsQuery,
   useAddDisputeCommentMutation,
+  useUploadDisputeEvidenceMutation,
 } = buyerApi;
 

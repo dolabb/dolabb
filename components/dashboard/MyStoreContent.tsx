@@ -1,6 +1,7 @@
 'use client';
 
 import { useAppSelector } from '@/lib/store/hooks';
+import { useGetProfileQuery } from '@/lib/api/authApi';
 import { useLocale } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { HiPlus } from 'react-icons/hi2';
@@ -12,8 +13,17 @@ export default function MyStoreContent() {
   const locale = useLocale();
   const isRTL = locale === 'ar';
   const user = useAppSelector(state => state.auth.user);
-  const isSeller = user?.role === 'seller';
-  const isBuyer = user?.role === 'buyer';
+  
+  // Fetch profile to get latest role (for role switching)
+  const { data: profileData } = useGetProfileQuery(undefined, {
+    skip: !user,
+  });
+  
+  // Use profile data if available, otherwise fall back to Redux user
+  // This ensures we have the most up-to-date role from the API
+  const currentUser = profileData?.user || user;
+  const isSeller = currentUser?.role === 'seller';
+  const isBuyer = currentUser?.role === 'buyer';
 
   // For both buyers and sellers: 'manage', and for sellers: 'reviews'
   const [activeTab, setActiveTab] = useState<'manage' | 'reviews'>(

@@ -7,14 +7,15 @@ import {
   useUpdateProfileMutation,
   useUploadImageMutation,
 } from '@/lib/api/authApi';
-import { useAppSelector } from '@/lib/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { updateUser } from '@/lib/store/slices/authSlice';
 import type { User } from '@/types/auth';
 import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
-import { HiPencilSquare, HiUser, HiXMark } from 'react-icons/hi2';
+import { HiPencilSquare, HiUser, HiXMark, HiTag } from 'react-icons/hi2';
 import SaleHistoryTab from './SaleHistoryTab';
 import PayoutTab from './PayoutTab';
 import PayoutRequestsTab from './PayoutRequestsTab';
@@ -369,18 +370,54 @@ const UpdateProfileModal = ({
 
 export default function ProfileContent() {
   const locale = useLocale();
+  const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
   const isRTL = locale === 'ar';
   const isBuyer = user?.role === 'buyer';
   const isSeller = user?.role === 'seller';
+  
+  // Fetch profile to get latest role
+  const {
+    data: profileData,
+    isLoading: isLoadingProfile,
+    error: profileError,
+    refetch: refetchProfile,
+  } = useGetProfileQuery(undefined);
+  
+  const currentUser = profileData?.user || user;
+  const currentIsBuyer = currentUser?.role === 'buyer';
+  const currentIsSeller = currentUser?.role === 'seller';
+  
+  // Update Redux store when profile data changes
+  useEffect(() => {
+    if (profileData?.user) {
+      dispatch(updateUser(profileData.user));
+    }
+  }, [profileData?.user, dispatch]);
+  
+  // Always use seller mode for profile page - no mode switching
+  const activeMode: 'seller' | 'buyer' = 'seller';
+  
+  // Refetch profile when window gains focus to sync with header role switch
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        refetchProfile();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, refetchProfile]);
+  
   const [activeTab, setActiveTab] = useState<
     'reviews' | 'profileDetails' | 'saleHistory' | 'overview' | 'payoutRequests'
-  >(isSeller ? 'overview' : 'profileDetails');
+  >('overview');
+  
   const [imageError, setImageError] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
   const [uploadImage, { isLoading: isUploading }] = useUploadImageMutation();
-
+  
   // Helper function to normalize image URL
   const normalizeImageUrl = (url: string | undefined | null): string => {
     if (!url || url.trim() === '' || url === 'undefined' || url === 'null') {
@@ -414,13 +451,6 @@ export default function ProfileContent() {
     return normalized;
   };
 
-  // Fetch profile data from API for buyers and sellers
-  const {
-    data: profileData,
-    isLoading: isLoadingProfile,
-    error: profileError,
-  } = useGetProfileQuery(undefined);
-
   // Print API response to console
   useEffect(() => {
     if (profileData) {
@@ -445,7 +475,7 @@ export default function ProfileContent() {
   }, [profileData, profileError]);
 
   // Use API data if available, otherwise fall back to Redux user data
-  const profileUser = profileData?.user || user;
+  const profileUser = currentUser || profileData?.user || user;
 
   // Reset image error when profile image URL changes
   useEffect(() => {
@@ -792,6 +822,11 @@ export default function ProfileContent() {
   return (
     <div className='bg-off-white min-h-screen py-8' dir={isRTL ? 'rtl' : 'ltr'}>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        {/* Page Title */}
+        <h1 className='text-2xl md:text-3xl font-bold text-deep-charcoal mb-6'>
+          {locale === 'en' ? 'Profile' : 'الملف الشخصي'}
+        </h1>
+        
         {/* User Profile Header */}
         <div className='bg-white rounded-lg border border-rich-sand/30 p-6 mb-6'>
           <div className='flex flex-col sm:flex-row items-start sm:items-center gap-6'>
@@ -867,9 +902,9 @@ export default function ProfileContent() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Feature Tabs - Seller tabs only */}
         <div className='flex mb-6 border-b border-rich-sand/30 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0'>
-          {isSeller ? (
+          {currentIsSeller ? (
             <div className='flex gap-2 sm:gap-4 min-w-max'>
               <button
                 onClick={() => setActiveTab('saleHistory')}
@@ -912,30 +947,7 @@ export default function ProfileContent() {
                 {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
               </button>
             </div>
-          ) : (
-            <div className='flex gap-2 sm:gap-4 min-w-max'>
-              <button
-                onClick={() => setActiveTab('reviews')}
-                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
-                  activeTab === 'reviews'
-                    ? 'border-saudi-green text-saudi-green'
-                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-                }`}
-              >
-                {locale === 'en' ? 'Reviews' : 'المراجعات'}
-              </button>
-              <button
-                onClick={() => setActiveTab('profileDetails')}
-                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
-                  activeTab === 'profileDetails'
-                    ? 'border-saudi-green text-saudi-green'
-                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
-                }`}
-              >
-                {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
-              </button>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Content */}
@@ -1056,52 +1068,19 @@ export default function ProfileContent() {
           </div>
         )}
 
-        {isSeller && activeTab === 'saleHistory' && (
+        {activeTab === 'saleHistory' && (
           <SaleHistoryTab />
         )}
 
-        {isSeller && activeTab === 'overview' && (
+        {activeTab === 'overview' && (
           <PayoutTab />
         )}
 
-        {isSeller && activeTab === 'payoutRequests' && (
+        {activeTab === 'payoutRequests' && (
           <PayoutRequestsTab />
         )}
 
-        {!isSeller && activeTab === 'reviews' && (
-          <div className='space-y-4'>
-            {reviews.map(review => (
-              <div
-                key={review.id}
-                className='bg-white rounded-lg border border-rich-sand/30 p-6'
-              >
-                <div className='flex items-start justify-between mb-3'>
-                  <div>
-                    <h3 className='font-semibold text-deep-charcoal mb-1'>
-                      @{review.reviewer}
-                    </h3>
-                    <div className='flex items-center gap-1'>
-                      {[...Array(5)].map((_, i) => (
-                        <FaStar
-                          key={i}
-                          className={`w-4 h-4 ${
-                            i < review.rating
-                              ? 'text-yellow-400 fill-yellow-400'
-                              : 'text-rich-sand fill-rich-sand'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <span className='text-sm text-deep-charcoal/60'>
-                    {review.date}
-                  </span>
-                </div>
-                <p className='text-deep-charcoal/80'>{review.comment}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Reviews tab removed for buyer mode - buyers don't receive reviews, only sellers do */}
 
         {/* Update Profile Modal for Sellers */}
         {showUpdateModal && (
