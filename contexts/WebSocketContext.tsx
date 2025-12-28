@@ -259,7 +259,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           
           if (conversations.length > 0) {
             const firstConversation = conversations[0];
-            const convId = firstConversation.conversationId || firstConversation.id;
+            const convId = firstConversation.id;
             if (convId && (!currentConversationIdRef.current || currentConversationIdRef.current !== convId)) {
               connectToConversation(convId);
             }
