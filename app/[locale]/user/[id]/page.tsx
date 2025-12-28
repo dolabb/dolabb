@@ -216,11 +216,11 @@ export default function UserProfilePage() {
                       <div className='flex items-center gap-1 bg-white'>
                         <FaStar className='w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0' />
                         <span className='font-semibold text-deep-charcoal text-base'>
-                          {(rating.averageRating || rating.average_rating || 0).toFixed(1)}
+                          {(rating.averageRating || 0).toFixed(1)}
                         </span>
                       </div>
                       <span className='text-sm text-deep-charcoal/60'>
-                        ({rating.totalReviews || rating.total_reviews || 0}{' '}
+                        ({rating.totalReviews || 0}{' '}
                         {locale === 'en' ? 'reviews' : 'تقييم'})
                       </span>
                     </div>
@@ -263,9 +263,9 @@ export default function UserProfilePage() {
                     }`}
                   >
                     {locale === 'en' ? 'Reviews' : 'التقييمات'}
-                    {(rating?.totalReviews || rating?.total_reviews) && (
+                    {rating?.totalReviews && (
                       <span className='ml-2 text-xs font-medium'>
-                        ({rating.totalReviews || rating.total_reviews})
+                        ({rating.totalReviews})
                       </span>
                     )}
                   </button>
