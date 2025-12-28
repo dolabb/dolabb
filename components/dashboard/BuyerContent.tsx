@@ -21,6 +21,7 @@ import { useGetProfileQuery } from '@/lib/api/authApi';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { updateUser } from '@/lib/store/slices/authSlice';
 import { formatPrice } from '@/utils/formatPrice';
+import { toast } from '@/utils/toast';
 import PaymentsTab from './PaymentsTab';
 import CounterOfferModal from '@/components/shared/CounterOfferModal';
 import ReviewModal from '@/components/shared/ReviewModal';

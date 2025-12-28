@@ -130,7 +130,7 @@ export default function ChatHeader({
         )}
       </button>
       <button
-        onClick={() => setIsProfileModalOpen(true)}
+        onClick={() => router.push(`/${locale}/user/${selectedConversation.otherUser.id}`)}
         className='flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity'
         title={locale === 'en' ? 'View Profile' : 'عرض الملف الشخصي'}
       >

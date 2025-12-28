@@ -29,13 +29,12 @@ export default function SaleHistoryTab() {
   const pagination = paymentsData?.pagination;
   
   // Helper function to determine if proof is needed
-  // Show indicator when shipment_proof is empty AND status is shipped, ready, or packed
+  // Show indicator when shipment_proof is empty AND status is shipped or ready
   const needsProof = (payment: Payment) => {
     return (
       !payment.shipmentProof &&
       (payment.status === 'shipped' ||
-        payment.status === 'ready' ||
-        payment.status === 'packed')
+        payment.status === 'ready')
     );
   };
   
@@ -159,7 +158,7 @@ export default function SaleHistoryTab() {
                     {locale === 'en' ? 'Platform Fee' : 'رسوم المنصة'}
                   </p>
                   <p className='text-sm text-deep-charcoal/70'>
-                    {locale === 'ar' ? 'ر.س' : 'SAR'} {payment.platformFee.toFixed(2)}
+                    {locale === 'ar' ? 'ر.س' : 'SAR'} {(payment.platformFee || 0).toFixed(2)}
                   </p>
                 </div>
                 <div>
@@ -167,7 +166,7 @@ export default function SaleHistoryTab() {
                     {locale === 'en' ? 'Your Payout' : 'مبلغ الدفع لك'}
                   </p>
                   <p className='text-lg font-bold text-saudi-green'>
-                    {locale === 'ar' ? 'ر.س' : 'SAR'} {payment.sellerPayout.toFixed(2)}
+                    {locale === 'ar' ? 'ر.س' : 'SAR'} {(payment.sellerPayout || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -229,8 +228,8 @@ export default function SaleHistoryTab() {
                       </p>
                       <p className='text-xs text-red-700'>
                         {locale === 'en'
-                          ? `This order requires shipment proof to be uploaded. Upload proof to complete the delivery process and unlock ${payment.sellerPayout.toFixed(2)} SAR earnings.`
-                          : `يتطلب هذا الطلب رفع إثبات الشحن. قم برفع الإثبات لإكمال عملية التسليم وفتح ${payment.sellerPayout.toFixed(2)} ر.س من الأرباح.`}
+                          ? `This order requires shipment proof to be uploaded. Upload proof to complete the delivery process and unlock ${(payment.sellerPayout || 0).toFixed(2)} SAR earnings.`
+                          : `يتطلب هذا الطلب رفع إثبات الشحن. قم برفع الإثبات لإكمال عملية التسليم وفتح ${(payment.sellerPayout || 0).toFixed(2)} ر.س من الأرباح.`}
                       </p>
                     </div>
                   </div>
