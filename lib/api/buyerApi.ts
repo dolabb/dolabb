@@ -357,8 +357,6 @@ export const buyerApi = baseApi.injectEndpoints({
         { type: 'Dispute', id: disputeId },
         'Dispute', // Also provide general tag to link with list query
       ],
-      // Always refetch on mount to ensure fresh data (fixes status mismatch)
-      refetchOnMountOrArgChange: true,
     }),
 
     // Add Dispute Comment (Buyer)
