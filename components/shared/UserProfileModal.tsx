@@ -239,11 +239,11 @@ export default function UserProfileModal({
                         <div className='flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-200'>
                           <FaStar className='w-4 h-4 text-yellow-500 fill-yellow-500 flex-shrink-0' />
                           <span className='font-bold text-deep-charcoal text-base'>
-                            {(rating.averageRating || rating.average_rating || 0).toFixed(1)}
+                            {(rating.averageRating || 0).toFixed(1)}
                           </span>
                         </div>
                         <span className='text-sm text-deep-charcoal/70 bg-rich-sand/30 px-3 py-1.5 rounded-full'>
-                          {rating.totalReviews || rating.total_reviews || 0}{' '}
+                          {rating.totalReviews || 0}{' '}
                           {locale === 'en' ? 'reviews' : 'تقييم'}
                         </span>
                       </div>
@@ -301,13 +301,13 @@ export default function UserProfileModal({
                     >
                       <span className='flex items-center justify-center gap-2'>
                         {locale === 'en' ? 'Reviews' : 'التقييمات'}
-                        {(rating?.totalReviews || rating?.total_reviews) && (
+                        {rating?.totalReviews && (
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                             activeTab === 'reviews'
                               ? 'bg-saudi-green text-white'
                               : 'bg-rich-sand/40 text-deep-charcoal/70'
                           }`}>
-                            {rating.totalReviews || rating.total_reviews}
+                            {rating.totalReviews}
                           </span>
                         )}
                       </span>
