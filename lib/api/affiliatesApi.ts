@@ -25,7 +25,7 @@ export const affiliatesApi = baseApi.injectEndpoints({
     // Request Cashout
     requestCashout: builder.mutation<
       CashoutResponse,
-      { amount: number; paymentMethod: string; currency: string }
+      { amount: number; paymentMethod: string; currency: string; bankReference?: string }
     >({
       query: (data) => ({
         url: '/api/affiliate/cashout/',
@@ -81,15 +81,41 @@ export const affiliatesApi = baseApi.injectEndpoints({
         phone?: string;
         country_code?: string;
         profile_image?: string;
-        bank_name?: string;
-        account_number?: string;
-        iban?: string;
-        account_holder_name?: string;
       }
     >({
       query: (data) => ({
         url: '/api/affiliate/profile/',
         method: 'PUT',
+        data,
+      }),
+      invalidatesTags: ['Affiliate'],
+    }),
+
+    // Get Bank Details
+    getBankDetails: builder.query<
+      { success: boolean; bank_details?: { bank_name: string; account_number: string; iban?: string; account_holder_name: string } },
+      void
+    >({
+      query: () => ({
+        url: '/api/affiliates/bank-details/',
+        method: 'GET',
+      }),
+      providesTags: ['Affiliate'],
+    }),
+
+    // Add/Update Bank Details
+    updateBankDetails: builder.mutation<
+      { success: boolean; message: string; bank_details: { bank_name: string; account_number: string; iban?: string; account_holder_name: string } },
+      {
+        bank_name: string;
+        account_number: string;
+        iban?: string;
+        account_holder_name?: string;
+      }
+    >({
+      query: (data) => ({
+        url: '/api/affiliates/bank-details/',
+        method: 'POST',
         data,
       }),
       invalidatesTags: ['Affiliate'],
@@ -133,5 +159,7 @@ export const {
   useUpdateAffiliateProfileMutation,
   useGetEarningsBreakdownQuery,
   useLazyGetEarningsBreakdownQuery,
+  useGetBankDetailsQuery,
+  useUpdateBankDetailsMutation,
 } = affiliatesApi;
 

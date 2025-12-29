@@ -70,10 +70,12 @@ export default function DisputeDetailContent({
   });
   const evidenceImageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const { data, isLoading, error, refetch } =
-    useGetMyDisputeDetailsQuery(disputeId, {
+  const { data, isLoading, error, refetch } = useGetMyDisputeDetailsQuery(
+    disputeId,
+    {
       refetchOnMountOrArgChange: true, // Always refetch on mount to ensure fresh data (fixes status mismatch)
-    });
+    }
+  );
   const [addComment] = useAddDisputeCommentMutation();
   const [uploadEvidence] = useUploadDisputeEvidenceMutation();
 

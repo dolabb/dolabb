@@ -145,7 +145,8 @@
     "viewAll": "عرض الكل"
   },
   "trending": {
-    "title": "الترند الآن"
+    "title": "الترند الآن",
+    "viewAll": "عرض الكل"
   },
   "footer": {
     "about": "حول",

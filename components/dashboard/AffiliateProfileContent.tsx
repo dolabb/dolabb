@@ -14,7 +14,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   HiArrowLeft,
-  HiBuildingOffice2,
   HiCamera,
   HiPhone,
   HiUser,
@@ -43,10 +42,6 @@ export default function AffiliateProfileContent() {
     phone: '',
     country_code: '',
     profile_image: '',
-    bank_name: '',
-    account_number: '',
-    iban: '',
-    account_holder_name: '',
   });
 
   const [selectedCountry, setSelectedCountry] =
@@ -65,10 +60,6 @@ export default function AffiliateProfileContent() {
         phone: affiliate.phone?.replace(/^\+\d+\s/, '') || '',
         country_code: affiliate.country_code || defaultCountry.code,
         profile_image: affiliate.profile_image || '',
-        bank_name: affiliate.bank_details?.bank_name || '',
-        account_number: affiliate.bank_details?.account_number || '',
-        iban: affiliate.bank_details?.iban || '',
-        account_holder_name: affiliate.bank_details?.account_holder_name || '',
       });
 
       // Set country based on country_code
@@ -151,10 +142,6 @@ export default function AffiliateProfileContent() {
         phone: formData.phone,
         country_code: selectedCountry.code,
         profile_image: profileImageUrl,
-        bank_name: formData.bank_name,
-        account_number: formData.account_number,
-        iban: formData.iban || undefined,
-        account_holder_name: formData.account_holder_name,
       }).unwrap();
 
       if (result.success) {
@@ -335,46 +322,6 @@ export default function AffiliateProfileContent() {
                   </p>
                 </div>
 
-                {affiliate.bank_details && (
-                  <>
-                    <div>
-                      <p className='text-sm text-deep-charcoal/70 mb-1'>
-                        {locale === 'en' ? 'Bank Name' : 'اسم البنك'}
-                      </p>
-                      <p className='text-deep-charcoal font-medium'>
-                        {affiliate.bank_details.bank_name}
-                      </p>
-                    </div>
-                    <div>
-                      <p className='text-sm text-deep-charcoal/70 mb-1'>
-                        {locale === 'en' ? 'Account Number' : 'رقم الحساب'}
-                      </p>
-                      <p className='text-deep-charcoal font-medium font-mono'>
-                        {affiliate.bank_details.account_number}
-                      </p>
-                    </div>
-                    {affiliate.bank_details.iban && (
-                      <div>
-                        <p className='text-sm text-deep-charcoal/70 mb-1'>
-                          {locale === 'en' ? 'IBAN' : 'رقم الآيبان'}
-                        </p>
-                        <p className='text-deep-charcoal font-medium font-mono'>
-                          {affiliate.bank_details.iban}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <p className='text-sm text-deep-charcoal/70 mb-1'>
-                        {locale === 'en'
-                          ? 'Account Holder Name'
-                          : 'اسم صاحب الحساب'}
-                      </p>
-                      <p className='text-deep-charcoal font-medium'>
-                        {affiliate.bank_details.account_holder_name}
-                      </p>
-                    </div>
-                  </>
-                )}
               </div>
             </>
           ) : (
@@ -521,90 +468,6 @@ export default function AffiliateProfileContent() {
                   </div>
                 </div>
 
-                {/* Bank Details */}
-                <div className='border-t border-rich-sand/30 pt-6'>
-                  <h3 className='text-lg font-semibold text-deep-charcoal mb-4 flex items-center gap-2'>
-                    <HiBuildingOffice2 className='w-5 h-5 text-saudi-green' />
-                    {locale === 'en' ? 'Bank Details' : 'تفاصيل البنك'}
-                  </h3>
-
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                    <div>
-                      <label className='block text-sm font-semibold text-deep-charcoal mb-2'>
-                        {locale === 'en' ? 'Bank Name' : 'اسم البنك'}
-                      </label>
-                      <input
-                        type='text'
-                        value={formData.bank_name}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            bank_name: e.target.value,
-                          })
-                        }
-                        className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green'
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className='block text-sm font-semibold text-deep-charcoal mb-2'>
-                        {locale === 'en' ? 'Account Number' : 'رقم الحساب'}
-                      </label>
-                      <input
-                        type='text'
-                        value={formData.account_number}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            account_number: e.target.value,
-                          })
-                        }
-                        className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green'
-                        dir='ltr'
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className='block text-sm font-semibold text-deep-charcoal mb-2'>
-                        {locale === 'en'
-                          ? 'IBAN (Optional)'
-                          : 'رقم الآيبان (اختياري)'}
-                      </label>
-                      <input
-                        type='text'
-                        value={formData.iban}
-                        onChange={e =>
-                          setFormData({ ...formData, iban: e.target.value })
-                        }
-                        className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green'
-                        dir='ltr'
-                      />
-                    </div>
-
-                    <div>
-                      <label className='block text-sm font-semibold text-deep-charcoal mb-2'>
-                        {locale === 'en'
-                          ? 'Account Holder Name'
-                          : 'اسم صاحب الحساب'}
-                      </label>
-                      <input
-                        type='text'
-                        value={formData.account_holder_name}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            account_holder_name: e.target.value,
-                          })
-                        }
-                        className='w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green'
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Buttons */}
                 <div className='flex gap-4 pt-4'>
                   <button
@@ -619,12 +482,6 @@ export default function AffiliateProfileContent() {
                           country_code:
                             affiliate.country_code || defaultCountry.code,
                           profile_image: affiliate.profile_image || '',
-                          bank_name: affiliate.bank_details?.bank_name || '',
-                          account_number:
-                            affiliate.bank_details?.account_number || '',
-                          iban: affiliate.bank_details?.iban || '',
-                          account_holder_name:
-                            affiliate.bank_details?.account_holder_name || '',
                         });
                         const country =
                           countries.find(

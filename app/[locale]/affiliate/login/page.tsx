@@ -78,21 +78,30 @@ export default function AffiliateLoginPage() {
             localStorage.setItem('affiliate_email', formData.email);
           }
 
-          // Check if there's a stored guest language preference
+          // Get language from database (affiliate object) or fallback to current locale
+          const dbLanguage = result.affiliate?.language || locale;
           const guestLanguage = localStorage.getItem('guest_language');
-          if (guestLanguage && guestLanguage !== locale) {
-            // Update affiliate's language preference on backend
+
+          // Handle language synchronization
+          if (guestLanguage && guestLanguage !== dbLanguage) {
+            // Affiliate switched language while logged out - update database with guest preference
             try {
               await updateLanguage({ language: guestLanguage, skipAuth: false }).unwrap();
-              // Clear guest language preference after applying it
+              localStorage.setItem('language', guestLanguage);
               localStorage.removeItem('guest_language');
               // Redirect to the preferred language
               router.push(`/${guestLanguage}/affiliate/dashboard`);
               return;
             } catch (error) {
-              // If language update fails, continue with normal flow
+              // If language update fails, use database language
               console.error('Failed to update language preference:', error);
+              localStorage.setItem('language', dbLanguage);
+              localStorage.removeItem('guest_language');
             }
+          } else {
+            // No guest language or it matches database - use database language
+            localStorage.setItem('language', dbLanguage);
+            localStorage.removeItem('guest_language');
           }
         }
 
@@ -103,9 +112,10 @@ export default function AffiliateLoginPage() {
             : `مرحباً بعودتك، ${result.affiliate.full_name}!`
         );
 
-        // Redirect to affiliate dashboard
+        // Redirect to affiliate dashboard using database language
+        const finalLanguage = result.affiliate?.language || locale;
         setTimeout(() => {
-          router.push(`/${locale}/affiliate/dashboard`);
+          router.push(`/${finalLanguage}/affiliate/dashboard`);
         }, 1000);
       }
     } catch (error: any) {

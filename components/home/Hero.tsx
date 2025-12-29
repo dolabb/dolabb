@@ -3,7 +3,6 @@
 import { useGetHeroSectionQuery } from '@/lib/api/productsApi';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useEffect } from 'react';
 
 export default function Hero() {
   const t = useTranslations('hero');
@@ -14,29 +13,6 @@ export default function Hero() {
   const { data: heroData, isLoading, error } = useGetHeroSectionQuery();
   const heroSection = heroData?.heroSection;
   const isActive = heroSection?.isActive === true;
-
-  // Log hero section API response
-  useEffect(() => {
-    if (heroData) {
-      console.log('=== HERO SECTION API RESPONSE ===');
-      console.log('Full Response:', heroData);
-      console.log('Hero Section Data:', heroData.heroSection);
-      console.log('Is Active:', heroData.heroSection?.isActive);
-      console.log('Background Type:', heroData.heroSection?.backgroundType);
-      console.log('Title:', heroData.heroSection?.title);
-      console.log('Subtitle:', heroData.heroSection?.subtitle);
-      console.log('===============================');
-    }
-  }, [heroData]);
-
-  // Log errors
-  useEffect(() => {
-    if (error) {
-      console.error('=== HERO SECTION API ERROR ===');
-      console.error('Error:', error);
-      console.error('============================');
-    }
-  }, [error]);
 
   // Default hero section (current design)
   const renderDefaultHero = () => (

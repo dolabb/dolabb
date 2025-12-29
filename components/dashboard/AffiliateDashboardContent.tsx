@@ -8,7 +8,9 @@ import {
   useGetPayoutRequestsQuery,
   useRequestCashoutMutation,
   useGetAffiliateProfileQuery,
-  useGetEarningsBreakdownQuery
+  useGetEarningsBreakdownQuery,
+  useGetBankDetailsQuery,
+  useUpdateBankDetailsMutation
 } from '@/lib/api/affiliatesApi';
 import { toast } from '@/utils/toast';
 import { handleApiErrorWithToast } from '@/utils/errorHandler';
@@ -48,6 +50,15 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
   const [cashoutAmount, setCashoutAmount] = useState('');
   const [cashoutCurrency, setCashoutCurrency] = useState('SAR');
   const [paymentMethod, setPaymentMethod] = useState('Bank Transfer');
+  const [showBankDetailsForm, setShowBankDetailsForm] = useState(false);
+  const [bankVerificationStep, setBankVerificationStep] = useState<'verify' | 'reference' | null>(null);
+  const [bankReference, setBankReference] = useState('');
+  const [bankDetailsForm, setBankDetailsForm] = useState({
+    bankName: '',
+    accountNumber: '',
+    iban: '',
+    accountHolderName: '',
+  });
   const [transactionsPage, setTransactionsPage] = useState(1);
   const transactionsLimit = 20;
   const [transactionsCurrencyFilter, setTransactionsCurrencyFilter] = useState<string>('');
@@ -83,6 +94,8 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
   );
 
   const [requestCashout, { isLoading: isRequestingCashout }] = useRequestCashoutMutation();
+  const { data: bankDetailsData, refetch: refetchBankDetails } = useGetBankDetailsQuery();
+  const [updateBankDetails, { isLoading: isUpdatingBankDetails }] = useUpdateBankDetailsMutation();
 
   // Update affiliate data when profile API returns data
   useEffect(() => {
@@ -178,6 +191,15 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
     }
   }, [activeTab]);
 
+  // Check if affiliate has bank details (from separate bank-details endpoint)
+  const bankDetails = bankDetailsData?.bank_details;
+  const hasBankDetails = bankDetails?.bank_name && 
+                         bankDetails?.account_number && 
+                         bankDetails?.account_holder_name;
+
+  // Minimum cashout amount (100 in selected currency)
+  const MIN_CASHOUT_AMOUNT = 100;
+
   const handleCashoutRequest = async () => {
     if (!cashoutAmount || parseFloat(cashoutAmount) <= 0) {
       toast.error(locale === 'en' ? 'Please enter a valid amount' : 'يرجى إدخال مبلغ صحيح');
@@ -186,6 +208,16 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
 
     const amount = parseFloat(cashoutAmount);
     const availableBalanceForCurrency = getAvailableBalanceForCurrency(cashoutCurrency);
+    
+    // Check minimum cashout amount
+    if (amount < MIN_CASHOUT_AMOUNT) {
+      toast.error(
+        locale === 'en'
+          ? `Minimum cashout amount is ${MIN_CASHOUT_AMOUNT} ${cashoutCurrency}`
+          : `الحد الأدنى لمبلغ السحب هو ${MIN_CASHOUT_AMOUNT} ${cashoutCurrency}`
+      );
+      return;
+    }
     
     if (amount > availableBalanceForCurrency) {
       toast.error(
@@ -196,11 +228,26 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
       return;
     }
 
+    // Check if bank details exist - if not, show bank details form
+    if (!hasBankDetails) {
+      setShowBankDetailsForm(true);
+      return;
+    }
+
+    // If bank details exist, proceed with verification flow
+    if (!bankVerificationStep) {
+      setBankVerificationStep('verify');
+      return;
+    }
+
+    // If in reference step, proceed with cashout (bank reference is optional)
+
     try {
       const result = await requestCashout({
         amount,
         paymentMethod,
         currency: cashoutCurrency,
+        bankReference: bankReference || undefined,
       }).unwrap();
 
       if (result.success && result.cashoutRequest) {
@@ -210,6 +257,9 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
             : `تم إرسال طلب السحب بقيمة ${amount.toFixed(2)} ${cashoutCurrency} بنجاح! في انتظار موافقة المسؤول.`
         );
         setCashoutAmount('');
+        setBankReference('');
+        setBankVerificationStep(null);
+        setShowBankDetailsForm(false);
         // Refetch profile to update available balance and cashout requests
         refetchProfile();
         refetchCashoutRequests();
@@ -960,18 +1010,192 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                     className="px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green"
                   >
                     <option value="Bank Transfer">{locale === 'en' ? 'Bank Transfer' : 'تحويل بنكي'}</option>
-                    <option value="Crypto">{locale === 'en' ? 'Crypto' : 'عملة رقمية'}</option>
                   </select>
                 </div>
-                <button
-                  onClick={handleCashoutRequest}
-                  disabled={isRequestingCashout || !cashoutAmount}
-                  className="w-full px-6 py-2 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isRequestingCashout
-                    ? (locale === 'en' ? 'Submitting...' : 'جاري الإرسال...')
-                    : (locale === 'en' ? 'Request Cashout' : 'طلب السحب')}
-                </button>
+                {!hasBankDetails && showBankDetailsForm && (
+                  <div className="space-y-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 className="font-semibold text-deep-charcoal">
+                      {locale === 'en' ? 'Bank Details Required' : 'تفاصيل البنك مطلوبة'}
+                    </h4>
+                    <p className="text-sm text-deep-charcoal/70">
+                      {locale === 'en' 
+                        ? 'Please provide your bank details for cashout' 
+                        : 'يرجى تقديم تفاصيل البنك الخاصة بك للسحب'}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-deep-charcoal mb-1">
+                          {locale === 'en' ? 'Bank Name' : 'اسم البنك'}
+                        </label>
+                        <input
+                          type="text"
+                          value={bankDetailsForm.bankName}
+                          onChange={(e) => setBankDetailsForm({...bankDetailsForm, bankName: e.target.value})}
+                          className="w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-deep-charcoal mb-1">
+                          {locale === 'en' ? 'Account Number' : 'رقم الحساب'}
+                        </label>
+                        <input
+                          type="text"
+                          value={bankDetailsForm.accountNumber}
+                          onChange={(e) => setBankDetailsForm({...bankDetailsForm, accountNumber: e.target.value})}
+                          className="w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-deep-charcoal mb-1">
+                          {locale === 'en' ? 'IBAN (Optional)' : 'رقم الآيبان (اختياري)'}
+                        </label>
+                        <input
+                          type="text"
+                          value={bankDetailsForm.iban}
+                          onChange={(e) => setBankDetailsForm({...bankDetailsForm, iban: e.target.value})}
+                          className="w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-deep-charcoal mb-1">
+                          {locale === 'en' ? 'Account Holder Name' : 'اسم صاحب الحساب'}
+                        </label>
+                        <input
+                          type="text"
+                          value={bankDetailsForm.accountHolderName}
+                          onChange={(e) => setBankDetailsForm({...bankDetailsForm, accountHolderName: e.target.value})}
+                          className="w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          // Save bank details first
+                          if (!bankDetailsForm.bankName || !bankDetailsForm.accountNumber || !bankDetailsForm.accountHolderName) {
+                            toast.error(
+                              locale === 'en' ? 'Please fill all required fields' : 'يرجى ملء جميع الحقول المطلوبة'
+                            );
+                            return;
+                          }
+                          
+                          try {
+                            await updateBankDetails({
+                              bank_name: bankDetailsForm.bankName,
+                              account_number: bankDetailsForm.accountNumber,
+                              iban: bankDetailsForm.iban || undefined,
+                              account_holder_name: bankDetailsForm.accountHolderName,
+                            }).unwrap();
+                            
+                            toast.success(
+                              locale === 'en' ? 'Bank details saved' : 'تم حفظ تفاصيل البنك'
+                            );
+                            await refetchBankDetails();
+                            setShowBankDetailsForm(false);
+                            setBankVerificationStep('verify');
+                          } catch (error) {
+                            handleApiErrorWithToast(error);
+                          }
+                        }}
+                        disabled={isUpdatingBankDetails}
+                        className="flex-1 px-4 py-2 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUpdatingBankDetails 
+                          ? (locale === 'en' ? 'Saving...' : 'جاري الحفظ...')
+                          : (locale === 'en' ? 'Save Bank Details' : 'حفظ تفاصيل البنك')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowBankDetailsForm(false);
+                          setBankDetailsForm({
+                            bankName: '',
+                            accountNumber: '',
+                            iban: '',
+                            accountHolderName: '',
+                          });
+                        }}
+                        className="px-4 py-2 border border-rich-sand/30 text-deep-charcoal rounded-lg font-semibold hover:bg-rich-sand/20 transition-colors"
+                      >
+                        {locale === 'en' ? 'Cancel' : 'إلغاء'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {hasBankDetails && bankVerificationStep === 'verify' && (
+                  <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-semibold text-deep-charcoal">
+                      {locale === 'en' ? 'Verify Bank Details' : 'التحقق من تفاصيل البنك'}
+                    </h4>
+                    <div className="space-y-2 text-sm text-deep-charcoal/70">
+                      <p><strong>{locale === 'en' ? 'Bank Name:' : 'اسم البنك:'}</strong> {bankDetails?.bank_name}</p>
+                      <p><strong>{locale === 'en' ? 'Account Number:' : 'رقم الحساب:'}</strong> {bankDetails?.account_number}</p>
+                      {bankDetails?.iban && (
+                        <p><strong>{locale === 'en' ? 'IBAN:' : 'رقم الآيبان:'}</strong> {bankDetails.iban}</p>
+                      )}
+                      <p><strong>{locale === 'en' ? 'Account Holder:' : 'صاحب الحساب:'}</strong> {bankDetails?.account_holder_name}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBankVerificationStep('reference')}
+                        className="flex-1 px-4 py-2 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors"
+                      >
+                        {locale === 'en' ? 'Confirm & Continue' : 'تأكيد والمتابعة'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBankVerificationStep(null)}
+                        className="px-4 py-2 border border-rich-sand/30 text-deep-charcoal rounded-lg font-semibold hover:bg-rich-sand/20 transition-colors"
+                      >
+                        {locale === 'en' ? 'Cancel' : 'إلغاء'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {hasBankDetails && bankVerificationStep === 'reference' && (
+                  <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-semibold text-deep-charcoal">
+                      {locale === 'en' ? 'Add Bank Reference' : 'إضافة مرجع البنك'}
+                    </h4>
+                    <div>
+                      <label className="block text-sm font-medium text-deep-charcoal mb-1">
+                        {locale === 'en' ? 'Bank Reference (Optional)' : 'مرجع البنك (اختياري)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={bankReference}
+                        onChange={(e) => setBankReference(e.target.value)}
+                        placeholder={locale === 'en' ? 'Enter bank reference if any' : 'أدخل مرجع البنك إن وجد'}
+                        className="w-full px-4 py-2 border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBankVerificationStep('verify')}
+                        className="px-4 py-2 border border-rich-sand/30 text-deep-charcoal rounded-lg font-semibold hover:bg-rich-sand/20 transition-colors"
+                      >
+                        {locale === 'en' ? 'Back' : 'رجوع'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {(!showBankDetailsForm && (!hasBankDetails || bankVerificationStep === 'reference')) && (
+                  <button
+                    onClick={handleCashoutRequest}
+                    disabled={isRequestingCashout || !cashoutAmount}
+                    className="w-full px-6 py-2 bg-saudi-green text-white rounded-lg font-semibold hover:bg-saudi-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRequestingCashout
+                      ? (locale === 'en' ? 'Submitting...' : 'جاري الإرسال...')
+                      : (locale === 'en' ? 'Request Cashout' : 'طلب السحب')}
+                  </button>
+                )}
               </div>
               <div className="mt-3 space-y-1">
                 <p className="text-sm font-medium text-deep-charcoal">
@@ -990,6 +1214,11 @@ export default function AffiliateDashboardContent({ affiliate: initialAffiliate 
                     {earnings.availableBalance.toFixed(2)} {locale === 'ar' ? 'ر.س' : 'SAR'}
                   </p>
                 )}
+                <p className="text-xs text-deep-charcoal/60 mt-2">
+                  {locale === 'en' 
+                    ? `Minimum cashout amount: ${MIN_CASHOUT_AMOUNT} ${cashoutCurrency}`
+                    : `الحد الأدنى لمبلغ السحب: ${MIN_CASHOUT_AMOUNT} ${cashoutCurrency}`}
+                </p>
               </div>
             </div>
 

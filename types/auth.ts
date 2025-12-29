@@ -33,6 +33,7 @@ export interface User {
   zip_code?: string;
   house_number?: string;
   rating?: SellerRating; // Only for sellers
+  language?: string; // User's preferred language (en or ar)
 }
 
 export interface SignupRequest {
@@ -45,6 +46,8 @@ export interface SignupRequest {
   dial_code: string;
   profile_image_url?: string;
   role?: string; // Empty string or undefined
+  language?: string; // User's preferred language (en or ar)
+  preferredLanguage?: string; // Alternative field name for language
 }
 
 export interface LoginRequest {
@@ -109,6 +112,7 @@ export interface Affiliate {
     account_holder_name: string;
   };
   created_at?: string;
+  language?: string; // Affiliate's preferred language (en or ar)
   earningsByCurrency?: {
     [currency: string]: {
       total: number;
@@ -124,11 +128,9 @@ export interface AffiliateSignupRequest {
   phone: string;
   password: string;
   country_code: string;
-  bank_name: string;
-  account_number: string;
-  iban: string;
-  account_holder_name: string;
   profile_image_url?: string;
+  language?: string; // User's preferred language (en or ar)
+  preferredLanguage?: string; // Alternative field name for language
 }
 
 export interface AffiliateResponse {

@@ -7,8 +7,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
-  HiBuildingOffice2,
-  HiCreditCard,
   HiEye,
   HiEyeSlash,
   HiLockClosed,
@@ -33,10 +31,6 @@ export default function AffiliateRegisterPage() {
     phone: '',
     password: '',
     confirmPassword: '',
-    bankName: '',
-    accountNumber: '',
-    iban: '',
-    accountHolderName: '',
   });
   const [selectedCountry, setSelectedCountry] =
     useState<Country>(defaultCountry);
@@ -177,23 +171,6 @@ export default function AffiliateRegisterPage() {
         locale === 'en' ? 'Passwords do not match' : 'كلمات المرور غير متطابقة';
     }
 
-    if (!formData.bankName.trim()) {
-      newErrors.bankName =
-        locale === 'en' ? 'Bank name is required' : 'اسم البنك مطلوب';
-    }
-
-    if (!formData.accountNumber.trim()) {
-      newErrors.accountNumber =
-        locale === 'en' ? 'Account number is required' : 'رقم الحساب مطلوب';
-    }
-
-    if (!formData.accountHolderName.trim()) {
-      newErrors.accountHolderName =
-        locale === 'en'
-          ? 'Account holder name is required'
-          : 'اسم صاحب الحساب مطلوب';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -268,17 +245,19 @@ export default function AffiliateRegisterPage() {
       }
 
       // Step 2: Create affiliate account with the uploaded image URL
+      // Get language preference from localStorage (guest_language) or use current locale
+      const guestLanguage = typeof window !== 'undefined' 
+        ? localStorage.getItem('guest_language') || locale 
+        : locale;
+      
       const result = await affiliateSignup({
         full_name: formData.fullName,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
         country_code: selectedCountry.code,
-        bank_name: formData.bankName,
-        account_number: formData.accountNumber,
-        iban: formData.iban || '',
-        account_holder_name: formData.accountHolderName,
         profile_image_url: profileImageUrl,
+        language: guestLanguage, // Include language from localStorage or current locale
       }).unwrap();
 
       if (result.success && result.affiliate) {
@@ -374,17 +353,19 @@ export default function AffiliateRegisterPage() {
         }
 
         // Step 2: Create affiliate account with the uploaded image URL
+        // Get language preference from localStorage (guest_language) or use current locale
+        const guestLanguage = typeof window !== 'undefined' 
+          ? localStorage.getItem('guest_language') || locale 
+          : locale;
+        
         const result = await affiliateSignup({
           full_name: formData.fullName,
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
           country_code: selectedCountry.code,
-          bank_name: formData.bankName,
-          account_number: formData.accountNumber,
-          iban: formData.iban || '',
-          account_holder_name: formData.accountHolderName,
           profile_image_url: profileImageUrl,
+          language: guestLanguage, // Include language from localStorage or current locale
         }).unwrap();
 
         if (result.success && result.affiliate) {
@@ -744,126 +725,6 @@ export default function AffiliateRegisterPage() {
               {errors.confirmPassword && (
                 <p className='mt-1 text-sm text-coral-red'>
                   {errors.confirmPassword}
-                </p>
-              )}
-            </div>
-
-            {/* Bank Name */}
-            <div>
-              <label
-                htmlFor='bankName'
-                className='block text-sm font-medium text-deep-charcoal mb-2'
-              >
-                {locale === 'en' ? 'Bank Name' : 'اسم البنك'}
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                  <HiBuildingOffice2 className='h-5 w-5 text-deep-charcoal/40' />
-                </div>
-                <input
-                  type='text'
-                  id='bankName'
-                  name='bankName'
-                  value={formData.bankName}
-                  onChange={handleChange}
-                  placeholder={locale === 'en' ? 'Bank Name' : 'اسم البنك'}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                    errors.bankName ? 'border-coral-red' : 'border-rich-sand'
-                  }`}
-                />
-              </div>
-              {errors.bankName && (
-                <p className='mt-1 text-sm text-coral-red'>{errors.bankName}</p>
-              )}
-            </div>
-
-            {/* Account Number */}
-            <div>
-              <label
-                htmlFor='accountNumber'
-                className='block text-sm font-medium text-deep-charcoal mb-2'
-              >
-                {locale === 'en' ? 'Account Number' : 'رقم الحساب'}
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                  <HiCreditCard className='h-5 w-5 text-deep-charcoal/40' />
-                </div>
-                <input
-                  type='text'
-                  id='accountNumber'
-                  name='accountNumber'
-                  value={formData.accountNumber}
-                  onChange={handleChange}
-                  placeholder={
-                    locale === 'en' ? 'Account Number' : 'رقم الحساب'
-                  }
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                    errors.accountNumber
-                      ? 'border-coral-red'
-                      : 'border-rich-sand'
-                  }`}
-                  dir='ltr'
-                />
-              </div>
-              {errors.accountNumber && (
-                <p className='mt-1 text-sm text-coral-red'>
-                  {errors.accountNumber}
-                </p>
-              )}
-            </div>
-
-            {/* IBAN (Optional) */}
-            <div>
-              <label
-                htmlFor='iban'
-                className='block text-sm font-medium text-deep-charcoal mb-2'
-              >
-                {locale === 'en' ? 'IBAN (Optional)' : 'رقم الآيبان (اختياري)'}
-              </label>
-              <input
-                type='text'
-                id='iban'
-                name='iban'
-                value={formData.iban}
-                onChange={handleChange}
-                placeholder={locale === 'en' ? 'IBAN' : 'رقم الآيبان'}
-                className='w-full px-4 py-3 border border-rich-sand rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all'
-                dir='ltr'
-              />
-            </div>
-
-            {/* Account Holder Name */}
-            <div>
-              <label
-                htmlFor='accountHolderName'
-                className='block text-sm font-medium text-deep-charcoal mb-2'
-              >
-                {locale === 'en' ? 'Account Holder Name' : 'اسم صاحب الحساب'}
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                  <HiUser className='h-5 w-5 text-deep-charcoal/40' />
-                </div>
-                <input
-                  type='text'
-                  id='accountHolderName'
-                  name='accountHolderName'
-                  value={formData.accountHolderName}
-                  onChange={handleChange}
-                  placeholder={
-                    locale === 'en' ? 'Account Holder Name' : 'اسم صاحب الحساب'
-                  }
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-transparent transition-all ${
-                    errors.accountHolderName
-                      ? 'border-coral-red'
-                      : 'border-rich-sand'
-                  }`}
-                />
-              </div>
-              {errors.accountHolderName && (
-                <p className='mt-1 text-sm text-coral-red'>
-                  {errors.accountHolderName}
                 </p>
               )}
             </div>

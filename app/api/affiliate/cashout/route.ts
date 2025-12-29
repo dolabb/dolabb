@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { affiliateId, amount } = body;
+    const { affiliateId, amount, currency, bankReference } = body;
 
     if (!affiliateId || !amount) {
       return NextResponse.json(
@@ -20,6 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Minimum cashout amount is 100 in the selected currency
+    const MIN_CASHOUT_AMOUNT = 100;
+    if (amount < MIN_CASHOUT_AMOUNT) {
+      return NextResponse.json(
+        { error: `Minimum cashout amount is ${MIN_CASHOUT_AMOUNT} ${currency || 'SAR'}` },
+        { status: 400 }
+      );
+    }
+
     // In production:
     // 1. Verify affiliate exists and is active
     // 2. Check available balance
@@ -30,6 +39,8 @@ export async function POST(request: NextRequest) {
       id: Date.now().toString(),
       affiliateId,
       amount,
+      currency: currency || 'SAR',
+      bankReference: bankReference || null,
       status: 'pending',
       requestedAt: new Date().toISOString(),
       reviewedAt: null,

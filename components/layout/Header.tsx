@@ -279,6 +279,11 @@ export default function Header() {
       if (isAuthenticated || isAffiliate) {
         // User is authenticated - update with token
         await updateLanguage({ language: newLocale, skipAuth: false }).unwrap();
+        // Save to 'language' key for logged-in users
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('language', newLocale);
+          localStorage.removeItem('guest_language'); // Clear guest language if exists
+        }
       } else {
         // User is not authenticated - update without token
         await updateLanguage({ language: newLocale, skipAuth: true }).unwrap();

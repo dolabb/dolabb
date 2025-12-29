@@ -6,6 +6,7 @@ import FeaturedProductsSection from '@/components/home/FeaturedProductsSection';
 import TrendingProductsSection from '@/components/home/TrendingProductsSection';
 import CategoriesSection from '@/components/home/CategoriesSection';
 import LoggedInHome from '@/components/home/LoggedInHome';
+import { useHomeProducts } from '@/hooks/useHomeProducts';
 import { useLocale } from 'next-intl';
 
 export default function HomePage() {
@@ -18,12 +19,26 @@ export default function HomePage() {
     return <LoggedInHome />;
   }
 
+  // Use shared hook to fetch and filter products to avoid duplicates
+  const {
+    featuredProducts,
+    trendingProducts,
+    featuredLoading,
+    trendingLoading,
+  } = useHomeProducts(10);
+
   return (
     <div className='bg-off-white' dir={isRTL ? 'rtl' : 'ltr'}>
       <Hero />
       <CategoriesSection />
-      <FeaturedProductsSection />
-      <TrendingProductsSection />
+      <FeaturedProductsSection 
+        products={featuredProducts} 
+        isLoading={featuredLoading}
+      />
+      <TrendingProductsSection 
+        products={trendingProducts} 
+        isLoading={trendingLoading}
+      />
     </div>
   );
 }

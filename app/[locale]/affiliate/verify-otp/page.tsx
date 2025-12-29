@@ -99,22 +99,13 @@ export default function AffiliateVerifyOtpPage() {
           localStorage.removeItem('affiliate_signup_email');
           localStorage.removeItem('affiliate_otp');
 
-          // Check if there's a stored guest language preference
-          const guestLanguage = localStorage.getItem('guest_language');
-          if (guestLanguage && guestLanguage !== locale) {
-            // Update affiliate's language preference on backend
-            try {
-              await updateLanguage({ language: guestLanguage, skipAuth: false }).unwrap();
-              // Clear guest language preference after applying it
-              localStorage.removeItem('guest_language');
-              // Redirect to the preferred language
-              router.push(`/${guestLanguage}/affiliate/dashboard`);
-              return;
-            } catch (error) {
-              // If language update fails, continue with normal flow
-              console.error('Failed to update language preference:', error);
-            }
-          }
+          // Get language from affiliate object (from database) or fallback to current locale
+          const affiliateLanguage = result.affiliate?.language || locale;
+
+          // Save affiliate's language to 'language' key and clear guest language
+          // Language is now saved in database, so we use it as source of truth
+          localStorage.setItem('language', affiliateLanguage);
+          localStorage.removeItem('guest_language');
         }
 
         // Show success toast
@@ -124,9 +115,10 @@ export default function AffiliateVerifyOtpPage() {
             : 'تم التحقق من البريد الإلكتروني بنجاح! حسابك نشط الآن.'
         );
 
-        // Redirect to affiliate dashboard
+        // Redirect to affiliate dashboard using affiliate's language from database
+        const finalLanguage = result.affiliate?.language || locale;
         setTimeout(() => {
-          router.push(`/${locale}/affiliate/dashboard`);
+          router.push(`/${finalLanguage}/affiliate/dashboard`);
         }, 1500);
       }
     } catch (error) {

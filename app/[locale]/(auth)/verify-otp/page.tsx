@@ -110,23 +110,29 @@ export default function VerifyOtpPage() {
             window.dispatchEvent(new Event('auth-state-changed'));
           }
 
+          // Get language from user object (from database) or fallback to current locale
+          const userLanguage = result.user?.language || locale;
+
+          // Save user's language to 'language' key and clear guest language
+          // Language is now saved in database, so we use it as source of truth
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('language', userLanguage);
+            localStorage.removeItem('signup_email');
+            localStorage.removeItem('guest_language');
+          }
+
           toast.success(
             locale === 'en'
               ? 'Email verified successfully! Your account is now active.'
               : 'تم التحقق من البريد الإلكتروني بنجاح! حسابك نشط الآن.'
           );
 
-          // Clear signup email from localStorage
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('signup_email');
-          }
-
-          // Redirect based on role
+          // Redirect based on role using user's language from database
           setTimeout(() => {
             if (result.user.role === 'seller') {
-              router.push(`/${locale}/my-store`);
+              router.push(`/${userLanguage}/my-store`);
             } else {
-              router.push(`/${locale}`);
+              router.push(`/${userLanguage}`);
             }
           }, 1500);
         } else {

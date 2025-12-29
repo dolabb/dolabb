@@ -2,30 +2,35 @@
 
 import ProductCard from '@/components/shared/ProductCard';
 import { useGetFeaturedProductsQuery } from '@/lib/api/productsApi';
+import type { Product } from '@/types/products';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect } from 'react';
 
-export default function FeaturedProductsSection() {
+interface FeaturedProductsSectionProps {
+  /** Optional: Pre-fetched products to display. If provided, skips API call */
+  products?: Product[];
+  /** Optional: Loading state when using pre-fetched products */
+  isLoading?: boolean;
+}
+
+export default function FeaturedProductsSection({ 
+  products: providedProducts, 
+  isLoading: providedLoading 
+}: FeaturedProductsSectionProps = {}) {
   const t = useTranslations('featured');
   const locale = useLocale();
-  const { data, isLoading, error } = useGetFeaturedProductsQuery({
-    limit: 8,
-    page: 1,
-  });
-
-  // Log featured items response and errors
-  useEffect(() => {
-    if (data) {
-      console.log('Featured Items Response:', data);
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (error) {
-      console.error('Featured Items Error:', error);
-    }
-  }, [error]);
+  
+  // Only fetch if products not provided
+  // Backend: Most recent products (newest first), sorted by created_at descending
+  // Limit: 1-50, default: 5
+  const { data, isLoading: queryLoading, error } = useGetFeaturedProductsQuery(
+    { limit: 10 }, // Will be validated to 1-50 range by API
+    { skip: !!providedProducts }
+  );
+  
+  const isLoading = providedLoading ?? queryLoading;
+  const products = providedProducts ?? data?.products;
 
   if (isLoading) {
     return (
@@ -36,8 +41,8 @@ export default function FeaturedProductsSection() {
               {t('title')}
             </h2>
           </div>
-          <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
-            {[...Array(8)].map((_, i) => (
+          <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6'>
+            {[...Array(10)].map((_, i) => (
               <div
                 key={i}
                 className='bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300'
@@ -56,7 +61,7 @@ export default function FeaturedProductsSection() {
     );
   }
 
-  if (error || !data?.products || data.products.length === 0) {
+  if ((error && !providedProducts) || !products || products.length === 0) {
     return null;
   }
 
@@ -74,8 +79,8 @@ export default function FeaturedProductsSection() {
             {t('viewAll')} <span>{locale === 'ar' ? '←' : '→'}</span>
           </Link>
         </div>
-        <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6'>
-          {data.products.map((product, index) => {
+        <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6'>
+          {products.map((product, index) => {
             // Get first valid image, clean any spaces in URL
             const firstImage =
               product.images?.find(img => img && img.trim() !== '') ||
@@ -86,8 +91,8 @@ export default function FeaturedProductsSection() {
               ? firstImage.replace(/\s+/g, '')
               : '';
 
-            // Prioritize first 4 items (above the fold)
-            const isPriority = index < 4;
+            // Prioritize first 5 items (above the fold)
+            const isPriority = index < 5;
 
             return (
               <ProductCard

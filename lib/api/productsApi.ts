@@ -146,28 +146,47 @@ export const productsApi = baseApi.injectEndpoints({
     }),
 
     // Get Featured Products
+    // Backend: Most recent products (newest first), sorted by created_at descending
+    // Only active and approved products
+    // Limit: 1-50, default: 5
     getFeaturedProducts: builder.query<
       { products: Product[]; pagination: PaginationMeta },
-      { limit?: number; page?: number }
+      { limit?: number }
     >({
-      query: params => ({
-        url: '/api/products/featured/',
-        method: 'GET',
-        params,
-      }),
+      query: params => {
+        // Ensure limit is within valid range (1-50)
+        const limit = params?.limit 
+          ? Math.max(1, Math.min(50, params.limit))
+          : undefined;
+        return {
+          url: '/api/products/featured/',
+          method: 'GET',
+          params: limit ? { limit } : {},
+        };
+      },
       providesTags: ['FeaturedProducts', 'Product'],
     }),
 
     // Get Trending Products
+    // Backend: Best-selling products (most completed orders)
+    // Sorted by sales count (completed orders) descending, then by created_at for tie-breaking
+    // Only active and approved products
+    // Limit: 1-50, default: 5
     getTrendingProducts: builder.query<
       { products: Product[]; pagination: PaginationMeta },
-      { limit?: number; page?: number }
+      { limit?: number }
     >({
-      query: params => ({
-        url: '/api/products/trending/',
-        method: 'GET',
-        params,
-      }),
+      query: params => {
+        // Ensure limit is within valid range (1-50)
+        const limit = params?.limit 
+          ? Math.max(1, Math.min(50, params.limit))
+          : undefined;
+        return {
+          url: '/api/products/trending/',
+          method: 'GET',
+          params: limit ? { limit } : {},
+        };
+      },
       providesTags: ['TrendingProducts', 'Product'],
     }),
 

@@ -131,17 +131,21 @@ export default function LoginPage() {
           window.dispatchEvent(new Event('auth-state-changed'));
         }
 
-        // Check if there's a stored guest language preference
+        // Get language from database (user object) or fallback to current locale
+        const dbLanguage = result.user?.language || locale;
+        const guestLanguage = typeof window !== 'undefined' 
+          ? localStorage.getItem('guest_language') 
+          : null;
+
+        // Handle language synchronization
         if (typeof window !== 'undefined') {
-          const guestLanguage = localStorage.getItem('guest_language');
-          if (guestLanguage && guestLanguage !== locale) {
-            // Update user's language preference on backend
+          if (guestLanguage && guestLanguage !== dbLanguage) {
+            // User switched language while logged out - update database with guest preference
             try {
               await updateLanguage({ language: guestLanguage, skipAuth: false }).unwrap();
-              // Clear guest language preference after applying it
+              localStorage.setItem('language', guestLanguage);
               localStorage.removeItem('guest_language');
               // Redirect to the preferred language
-              const newPath = pathname.replace(`/${locale}`, `/${guestLanguage}`);
               if (result.user.role === 'seller') {
                 router.push(`/${guestLanguage}/my-store`);
               } else {
@@ -149,9 +153,15 @@ export default function LoginPage() {
               }
               return;
             } catch (error) {
-              // If language update fails, continue with normal flow
+              // If language update fails, use database language
               console.error('Failed to update language preference:', error);
+              localStorage.setItem('language', dbLanguage);
+              localStorage.removeItem('guest_language');
             }
+          } else {
+            // No guest language or it matches database - use database language
+            localStorage.setItem('language', dbLanguage);
+            localStorage.removeItem('guest_language');
           }
         }
 

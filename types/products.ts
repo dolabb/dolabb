@@ -32,6 +32,7 @@ export interface Product {
   status?: 'pending' | 'approved' | 'rejected' | 'active' | 'sold';
   quantity?: number;
   taxPercentage?: number;
+  purchaseCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

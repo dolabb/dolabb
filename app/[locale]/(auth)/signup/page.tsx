@@ -275,6 +275,11 @@ export default function SignupPage() {
       }
 
       // Step 2: Create account with the uploaded image URL
+      // Get language preference from localStorage (guest_language) or use current locale
+      const guestLanguage = typeof window !== 'undefined' 
+        ? localStorage.getItem('guest_language') || locale 
+        : locale;
+      
       const signupData = {
         full_name: formData.fullName,
         email: formData.email,
@@ -285,6 +290,7 @@ export default function SignupPage() {
         country_code: selectedCountry.code,
         dial_code: selectedCountry.dialCode,
         profile_image_url: profileImageUrl,
+        language: guestLanguage, // Include language from localStorage or current locale
       };
 
       const result = await signup(signupData).unwrap();
@@ -373,6 +379,11 @@ export default function SignupPage() {
       }
 
       // Step 2: Create account with the uploaded image URL
+      // Get language preference from localStorage (guest_language) or use current locale
+      const guestLanguage = typeof window !== 'undefined' 
+        ? localStorage.getItem('guest_language') || locale 
+        : locale;
+      
       const signupData = {
         full_name: formData.fullName,
         email: formData.email,
@@ -383,6 +394,7 @@ export default function SignupPage() {
         country_code: selectedCountry.code,
         dial_code: selectedCountry.dialCode,
         profile_image_url: profileImageUrl,
+        language: guestLanguage, // Include language from localStorage or current locale
       };
 
       const result = await signup(signupData).unwrap();

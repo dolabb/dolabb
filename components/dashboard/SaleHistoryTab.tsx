@@ -28,6 +28,28 @@ export default function SaleHistoryTab() {
   const payments = paymentsData?.payments || [];
   const pagination = paymentsData?.pagination;
   
+  // Helper function to get status badge info
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { color: string; label: { en: string; ar: string } }> = {
+      pending: { color: 'bg-yellow-100 text-yellow-700', label: { en: 'Pending', ar: 'قيد الانتظار' } },
+      paid: { color: 'bg-emerald-100 text-emerald-700', label: { en: 'Paid', ar: 'مدفوع' } },
+      packed: { color: 'bg-blue-100 text-blue-700', label: { en: 'Packed', ar: 'معبأ' } },
+      ready: { color: 'bg-purple-100 text-purple-700', label: { en: 'Ready', ar: 'جاهز' } },
+      shipped: { color: 'bg-indigo-100 text-indigo-700', label: { en: 'Shipped', ar: 'تم الشحن' } },
+      reached_at_courier: {
+        color: 'bg-cyan-100 text-cyan-700',
+        label: { en: 'At Courier', ar: 'وصل للبريد' },
+      },
+      out_for_delivery: {
+        color: 'bg-orange-100 text-orange-700',
+        label: { en: 'Out for Delivery', ar: 'قيد التوصيل' },
+      },
+      delivered: { color: 'bg-green-100 text-green-700', label: { en: 'Delivered', ar: 'تم التسليم' } },
+      cancelled: { color: 'bg-red-100 text-red-700', label: { en: 'Cancelled', ar: 'ملغي' } },
+    };
+    return statusMap[status] || { color: 'bg-gray-100 text-gray-700', label: { en: status, ar: status } };
+  };
+  
   // Helper function to determine if proof is needed
   // Show indicator when shipment_proof is empty AND status is shipped or ready
   const needsProof = (payment: Payment) => {
@@ -171,37 +193,16 @@ export default function SaleHistoryTab() {
                 </div>
               </div>
               <div className='mt-2 flex flex-wrap items-center gap-2'>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    payment.status === 'delivered'
-                      ? 'bg-green-100 text-green-700'
-                      : payment.status === 'shipped'
-                      ? 'bg-blue-100 text-blue-700'
-                      : payment.status === 'ready'
-                      ? 'bg-purple-100 text-purple-700'
-                      : payment.status === 'paid'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {payment.status === 'delivered'
-                    ? locale === 'en'
-                      ? 'Delivered'
-                      : 'تم التسليم'
-                    : payment.status === 'shipped'
-                    ? locale === 'en'
-                      ? 'Shipped'
-                      : 'تم الشحن'
-                    : payment.status === 'ready'
-                    ? locale === 'en'
-                      ? 'Ready'
-                      : 'جاهز'
-                    : payment.status === 'paid'
-                    ? locale === 'en'
-                      ? 'Paid'
-                      : 'مدفوع'
-                    : payment.status}
-                </span>
+                {(() => {
+                  const statusBadge = getStatusBadge(payment.status);
+                  return (
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}
+                    >
+                      {statusBadge.label[locale as 'en' | 'ar'] || statusBadge.label.en}
+                    </span>
+                  );
+                })()}
                 
                 {/* Shipment Proof Status Badge */}
                 {payment.shipmentProof ? (

@@ -145,7 +145,8 @@
     "viewAll": "View All"
   },
   "trending": {
-    "title": "Trending Now"
+    "title": "Trending Now",
+    "viewAll": "View All"
   },
   "footer": {
     "about": "About",
