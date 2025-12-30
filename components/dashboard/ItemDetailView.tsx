@@ -7,8 +7,8 @@ import {
   useGetProductDetailQuery,
 } from '@/lib/api/productsApi';
 import { useAppDispatch } from '@/lib/store/hooks';
-import { toast } from '@/utils/toast';
 import { formatPrice } from '@/utils/formatPrice';
+import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -30,7 +30,7 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [sellerImageError, setSellerImageError] = useState(false);
-  
+
   // Image zoom state
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -41,17 +41,56 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
     data: product,
     isLoading,
     error,
+    isFetching,
+    isSuccess,
   } = useGetProductDetailQuery(itemId, {
     skip: !itemId,
   });
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
-  // Log for debugging
+  // Log for debugging - API call initiation
   useEffect(() => {
     if (itemId) {
+      console.log('=== PRODUCT DETAILS API CALL ===');
       console.log('Fetching product details for ID:', itemId);
+      console.log('API Endpoint: /api/products/' + itemId + '/');
+      console.log('Timestamp:', new Date().toISOString());
     }
   }, [itemId]);
+
+  // Log for debugging - API response
+  useEffect(() => {
+    if (isLoading || isFetching) {
+      console.log('Product details API: Loading...');
+    }
+    if (isSuccess && product) {
+      console.log('=== PRODUCT DETAILS API RESPONSE ===');
+      console.log('Status: Success');
+      console.log('Product ID:', product.id);
+      console.log('Product Title:', product.title);
+      console.log(
+        'Product Quantity:',
+        (product as any).Quantity ?? product.quantity
+      );
+      console.log(
+        'Is Out of Stock:',
+        product.isOutOfStock ??
+          (product.quantity === null ||
+            product.quantity === undefined ||
+            product.quantity <= 0)
+      );
+      console.log('Full Product Data:', product);
+      console.log('Timestamp:', new Date().toISOString());
+      console.log('===================================');
+    }
+    if (error) {
+      console.error('=== PRODUCT DETAILS API ERROR ===');
+      console.error('Error fetching product details:', error);
+      console.error('Product ID:', itemId);
+      console.error('Timestamp:', new Date().toISOString());
+      console.error('================================');
+    }
+  }, [isLoading, isFetching, isSuccess, product, error, itemId]);
 
   // Helper to get images from API (handles both "Images" and "images")
   const getProductImages = (): string[] => {
@@ -90,7 +129,13 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
       await deleteProduct(itemId).unwrap();
       toast.success('Product deleted successfully');
       // Invalidate and refetch seller products, featured products, and trending products
-      dispatch(productsApi.util.invalidateTags(['Product', 'FeaturedProducts', 'TrendingProducts']));
+      dispatch(
+        productsApi.util.invalidateTags([
+          'Product',
+          'FeaturedProducts',
+          'TrendingProducts',
+        ])
+      );
       router.push(`/${locale}/my-store`);
     } catch (err: unknown) {
       const error = err as { data?: { message?: string } };
@@ -111,11 +156,11 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
   // Handle mouse move for zoom effect
   const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!imageContainerRef.current) return;
-    
+
     const rect = imageContainerRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
+
     setMousePosition({ x, y });
   };
 
@@ -178,7 +223,6 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
       </div>
     );
   }
-
 
   if (!product && !isLoading) {
     return (
@@ -336,14 +380,56 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                   </div>
                 </div>
                 <p className='text-2xl font-bold text-saudi-green mb-4'>
-                  {formatPrice(product.price, locale, 2, product.currency || (product as any).Currency)}
+                  {formatPrice(
+                    product.price,
+                    locale,
+                    2,
+                    product.currency || (product as any).Currency
+                  )}
                   {product.originalPrice &&
                     product.originalPrice > product.price && (
                       <span className='text-lg text-deep-charcoal/60 line-through ml-2'>
-                        {formatPrice(product.originalPrice, locale, 2, product.currency || (product as any).Currency)}
+                        {formatPrice(
+                          product.originalPrice,
+                          locale,
+                          2,
+                          product.currency || (product as any).Currency
+                        )}
                       </span>
                     )}
                 </p>
+
+                {/* Out of Stock Alert */}
+                {(product.isOutOfStock ??
+                  (product.quantity ||
+                    product.Quantity === null ||
+                    product.quantity ||
+                    product.Quantity === undefined ||
+                    product.quantity ||
+                    product.Quantity <= 0)) && (
+                  <div className='mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg'>
+                    <div className='flex items-start gap-3'>
+                      <div className='flex-1'>
+                        <h4 className='font-semibold text-amber-800 mb-1'>
+                          {locale === 'en' ? 'Out of Stock' : 'غير متوفر'}
+                        </h4>
+                        <p className='text-sm text-amber-700 mb-3'>
+                          {locale === 'en'
+                            ? 'This product is currently out of stock. Update the quantity to make it available again.'
+                            : 'هذا المنتج غير متوفر حالياً. قم بتحديث الكمية لجعله متاحاً مرة أخرى.'}
+                        </p>
+                        <Link
+                          href={`/${locale}/my-store/item/${product.id}/edit`}
+                          className='inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm'
+                        >
+                          <HiPencil className='w-4 h-4' />
+                          {locale === 'en' ? 'Update Stock' : 'تحديث المخزون'}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className='flex items-center gap-4 text-sm text-deep-charcoal/70'>
                   {product.likes !== undefined && product.likes > 0 && (
                     <span>
@@ -446,8 +532,25 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                       <span className='text-sm text-deep-charcoal/60'>
                         {locale === 'en' ? 'Quantity' : 'الكمية'}
                       </span>
-                      <p className='font-medium text-deep-charcoal'>
-                        {product.quantity}
+                      <p
+                        className={`font-medium ${
+                          product.isOutOfStock ??
+                          (product.quantity === null ||
+                            product.quantity === undefined ||
+                            product.quantity <= 0)
+                            ? 'text-red-600 font-semibold'
+                            : 'text-deep-charcoal'
+                        }`}
+                      >
+                        {product.quantity}{' '}
+                        {(product.isOutOfStock ??
+                          (product.quantity === null ||
+                            product.quantity === undefined ||
+                            product.quantity <= 0)) && (
+                          <span className='text-xs'>
+                            ({locale === 'en' ? 'out of stock' : 'غير متوفر'})
+                          </span>
+                        )}
                       </p>
                     </div>
                   )}
@@ -494,7 +597,12 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                           {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'}
                         </span>
                         <p className='font-medium text-deep-charcoal'>
-                          {formatPrice(product.shippingInfo.cost, locale, 2, product.currency || (product as any).Currency)}
+                          {formatPrice(
+                            product.shippingInfo.cost,
+                            locale,
+                            2,
+                            product.currency || (product as any).Currency
+                          )}
                         </p>
                       </div>
                       <div>
@@ -548,7 +656,8 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
                         />
                       ) : (
                         <div className='w-10 h-10 rounded-full bg-saudi-green/20 flex items-center justify-center text-saudi-green font-semibold text-sm'>
-                          {product.seller.username?.charAt(0)?.toUpperCase() || 'S'}
+                          {product.seller.username?.charAt(0)?.toUpperCase() ||
+                            'S'}
                         </div>
                       )}
                       <div>

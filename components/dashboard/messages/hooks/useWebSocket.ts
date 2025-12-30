@@ -163,6 +163,20 @@ export function useWebSocket({
 
   const handleWebSocketMessage = useCallback(
     (data: any) => {
+      // Log ALL WebSocket messages for debugging
+      console.log('📥 [WEBSOCKET MESSAGE] Received:', {
+        timestamp: new Date().toISOString(),
+        type: data.type,
+        conversationId: data.conversationId,
+        currentConversationId: conversationId,
+        hasMessage: !!data.message,
+        hasOffer: !!data.offer,
+        messageId: data.message?.id,
+        offerId: data.offer?.id,
+        offerStatus: data.offer?.status,
+        rawData: data,
+      });
+
       try {
         switch (data.type) {
           case 'online_users':
@@ -635,6 +649,33 @@ export function useWebSocket({
           case 'offer_countered':
           case 'offer_accepted':
           case 'offer_rejected':
+            // Log all offer-related messages for debugging
+            console.log('📨 [OFFER MESSAGE] WebSocket message received:', {
+              timestamp: new Date().toISOString(),
+              type: data.type,
+              offerId: data.offer?.id,
+              offerStatus: data.offer?.status,
+              messageId: data.message?.id,
+              userId: user?.id,
+              conversationId: data.conversationId,
+              currentConversationId: conversationId,
+              offer: {
+                id: data.offer?.id,
+                offerAmount: data.offer?.offerAmount,
+                counterAmount: data.offer?.counterAmount,
+                status: data.offer?.status,
+                buyerId: data.offer?.buyerId,
+                sellerId: data.offer?.sellerId,
+                productId: data.offer?.productId,
+              },
+              message: {
+                id: data.message?.id,
+                senderId: data.message?.senderId,
+                receiverId: data.message?.receiverId,
+                isSender: data.message?.isSender,
+                sender: data.message?.sender,
+              },
+            });
             if (data.offer) {
               // Update conversationId if we received it in the WebSocket message and it's currently null
               if (data.conversationId && !conversationId && setConversationId) {
@@ -916,7 +957,7 @@ export function useWebSocket({
                 }
 
                 // Check if message already exists (by offerId and type to avoid duplicates)
-                const exists = prev.some(m => {
+                const existingMessageIndex = prev.findIndex(m => {
                   // Check by exact ID match
                   if (m.id === offerMessage.id) return true;
                   // For counter offers, also check if we already have this offer with same status
@@ -926,7 +967,51 @@ export function useWebSocket({
                   return false;
                 });
                 
-                if (exists) return prev;
+                // For accept/reject, update existing message instead of adding new one
+                if ((data.type === 'offer_accepted' || data.type === 'offer_rejected') && 
+                    existingMessageIndex === -1) {
+                  // Try to find existing message by offerId
+                  const existingOfferIndex = prev.findIndex(m => 
+                    m.offerId === offerMessage.offerId && 
+                    m.offer?.id === offerMessage.offer?.id
+                  );
+                  
+                  if (existingOfferIndex !== -1) {
+                    console.log('🔄 [OFFER UPDATE] Updating existing message status:', {
+                      timestamp: new Date().toISOString(),
+                      messageIndex: existingOfferIndex,
+                      messageId: prev[existingOfferIndex].id,
+                      offerId: offerMessage.offerId,
+                      oldStatus: prev[existingOfferIndex].offer?.status,
+                      newStatus: offerMessage.offer?.status,
+                      type: data.type,
+                    });
+                    
+                    // Update the existing message's offer status
+                    const updated = [...prev];
+                    updated[existingOfferIndex] = {
+                      ...updated[existingOfferIndex],
+                      offer: {
+                        ...updated[existingOfferIndex].offer,
+                        ...offerMessage.offer,
+                        status: offerMessage.offer?.status || (data.type === 'offer_accepted' ? 'accepted' : 'rejected'),
+                      },
+                      // Update message text if provided
+                      text: offerMessage.text || updated[existingOfferIndex].text,
+                    };
+                    
+                    return updated;
+                  }
+                }
+                
+                if (existingMessageIndex !== -1) {
+                  console.log('⚠️ [OFFER MESSAGE] Message already exists, skipping:', {
+                    messageId: offerMessage.id,
+                    offerId: offerMessage.offerId,
+                    type: data.type,
+                  });
+                  return prev;
+                }
                 
                 // Check if this offer message belongs to the current conversation
                 let shouldAdd = false;
@@ -1055,11 +1140,47 @@ export function useWebSocket({
                     : `تم ${toastIsMyMessage ? 'إرسال' : 'استلام'} عرض مقابل بقيمة ${data.offer.counterAmount} ريال`
                 );
               } else if (data.type === 'offer_accepted') {
-                toast.success(
-                  locale === 'en'
-                    ? 'Offer accepted! Proceed to checkout'
-                    : 'تم قبول العرض! تابع إلى الدفع'
-                );
+                console.log('✅ [OFFER ACCEPTED] WebSocket message received:', {
+                  timestamp: new Date().toISOString(),
+                  offerId: data.offer?.id,
+                  offerStatus: data.offer?.status,
+                  messageId: data.message?.id,
+                  senderId: data.message?.senderId,
+                  receiverId: data.message?.receiverId,
+                  userId: user?.id,
+                  isMyMessage: toastIsMyMessage,
+                  offer: {
+                    id: data.offer?.id,
+                    offerAmount: data.offer?.offerAmount,
+                    counterAmount: data.offer?.counterAmount,
+                    status: data.offer?.status,
+                    buyerId: data.offer?.buyerId,
+                    sellerId: data.offer?.sellerId,
+                    productId: data.offer?.productId,
+                  },
+                  message: {
+                    id: data.message?.id,
+                    text: data.message?.text,
+                    senderId: data.message?.senderId,
+                    receiverId: data.message?.receiverId,
+                    isSender: data.message?.isSender,
+                  },
+                });
+                if (toastIsMyMessage) {
+                  // Current user accepted the offer
+                  toast.success(
+                    locale === 'en'
+                      ? 'Offer accepted! Proceed to checkout'
+                      : 'تم قبول العرض! تابع إلى الدفع'
+                  );
+                } else {
+                  // Current user received the acceptance (other party accepted)
+                  toast.info(
+                    locale === 'en'
+                      ? 'Offer received - The other party accepted your offer'
+                      : 'تم استلام العرض - قبل الطرف الآخر عرضك'
+                  );
+                }
               } else if (data.type === 'offer_rejected') {
                 toast.warning(
                   locale === 'en' ? 'Offer was rejected' : 'تم رفض العرض'
@@ -1069,6 +1190,14 @@ export function useWebSocket({
             break;
 
           case 'error':
+            console.error('❌ [WEBSOCKET ERROR] Error message received:', {
+              timestamp: new Date().toISOString(),
+              errorType: data.error,
+              errorMessage: data.message || data.error,
+              errorData: data,
+              conversationId: data.conversationId,
+              currentConversationId: conversationId,
+            });
             const errorMsg = data.message || data.error;
             const errorType = data.error || '';
             

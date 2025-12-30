@@ -302,11 +302,80 @@ export function useOffers({ wsRef, user, setMessages }: UseOffersProps) {
       receiverId: string,
       text?: string
     ): Promise<void> => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.log('🔵 [ACCEPT OFFER] Function called:', {
+        timestamp: new Date().toISOString(),
+        offerId,
+        receiverId,
+        text,
+        user: {
+          id: user?.id,
+          role: user?.role,
+        },
+      });
+
+      // Check WebSocket connection
+      if (!wsRef.current) {
+        console.error('❌ [ACCEPT OFFER] WebSocket ref is null');
         toast.error(
           locale === 'en'
             ? 'Not connected. Please wait for connection.'
             : 'غير متصل. يرجى الانتظار للاتصال.'
+        );
+        return;
+      }
+
+      const wsState = wsRef.current.readyState;
+      const wsStateNames = {
+        0: 'CONNECTING',
+        1: 'OPEN',
+        2: 'CLOSING',
+        3: 'CLOSED',
+      };
+      console.log('🔵 [ACCEPT OFFER] WebSocket state:', {
+        readyState: wsState,
+        stateName: wsStateNames[wsState as keyof typeof wsStateNames],
+        url: wsRef.current.url,
+      });
+
+      if (wsState !== WebSocket.OPEN) {
+        console.error('❌ [ACCEPT OFFER] WebSocket is not OPEN:', {
+          readyState: wsState,
+          stateName: wsStateNames[wsState as keyof typeof wsStateNames],
+        });
+        toast.error(
+          locale === 'en'
+            ? 'Not connected. Please wait for connection.'
+            : 'غير متصل. يرجى الانتظار للاتصال.'
+        );
+        return;
+      }
+
+      // Validate offerId
+      if (!offerId || offerId.trim() === '') {
+        console.error('❌ [ACCEPT OFFER] Invalid offerId:', {
+          offerId,
+          offerIdType: typeof offerId,
+          offerIdLength: offerId?.length,
+        });
+        toast.error(
+          locale === 'en'
+            ? 'Invalid offer ID. Please try again.'
+            : 'معرف عرض غير صالح. يرجى المحاولة مرة أخرى.'
+        );
+        return;
+      }
+
+      // Validate receiverId
+      if (!receiverId || receiverId.trim() === '') {
+        console.error('❌ [ACCEPT OFFER] Invalid receiverId:', {
+          receiverId,
+          receiverIdType: typeof receiverId,
+          receiverIdLength: receiverId?.length,
+        });
+        toast.error(
+          locale === 'en'
+            ? 'Invalid receiver ID. Please try again.'
+            : 'معرف المستلم غير صالح. يرجى المحاولة مرة أخرى.'
         );
         return;
       }
@@ -322,17 +391,39 @@ export function useOffers({ wsRef, user, setMessages }: UseOffersProps) {
             : 'اتفاق! دعنا نتابع الشراء'),
       };
 
+      console.log('📤 [ACCEPT OFFER] Sending via WebSocket:', {
+        timestamp: new Date().toISOString(),
+        payload: acceptPayload,
+        payloadString: JSON.stringify(acceptPayload),
+        payloadSize: JSON.stringify(acceptPayload).length,
+        user: {
+          id: user?.id,
+          role: user?.role,
+        },
+      });
+
       try {
         wsRef.current.send(JSON.stringify(acceptPayload));
+        console.log('✅ [ACCEPT OFFER] WebSocket message sent successfully');
       } catch (error) {
-        console.error('Error accepting offer:', error);
+        console.error('❌ [ACCEPT OFFER] Error sending via WebSocket:', {
+          error: error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          errorName: error instanceof Error ? error.name : undefined,
+          payload: acceptPayload,
+          websocketState: wsRef.current?.readyState,
+          websocketUrl: wsRef.current?.url,
+          websocketProtocol: wsRef.current?.protocol,
+          websocketExtensions: wsRef.current?.extensions,
+        });
         toast.error(
           locale === 'en' ? 'Failed to accept offer' : 'فشل قبول العرض'
         );
         throw error;
       }
     },
-    [locale, wsRef]
+    [locale, wsRef, user]
   );
 
   const rejectOffer = useCallback(

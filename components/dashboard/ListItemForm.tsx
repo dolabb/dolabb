@@ -340,6 +340,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
   const [tagInput, setTagInput] = useState('');
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [authenticityConfirmed, setAuthenticityConfirmed] = useState(false);
   const [newSubCategoryInput, setNewSubCategoryInput] = useState('');
   const [customSubCategories, setCustomSubCategories] = useState<string[]>([]);
   const [shippingLocations, setShippingLocations] = useState<string[]>(
@@ -559,6 +560,16 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
       return;
     }
 
+    // Check authenticity confirmation
+    if (!authenticityConfirmed) {
+      toast.error(
+        locale === 'en'
+          ? 'Please confirm that the item is authentic and legally owned by you.'
+          : 'يرجى التأكيد على أن المنتج أصلي ومملوك قانونياً لك.'
+      );
+      return;
+    }
+
     try {
       // Step 1: Upload all new image files first
       const imageUrls: string[] = [];
@@ -580,26 +591,36 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
           } catch (uploadError: any) {
             console.error('Image upload failed:', uploadError);
             
-            // Extract error message from API response
+            // Extract error message from API response (check multiple possible error structures)
             const apiErrorMessage = 
               uploadError?.data?.error || 
               uploadError?.data?.message ||
               uploadError?.error?.data?.error ||
-              uploadError?.error?.data?.message;
+              uploadError?.error?.data?.message ||
+              uploadError?.error?.data ||
+              (typeof uploadError?.data === 'string' ? uploadError.data : null);
             
-            // Check if it's a timeout error
+            // Check if it's a timeout error (check multiple possible timeout indicators)
+            const errorMessage = 
+              uploadError?.message || 
+              uploadError?.error?.data || 
+              uploadError?.data ||
+              (typeof uploadError?.error?.data === 'string' ? uploadError.error.data : '') ||
+              '';
+            
+            const errorString = String(errorMessage).toLowerCase();
             const isTimeout = 
-              uploadError?.message?.toLowerCase().includes('timeout') ||
-              uploadError?.message?.toLowerCase().includes('time') ||
+              errorString.includes('timeout') ||
+              errorString.includes('exceeded') ||
               uploadError?.code === 'ECONNABORTED' ||
               uploadError?.name === 'TimeoutError' ||
-              uploadError?.error?.data?.message?.toLowerCase().includes('timeout');
+              uploadError?.status === undefined; // Axios timeout errors often have undefined status
             
             if (isTimeout) {
               toast.error(
                 locale === 'en'
-                  ? 'Image upload timed out. The image might be too large or the connection is slow. Please try again with smaller images or check your internet connection.'
-                  : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصور أصغر أو التحقق من اتصال الإنترنت.'
+                  ? 'Image upload timed out. The image might be too large or the connection is slow. Please try again with smaller images (under 5MB) or check your internet connection.'
+                  : 'انتهت مهلة تحميل الصورة. قد تكون الصورة كبيرة جداً أو الاتصال بطيء. يرجى المحاولة مرة أخرى بصور أصغر (أقل من 5 ميجابايت) أو التحقق من اتصال الإنترنت.'
               );
             } else if (apiErrorMessage) {
               // Show the exact error message from the API
@@ -684,9 +705,29 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         console.log('Updating product with data:', apiData);
         const result = await updateProduct({ productId, data: apiData }).unwrap();
         console.log('Update result:', result);
-        toast.success(locale === 'en' ? 'Product updated successfully!' : 'تم تحديث المنتج بنجاح!');
+        
+        // Check if product was restocked (quantity changed from 0 or less to positive)
+        const wasOutOfStock = normalizedData?.isOutOfStock ?? (normalizedData?.quantity === null || normalizedData?.quantity === undefined || normalizedData?.quantity <= 0);
+        const newQuantity = formData.quantity ? parseInt(formData.quantity) : 0;
+        const isRestocked = wasOutOfStock && newQuantity > 0;
+        
+        if (isRestocked) {
+          toast.success(
+            locale === 'en'
+              ? 'Product restocked successfully! It is now available for purchase.'
+              : 'تم تجديد المخزون بنجاح! المنتج متاح الآن للشراء.'
+          );
+        } else {
+          toast.success(locale === 'en' ? 'Product updated successfully!' : 'تم تحديث المنتج بنجاح!');
+        }
         // Invalidate and refetch seller products, featured products, and trending products
-        dispatch(productsApi.util.invalidateTags(['Product', 'FeaturedProducts', 'TrendingProducts']));
+        // Also invalidate the specific product detail cache to ensure it refreshes
+        dispatch(productsApi.util.invalidateTags([
+          { type: 'Product', id: productId },
+          'Product',
+          'FeaturedProducts',
+          'TrendingProducts'
+        ]));
         // Small delay to ensure cache is updated before redirect
         setTimeout(() => {
           router.push(`/${locale}/my-store`);
@@ -1104,7 +1145,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             </label>
             <input
               type='number'
-              min='1'
+              min='0'
               value={formData.quantity}
               onChange={e =>
                 setFormData(prev => ({ ...prev, quantity: e.target.value }))
@@ -1112,6 +1153,14 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
               required
             />
+            {/* Show helpful message for out of stock products */}
+            {isEditMode && normalizedData && (normalizedData.isOutOfStock ?? (normalizedData.quantity === null || normalizedData.quantity === undefined || normalizedData.quantity <= 0)) && (
+              <p className='mt-1.5 text-xs text-amber-600 font-medium'>
+                {locale === 'en'
+                  ? 'This product is out of stock. Increase quantity to make it available again.'
+                  : 'هذا المنتج غير متوفر. قم بزيادة الكمية لجعله متاحاً مرة أخرى.'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -1620,6 +1669,24 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               </div>
             )}
           </div>
+        </div>
+
+        {/* Authenticity Confirmation */}
+        <div className='bg-rich-sand/10 rounded-lg p-4 border border-rich-sand/20'>
+          <label className='flex items-start gap-3 cursor-pointer'>
+            <input
+              type='checkbox'
+              checked={authenticityConfirmed}
+              onChange={e => setAuthenticityConfirmed(e.target.checked)}
+              className='mt-1 w-4 h-4 text-saudi-green focus:ring-saudi-green rounded cursor-pointer'
+              required
+            />
+            <span className='text-sm text-deep-charcoal leading-relaxed'>
+              {locale === 'en'
+                ? 'I confirm that the item I am listing is authentic, legally owned by me, and not stolen, counterfeit, fake or an imitation.'
+                : 'أؤكد أن المنتج الذي أقوم بإدراجه أصلي ومملوك قانونياً لي، وليس مسروقاً أو مزيفاً أو تقليداً.'}
+            </span>
+          </label>
         </div>
 
         {/* Form Actions */}

@@ -92,7 +92,7 @@ export const authApi = baseApi.injectEndpoints({
         url: '/api/auth/upload-image/',
         method: 'POST',
         data: formData,
-        timeout: 120000, // 2 minutes timeout for image uploads
+        timeout: 300000, // 5 minutes timeout for image uploads (increased for large files and slow connections)
         // Don't set Content-Type header - let axios/browser set it automatically with boundary
       }),
     }),

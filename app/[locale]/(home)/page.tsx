@@ -14,11 +14,7 @@ export default function HomePage() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const isRTL = locale === 'ar';
 
-  // Show different content based on authentication
-  if (isAuthenticated) {
-    return <LoggedInHome />;
-  }
-
+  // Always call hooks before any conditional returns to follow Rules of Hooks
   // Use shared hook to fetch and filter products to avoid duplicates
   const {
     featuredProducts,
@@ -26,6 +22,11 @@ export default function HomePage() {
     featuredLoading,
     trendingLoading,
   } = useHomeProducts(10);
+
+  // Show different content based on authentication
+  if (isAuthenticated) {
+    return <LoggedInHome />;
+  }
 
   return (
     <div className='bg-off-white' dir={isRTL ? 'rtl' : 'ltr'}>

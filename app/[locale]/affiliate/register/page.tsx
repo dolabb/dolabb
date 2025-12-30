@@ -787,11 +787,205 @@ export default function AffiliateRegisterPage() {
         isOpen={showTermsModal}
         onAccept={handleAcceptTerms}
         onClose={() => setShowTermsModal(false)}
-        title={locale === 'en' ? 'Accept Terms of Service' : 'قبول شروط الخدمة'}
+        title={locale === 'en' ? 'Affiliate Program Terms' : 'شروط برنامج الشراكة'}
         description={
           locale === 'en'
-            ? 'You must accept our Terms of Service to register as an affiliate'
-            : 'يجب عليك قبول شروط الخدمة للتسجيل كشريك'
+            ? 'You must accept the Affiliate Program Terms to register as an affiliate'
+            : 'يجب عليك قبول شروط برنامج الشراكة للتسجيل كشريك'
+        }
+        isAffiliateTerms={true}
+        customKeyPoints={
+          <ul className='space-y-1.5 text-xs list-disc list-inside text-white/90'>
+            <li>
+              {locale === 'en'
+                ? 'Affiliates earn 25% of the fee received by Dو labb! from each completed sale'
+                : 'يكسب الشركاء 25% من الرسوم التي يحصل عليها Dو labb! من كل عملية بيع مكتملة'}
+            </li>
+            <li>
+              {locale === 'en'
+                ? 'Commission is earned only after the item is successfully sold and seller completes all required inputs'
+                : 'يتم كسب العمولة فقط بعد بيع العنصر بنجاح وإكمال البائع لجميع المدخلات المطلوبة'}
+            </li>
+            <li>
+              {locale === 'en'
+                ? 'Dو labb! may set minimum payout thresholds and payment schedules'
+                : 'قد تحدد Dو labb! الحد الأدنى للدفع وجداول الدفع'}
+            </li>
+            <li>
+              {locale === 'en'
+                ? 'Affiliates must promote Dو labb! honestly and comply with all applicable laws'
+                : 'يجب على الشركاء الترويج لـ Dو labb! بصدق والامتثال لجميع القوانين المعمول بها'}
+            </li>
+            <li>
+              {locale === 'en'
+                ? 'Dو labb! may suspend or terminate affiliate accounts for violations'
+                : 'قد تعلق Dو labb! أو تنهي حسابات الشركاء بسبب المخالفات'}
+            </li>
+          </ul>
+        }
+        customFullTerms={
+          <div className='space-y-6'>
+            <p className='text-sm text-white/80 mb-6'>
+              <strong>{locale === 'en' ? 'Effective Date:' : 'تاريخ السريان:'}</strong> {new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '1. Affiliate Role' : '1. دور الشريك'}
+              </h3>
+              <p className='text-sm text-white/90 mb-2'>
+                {locale === 'en'
+                  ? 'Affiliates may promote Dو labb! and encourage individuals to list and sell items on the Dو labb! platform using their unique affiliate link or referral method provided by Dو labb!.'
+                  : 'يجوز للشركاء الترويج لـ Dو labb! وتشجيع الأفراد على إدراج وبيع العناصر على منصة Dو labb! باستخدام رابط الشريك الفريد أو طريقة الإحالة المقدمة من Dو labb!.'}
+              </p>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '2. Commission' : '2. العمولة'}
+              </h3>
+              <ul className='space-y-2 text-sm ml-4 text-white/90'>
+                <li>
+                  • {locale === 'en'
+                    ? 'Affiliates earn 25% of the fee received by Dو labb! from each completed sale generated through their referral.'
+                    : 'يكسب الشركاء 25% من الرسوم التي يحصل عليها Dو labb! من كل عملية بيع مكتملة يتم إنشاؤها من خلال إحالتهم.'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Example: If an item sells for SAR 1000 and Dو labb!\'s fee is SAR 50, the Affiliate will earn SAR 12.50'
+                    : 'مثال: إذا تم بيع عنصر مقابل 1000 ريال سعودي وكانت رسوم Dو labb! 50 ريال سعودي، فسيحصل الشريك على 12.50 ريال سعودي'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Commission is earned only after:'
+                    : 'يتم كسب العمولة فقط بعد:'}
+                  <ul className='ml-4 mt-1 space-y-1'>
+                    <li>
+                      {locale === 'en'
+                        ? 'o The item is successfully sold, and'
+                        : 'o بيع العنصر بنجاح، و'}
+                    </li>
+                    <li>
+                      {locale === 'en'
+                        ? 'o The seller has completed all required inputs (including delivery and confirmation).'
+                        : 'o إكمال البائع لجميع المدخلات المطلوبة (بما في ذلك التسليم والتأكيد).'}
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '3. Payments' : '3. المدفوعات'}
+              </h3>
+              <ul className='space-y-2 text-sm ml-4 text-white/90'>
+                <li>
+                  • {locale === 'en'
+                    ? 'Commissions are calculated and credited according to Dو labb!\'s internal records.'
+                    : 'يتم حساب العمولات وإضافتها وفقًا للسجلات الداخلية لـ Dو labb!.'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Dو labb! may set minimum payout thresholds, payment schedules, and supported payment methods.'
+                    : 'قد تحدد Dو labb! الحد الأدنى للدفع وجداول الدفع وطرق الدفع المدعومة.'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Dو labb! reserves the right to withhold or reverse commissions for refunded, canceled, fraudulent, or disputed transactions.'
+                    : 'تحتفظ Dو labb! بالحق في حجب أو عكس العمولات للمعاملات المستردة أو الملغاة أو الاحتيالية أو المتنازع عليها.'}
+                </li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '4. Acceptable Promotion' : '4. الترويج المقبول'}
+              </h3>
+              <p className='text-sm text-white/90 mb-2'>
+                {locale === 'en'
+                  ? 'Affiliates agree to:'
+                  : 'يوافق الشركاء على:'}
+              </p>
+              <ul className='space-y-2 text-sm ml-4 text-white/90'>
+                <li>
+                  • {locale === 'en'
+                    ? 'Promote Dو labb! honestly and accurately'
+                    : 'الترويج لـ Dو labb! بصدق ودقة'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Not make false, misleading, or exaggerated claims'
+                    : 'عدم تقديم ادعاءات كاذبة أو مضللة أو مبالغ فيها'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Not engage in spam, fake accounts, self-referrals, or deceptive practices'
+                    : 'عدم الانخراط في البريد العشوائي أو الحسابات المزيفة أو الإحالات الذاتية أو الممارسات الخادعة'}
+                </li>
+                <li>
+                  • {locale === 'en'
+                    ? 'Comply with all applicable laws, regulations, and platform policies (including social media platform rules)'
+                    : 'الامتثال لجميع القوانين واللوائح وسياسات المنصة المعمول بها (بما في ذلك قواعد منصات التواصل الاجتماعي)'}
+                </li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '5. Intellectual Property' : '5. الملكية الفكرية'}
+              </h3>
+              <p className='text-sm text-white/90'>
+                {locale === 'en'
+                  ? 'Affiliates may use Dو labb!\'s name and promotional materials only as provided or approved by Dو labb! and solely for promotional purposes.'
+                  : 'يجوز للشركاء استخدام اسم Dو labb! والمواد الترويجية فقط كما هو موفر أو معتمد من قبل Dو labb! وحصريًا لأغراض الترويج.'}
+              </p>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '6. Termination' : '6. الإنهاء'}
+              </h3>
+              <p className='text-sm text-white/90'>
+                {locale === 'en'
+                  ? 'Dو labb! may suspend or terminate an Affiliate account at any time if these terms are violated or for business, legal, or security reasons. Upon termination, unpaid commissions may be forfeited if earned through prohibited activity.'
+                  : 'يجوز لـ Dو labb! تعليق أو إنهاء حساب الشريك في أي وقت إذا تم انتهاك هذه الشروط أو لأسباب تجارية أو قانونية أو أمنية. عند الإنهاء، قد يتم مصادرة العمولات غير المدفوعة إذا تم كسبها من خلال نشاط محظور.'}
+              </p>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '7. Independent Relationship' : '7. العلاقة المستقلة'}
+              </h3>
+              <p className='text-sm text-white/90'>
+                {locale === 'en'
+                  ? 'Affiliates act as independent parties. This agreement does not create an employment, partnership, or agency relationship.'
+                  : 'يعمل الشركاء كأطراف مستقلة. لا ينشئ هذا الاتفاق علاقة عمل أو شراكة أو وكالة.'}
+              </p>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '8. Changes to Terms' : '8. تغييرات الشروط'}
+              </h3>
+              <p className='text-sm text-white/90'>
+                {locale === 'en'
+                  ? 'Dو labb! may update these terms from time to time. Continued participation in the Affiliate Program constitutes acceptance of the updated terms.'
+                  : 'قد تقوم Dو labb! بتحديث هذه الشروط من وقت لآخر. استمرار المشاركة في برنامج الشراكة يشكل قبولًا للشروط المحدثة.'}
+              </p>
+            </section>
+
+            <section>
+              <h3 className='text-lg font-bold text-white mb-3'>
+                {locale === 'en' ? '9. Governing Law' : '9. القانون الحاكم'}
+              </h3>
+              <p className='text-sm text-white/90'>
+                {locale === 'en'
+                  ? 'These terms are governed by Saudi law.'
+                  : 'هذه الشروط محكومة بالقانون السعودي.'}
+              </p>
+            </section>
+          </div>
         }
       />
     </div>

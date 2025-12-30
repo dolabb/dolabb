@@ -49,6 +49,7 @@ export default function Header() {
   // Check if user is affiliate - initialize from localStorage
   // Always start as false to match server render, then update after mount
   const [isAffiliate, setIsAffiliate] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const handleLogout = () => {
     if (isAffiliate) {
@@ -209,6 +210,7 @@ export default function Header() {
   // Initialize affiliate status after mount to avoid hydration mismatch
   // Re-check when pathname changes (e.g., after login redirect)
   useEffect(() => {
+    setIsMounted(true);
     const checkAffiliate = () => {
       if (typeof window !== 'undefined') {
         const affiliate = localStorage.getItem('affiliate');
@@ -308,13 +310,13 @@ export default function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled ? 'bg-off-white ' : 'bg-off-white/95 backdrop-blur-sm'
-      } ${isAffiliate ? 'shadow-lg' : ''}`}
+      } ${isMounted && isAffiliate ? 'shadow-lg' : ''}`}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
         <div className='flex items-center justify-between h-16 md:h-20'>
           {/* Logo */}
-          {isAffiliate ? (
+          {isMounted && isAffiliate ? (
             <div className='flex items-center gap-2 group cursor-default'>
               <Image
                 src='/Logo.svg'
@@ -355,7 +357,7 @@ export default function Header() {
           )}
 
           {/* Search Bar - Desktop (hidden for affiliates) */}
-          {!isAffiliate && (
+          {!(isMounted && isAffiliate) && (
             <div
               className='hidden md:flex flex-1 max-w-xl mx-8'
               suppressHydrationWarning
@@ -507,10 +509,10 @@ export default function Header() {
             className='hidden md:flex items-center gap-4'
             suppressHydrationWarning
           >
-            {isAuthenticated || isAffiliate ? (
+            {isAuthenticated || (isMounted && isAffiliate) ? (
               <>
                 {/* Messages (hidden for affiliates) */}
-                {!isAffiliate && (
+                {!(isMounted && isAffiliate) && (
                   <Link
                     href={`/${locale}/messages`}
                     className='text-deep-charcoal hover:text-saudi-green transition-colors relative group'
@@ -547,7 +549,7 @@ export default function Header() {
                         isRTL ? 'left-0' : 'right-0'
                       } mt-2 w-48 bg-white rounded-lg shadow-lg border border-rich-sand/30 py-2 z-50`}
                     >
-                      {isAffiliate ? (
+                      {isMounted && isAffiliate ? (
                         <Link
                           href={`/${locale}/affiliate/profile`}
                           onClick={() => setIsProfileDropdownOpen(false)}
@@ -590,7 +592,7 @@ export default function Header() {
                 </div>
               </>
             ) : (
-              !isAffiliate && (
+              !(isMounted && isAffiliate) && (
                 <div
                   suppressHydrationWarning
                   className='flex items-center gap-3'
@@ -620,7 +622,7 @@ export default function Header() {
               )
             )}
             {/* Role Switch Toggle - Only for authenticated users with seller/buyer role */}
-            {isAuthenticated && !isAffiliate && (isSeller || isBuyer) && (
+            {isAuthenticated && !(isMounted && isAffiliate) && (isSeller || isBuyer) && (
               <div className='flex items-center gap-3'>
                 <span
                   className={`text-xs font-medium whitespace-nowrap transition-colors ${
@@ -695,7 +697,7 @@ export default function Header() {
         </div>
 
         {/* Mobile Search (hidden for affiliates) */}
-        {!isAffiliate && (
+        {!(isMounted && isAffiliate) && (
           <div className='md:hidden pb-4' suppressHydrationWarning>
             <div className='relative'>
               <input
@@ -842,10 +844,10 @@ export default function Header() {
         {isMobileMenuOpen && (
           <div className='md:hidden pb-4 border-t border-rich-sand mt-4 pt-4'>
             <nav className='flex flex-col space-y-3' suppressHydrationWarning>
-              {isAuthenticated || isAffiliate ? (
+              {isAuthenticated || (isMounted && isAffiliate) ? (
                 <>
                   {/* Messages (hidden for affiliates) */}
-                  {!isAffiliate && (
+                  {!(isMounted && isAffiliate) && (
                     <Link
                       href={`/${locale}/messages`}
                       className='flex items-center gap-3 text-deep-charcoal hover:text-saudi-green transition-colors font-medium py-2 relative'
@@ -869,7 +871,7 @@ export default function Header() {
                   {/* View Profile - Mobile */}
                   <Link
                     href={
-                      isAffiliate
+                      isMounted && isAffiliate
                         ? `/${locale}/affiliate/profile`
                         : `/${locale}/profile`
                     }
@@ -893,7 +895,7 @@ export default function Header() {
                     {locale === 'en' ? 'Logout' : 'تسجيل الخروج'}
                   </button>
                   {/* Role Switch Toggle - Mobile */}
-                  {isAuthenticated && !isAffiliate && (isSeller || isBuyer) && (
+                  {isAuthenticated && !(isMounted && isAffiliate) && (isSeller || isBuyer) && (
                     <div className='flex items-center justify-between w-full px-2 py-2.5'>
                       <span className='text-sm font-medium text-deep-charcoal'>
                         {locale === 'en' ? 'Mode' : 'الوضع'}
@@ -969,7 +971,7 @@ export default function Header() {
                   </button>
                 </>
               ) : (
-                !isAffiliate && (
+                !(isMounted && isAffiliate) && (
                   <div suppressHydrationWarning className='flex flex-col gap-3'>
                     <Link
                       href={`/${locale}/affiliate/login`}
@@ -998,7 +1000,7 @@ export default function Header() {
                 )
               )}
               {/* Language Toggle - Only for non-authenticated users */}
-              {!isAuthenticated && !isAffiliate && (
+              {!isAuthenticated && !(isMounted && isAffiliate) && (
                 <button
                   onClick={toggleLanguage}
                   className='relative flex items-center justify-center w-10 h-10 rounded-full bg-rich-sand/20 hover:bg-saudi-green/10 text-deep-charcoal hover:text-saudi-green transition-all duration-200 font-semibold text-sm border-2 border-transparent hover:border-saudi-green/30 cursor-pointer group'

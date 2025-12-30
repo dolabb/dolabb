@@ -31,6 +31,7 @@ export interface Product {
   affiliateCode?: string;
   status?: 'pending' | 'approved' | 'rejected' | 'active' | 'sold';
   quantity?: number;
+  isOutOfStock?: boolean;
   taxPercentage?: number;
   purchaseCount?: number;
   createdAt?: string;

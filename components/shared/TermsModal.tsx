@@ -12,6 +12,9 @@ interface TermsModalProps {
   onClose?: () => void;
   title?: string;
   description?: string;
+  customKeyPoints?: React.ReactNode;
+  customFullTerms?: React.ReactNode;
+  isAffiliateTerms?: boolean;
 }
 
 export default function TermsModal({
@@ -20,6 +23,9 @@ export default function TermsModal({
   onClose,
   title,
   description,
+  customKeyPoints,
+  customFullTerms,
+  isAffiliateTerms = false,
 }: TermsModalProps) {
   const locale = useLocale();
   const isRTL = locale === 'ar';
@@ -111,33 +117,39 @@ export default function TermsModal({
                       <h4 className='font-semibold text-white mb-2 text-sm'>
                         {locale === 'en' ? 'Key Points:' : 'النقاط الرئيسية:'}
                       </h4>
-                      <ul className='space-y-1.5 text-xs list-disc list-inside text-white/90'>
-                        <li>
-                          {locale === 'en'
-                            ? 'dوُlabb! is a marketplace platform connecting Buyers and Sellers'
-                            : 'dوُlabb! هي منصة سوق تربط المشترين والبائعين'}
-                        </li>
-                        <li>
-                          {locale === 'en'
-                            ? 'We are not a party to transactions between Buyers and Sellers'
-                            : 'نحن لسنا طرفًا في المعاملات بين المشترين والبائعين'}
-                        </li>
-                        <li>
-                          {locale === 'en'
-                            ? 'All sales are final - dوُlabb! does not handle refunds or cancellations'
-                            : 'جميع المبيعات نهائية - dوُlabb! لا تتعامل مع الاسترداد أو الإلغاء'}
-                        </li>
-                        <li>
-                          {locale === 'en'
-                            ? 'Users are responsible for compliance with all applicable laws'
-                            : 'المستخدمون مسؤولون عن الامتثال لجميع القوانين المعمول بها'}
-                        </li>
-                        <li>
-                          {locale === 'en'
-                            ? 'Disputes must be resolved directly between Buyers and Sellers first'
-                            : 'يجب حل النزاعات مباشرة بين المشترين والبائعين أولاً'}
-                        </li>
-                      </ul>
+                      {customKeyPoints ? (
+                        <div className='text-xs text-white/90'>
+                          {customKeyPoints}
+                        </div>
+                      ) : (
+                        <ul className='space-y-1.5 text-xs list-disc list-inside text-white/90'>
+                          <li>
+                            {locale === 'en'
+                              ? 'dوُlabb! is a marketplace platform connecting Buyers and Sellers'
+                              : 'dوُlabb! هي منصة سوق تربط المشترين والبائعين'}
+                          </li>
+                          <li>
+                            {locale === 'en'
+                              ? 'We are not a party to transactions between Buyers and Sellers'
+                              : 'نحن لسنا طرفًا في المعاملات بين المشترين والبائعين'}
+                          </li>
+                          <li>
+                            {locale === 'en'
+                              ? 'All sales are final - dوُlabb! does not handle refunds or cancellations'
+                              : 'جميع المبيعات نهائية - dوُlabb! لا تتعامل مع الاسترداد أو الإلغاء'}
+                          </li>
+                          <li>
+                            {locale === 'en'
+                              ? 'Users are responsible for compliance with all applicable laws'
+                              : 'المستخدمون مسؤولون عن الامتثال لجميع القوانين المعمول بها'}
+                          </li>
+                          <li>
+                            {locale === 'en'
+                              ? 'Disputes must be resolved directly between Buyers and Sellers first'
+                              : 'يجب حل النزاعات مباشرة بين المشترين والبائعين أولاً'}
+                          </li>
+                        </ul>
+                      )}
                     </div>
 
                     <p className='text-xs text-white/80 mb-6 text-center'>
@@ -183,167 +195,179 @@ export default function TermsModal({
                       </button>
                     </div>
 
-                    <div className='flex-1 overflow-y-auto max-h-[60vh]'>
-                      <div className='prose prose-sm max-w-none text-white/90'>
-                        <p className='text-sm text-white/80 mb-6'>
-                          <strong>Effective Date:</strong> 1 October 2025
-                        </p>
+                    <div className='relative flex-1 max-h-[60vh]'>
+                      {/* Subtle fade indicators for scroll */}
+                      <div className='absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-saudi-green/40 via-saudi-green/20 to-transparent pointer-events-none z-10' />
+                      <div className='absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-emerald-600/40 via-emerald-600/20 to-transparent pointer-events-none z-10' />
+                      
+                      <div className='flex-1 overflow-y-auto max-h-[60vh] terms-modal-scroll pr-2 py-2'>
+                        <div className='prose prose-sm max-w-none text-white/90'>
+                          {customFullTerms ? (
+                            customFullTerms
+                          ) : (
+                          <>
+                            <p className='text-sm text-white/80 mb-6'>
+                              <strong>Effective Date:</strong> 1 October 2025
+                            </p>
 
-                        <p className='mb-6 text-white/90'>
-                          These Terms of Use (&quot;Terms&quot;) form a binding
-                          agreement between dوُlabb! (&quot;Platform,&quot;
-                          &quot;we,&quot; &quot;our&quot;), a Saudi-registered
-                          company operating an online marketplace; Buyers,
-                          individuals who register to purchase items; and
-                          Sellers, individuals or entities who register to sell
-                          items.
-                        </p>
+                            <p className='mb-6 text-white/90'>
+                              These Terms of Use (&quot;Terms&quot;) form a binding
+                              agreement between dوُlabb! (&quot;Platform,&quot;
+                              &quot;we,&quot; &quot;our&quot;), a Saudi-registered
+                              company operating an online marketplace; Buyers,
+                              individuals who register to purchase items; and
+                              Sellers, individuals or entities who register to sell
+                              items.
+                            </p>
 
-                        <p className='mb-6 text-white/90'>
-                          By registering as a Buyer or Seller and using the
-                          Platform, you agree to these Terms.
-                        </p>
+                            <p className='mb-6 text-white/90'>
+                              By registering as a Buyer or Seller and using the
+                              Platform, you agree to these Terms.
+                            </p>
 
-                        <div className='space-y-6'>
-                          <section>
-                            <h3 className='text-lg font-bold text-white mb-3'>
-                              1. Our Role as the Platform
-                            </h3>
-                            <ul className='space-y-2 text-sm ml-4 text-white/90'>
-                              <li>
-                                • dوُlabb! is an online marketplace connecting
-                                Buyers and Sellers.
-                              </li>
-                              <li>
-                                • We are not a party to any transaction between
-                                Buyers and Sellers.
-                              </li>
-                              <li>
-                                • We do not own, control, inspect, guarantee, or
-                                warrant any product listed.
-                              </li>
-                              <li>
-                                • All responsibility for products, listings, and
-                                transactions lies solely with the Seller.
-                              </li>
-                            </ul>
-                          </section>
-
-                          <section>
-                            <h3 className='text-lg font-bold text-white mb-3'>
-                              2. Buyer Terms & Conditions
-                            </h3>
-                            <div className='ml-4 space-y-3'>
-                              <div>
-                                <h4 className='font-semibold mb-1 text-white'>
-                                  1. Responsibility
-                                </h4>
-                                <ul className='text-sm space-y-1 ml-4 text-white/90'>
-                                  <li>• Purchases are at your own risk.</li>
+                            <div className='space-y-6'>
+                              <section>
+                                <h3 className='text-lg font-bold text-white mb-3'>
+                                  1. Our Role as the Platform
+                                </h3>
+                                <ul className='space-y-2 text-sm ml-4 text-white/90'>
                                   <li>
-                                    • dوُlabb! does not guarantee authenticity,
-                                    quality, condition, or legality of items.
+                                    • dوُlabb! is an online marketplace connecting
+                                    Buyers and Sellers.
+                                  </li>
+                                  <li>
+                                    • We are not a party to any transaction between
+                                    Buyers and Sellers.
+                                  </li>
+                                  <li>
+                                    • We do not own, control, inspect, guarantee, or
+                                    warrant any product listed.
+                                  </li>
+                                  <li>
+                                    • All responsibility for products, listings, and
+                                    transactions lies solely with the Seller.
                                   </li>
                                 </ul>
-                              </div>
-                              <div>
-                                <h4 className='font-semibold mb-1 text-white'>
-                                  2. Final Sales
-                                </h4>
-                                <ul className='text-sm space-y-1 ml-4 text-white/90'>
+                              </section>
+
+                              <section>
+                                <h3 className='text-lg font-bold text-white mb-3'>
+                                  2. Buyer Terms & Conditions
+                                </h3>
+                                <div className='ml-4 space-y-3'>
+                                  <div>
+                                    <h4 className='font-semibold mb-1 text-white'>
+                                      1. Responsibility
+                                    </h4>
+                                    <ul className='text-sm space-y-1 ml-4 text-white/90'>
+                                      <li>• Purchases are at your own risk.</li>
+                                      <li>
+                                        • dوُlabb! does not guarantee authenticity,
+                                        quality, condition, or legality of items.
+                                      </li>
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <h4 className='font-semibold mb-1 text-white'>
+                                      2. Final Sales
+                                    </h4>
+                                    <ul className='text-sm space-y-1 ml-4 text-white/90'>
+                                      <li>
+                                        • All sales are final. dوُlabb! does not
+                                        handle refunds or cancellations.
+                                      </li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </section>
+
+                              <section>
+                                <h3 className='text-lg font-bold text-white mb-3'>
+                                  3. Seller Terms & Conditions
+                                </h3>
+                                <ul className='space-y-2 text-sm ml-4 text-white/90'>
                                   <li>
-                                    • All sales are final. dوُlabb! does not
-                                    handle refunds or cancellations.
+                                    • Sellers must be 18+ and have full legal
+                                    capacity.
+                                  </li>
+                                  <li>
+                                    • Listings must be truthful, accurate, and
+                                    include clear photos.
+                                  </li>
+                                  <li>
+                                    • Sellers are fully responsible for compliance
+                                    with all applicable laws.
                                   </li>
                                 </ul>
-                              </div>
+                              </section>
+
+                              <section>
+                                <h3 className='text-lg font-bold text-white mb-3'>
+                                  4. Payments & Financial Terms
+                                </h3>
+                                <ul className='space-y-2 text-sm ml-4 text-white/90'>
+                                  <li>
+                                    • All payments are processed through secure,
+                                    approved third-party providers.
+                                  </li>
+                                  <li>
+                                    • dوُlabb! is not a party to transactions and
+                                    cannot refund, reverse, or reimburse payments.
+                                  </li>
+                                </ul>
+                              </section>
+
+                              <section>
+                                <h3 className='text-lg font-bold text-white mb-3'>
+                                  5. Dispute Resolution
+                                </h3>
+                                <ul className='space-y-2 text-sm ml-4 text-white/90'>
+                                  <li>
+                                    • Disputes must first be raised directly with
+                                    the other party.
+                                  </li>
+                                  <li>
+                                    • If unresolved, disputes may be escalated to
+                                    dوُlabb!. Response within 30 days.
+                                  </li>
+                                  <li>
+                                    • dوُlabb! cannot provide monetary reimbursement.
+                                  </li>
+                                </ul>
+                              </section>
+
+                              <section>
+                                <h3 className='text-lg font-bold text-white mb-3'>
+                                  6. Governing Law & Jurisdiction
+                                </h3>
+                                <ul className='space-y-2 text-sm ml-4 text-white/90'>
+                                  <li>
+                                    • These Terms are governed by Saudi Arabian law.
+                                  </li>
+                                  <li>
+                                    • The courts of Riyadh, Saudi Arabia have
+                                    exclusive jurisdiction.
+                                  </li>
+                                </ul>
+                              </section>
                             </div>
-                          </section>
 
-                          <section>
-                            <h3 className='text-lg font-bold text-white mb-3'>
-                              3. Seller Terms & Conditions
-                            </h3>
-                            <ul className='space-y-2 text-sm ml-4 text-white/90'>
-                              <li>
-                                • Sellers must be 18+ and have full legal
-                                capacity.
-                              </li>
-                              <li>
-                                • Listings must be truthful, accurate, and
-                                include clear photos.
-                              </li>
-                              <li>
-                                • Sellers are fully responsible for compliance
-                                with all applicable laws.
-                              </li>
-                            </ul>
-                          </section>
-
-                          <section>
-                            <h3 className='text-lg font-bold text-white mb-3'>
-                              4. Payments & Financial Terms
-                            </h3>
-                            <ul className='space-y-2 text-sm ml-4 text-white/90'>
-                              <li>
-                                • All payments are processed through secure,
-                                approved third-party providers.
-                              </li>
-                              <li>
-                                • dوُlabb! is not a party to transactions and
-                                cannot refund, reverse, or reimburse payments.
-                              </li>
-                            </ul>
-                          </section>
-
-                          <section>
-                            <h3 className='text-lg font-bold text-white mb-3'>
-                              5. Dispute Resolution
-                            </h3>
-                            <ul className='space-y-2 text-sm ml-4 text-white/90'>
-                              <li>
-                                • Disputes must first be raised directly with
-                                the other party.
-                              </li>
-                              <li>
-                                • If unresolved, disputes may be escalated to
-                                dوُlabb!. Response within 30 days.
-                              </li>
-                              <li>
-                                • dوُlabb! cannot provide monetary reimbursement.
-                              </li>
-                            </ul>
-                          </section>
-
-                          <section>
-                            <h3 className='text-lg font-bold text-white mb-3'>
-                              6. Governing Law & Jurisdiction
-                            </h3>
-                            <ul className='space-y-2 text-sm ml-4 text-white/90'>
-                              <li>
-                                • These Terms are governed by Saudi Arabian law.
-                              </li>
-                              <li>
-                                • The courts of Riyadh, Saudi Arabia have
-                                exclusive jurisdiction.
-                              </li>
-                            </ul>
-                          </section>
-                        </div>
-
-                        <div className='mt-6 p-4 bg-white/10 rounded-lg backdrop-blur-sm'>
-                          <p className='text-sm mb-2 text-white'>
-                            <strong>Full Terms of Service:</strong>
-                          </p>
-                          <Link
-                            href={`/${locale}/terms`}
-                            target='_blank'
-                            className='text-white hover:underline text-sm'
-                          >
-                            {locale === 'en'
-                              ? 'View complete Terms of Service page'
-                              : 'عرض صفحة شروط الخدمة الكاملة'}
-                          </Link>
+                            <div className='mt-6 p-4 bg-white/10 rounded-lg backdrop-blur-sm'>
+                              <p className='text-sm mb-2 text-white'>
+                                <strong>Full Terms of Service:</strong>
+                              </p>
+                              <Link
+                                href={`/${locale}/terms`}
+                                target='_blank'
+                                className='text-white hover:underline text-sm'
+                              >
+                                {locale === 'en'
+                                  ? 'View complete Terms of Service page'
+                                  : 'عرض صفحة شروط الخدمة الكاملة'}
+                              </Link>
+                            </div>
+                          </>
+                          )}
                         </div>
                       </div>
                     </div>

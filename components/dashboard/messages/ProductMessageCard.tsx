@@ -58,6 +58,8 @@ export default function ProductMessageCard({
   
   // Track the previous status to detect changes from WebSocket
   const prevStatusRef = useRef<string | undefined>(undefined);
+  const previousCounterAmountRef = useRef<number | undefined>(undefined);
+  const previousMessageIdRef = useRef<string | undefined>(undefined);
 
   // Use offer.product if available, otherwise fetch product details
   const offerProduct = message.offer?.product;
@@ -110,26 +112,93 @@ export default function ProductMessageCard({
   const productImages = getProductImages();
   
   // Reset loading states when offer status changes (from WebSocket update)
+  // Also reset when a new message with the same offerId is received (for counter offers)
   useEffect(() => {
     const currentStatus = message.offer?.status;
+    const previousStatus = prevStatusRef.current;
+    const currentCounterAmount = message.offer?.counterAmount;
+    const previousCounterAmount = previousCounterAmountRef.current;
+    const previousMessageId = previousMessageIdRef.current;
     
-    // If we have a previous status and it changed, reset loading states
-    if (prevStatusRef.current !== undefined && prevStatusRef.current !== currentStatus) {
+    console.log('🔄 [STATUS CHANGE] Offer status changed:', {
+      timestamp: new Date().toISOString(),
+      messageId: message.id,
+      offerId: message.offerId,
+      previousStatus,
+      currentStatus,
+      previousCounterAmount,
+      currentCounterAmount,
+      previousMessageId,
+      currentMessageId: message.id,
+      isAccepting,
+      isRejecting,
+      isCountering,
+      fullMessage: {
+        id: message.id,
+        offerId: message.offerId,
+        offer: message.offer ? {
+          id: message.offer.id,
+          status: message.offer.status,
+          offerAmount: message.offer.offerAmount,
+          counterAmount: message.offer.counterAmount,
+        } : null,
+      },
+    });
+    
+    // Reset loading states if:
+    // 1. Status changed (e.g., pending -> accepted)
+    // 2. Counter amount changed (new counter offer received, even if status stays "countered")
+    // 3. Message ID changed (new message received for same offer) - this handles counter offers
+    const statusChanged = prevStatusRef.current !== undefined && prevStatusRef.current !== currentStatus;
+    const counterAmountChanged = previousCounterAmount !== undefined && 
+                                 previousCounterAmount !== currentCounterAmount &&
+                                 currentStatus === 'countered';
+    const isNewMessage = previousMessageId !== undefined && previousMessageId !== message.id;
+    
+    if (statusChanged || counterAmountChanged || (isNewMessage && isCountering)) {
+      console.log('✅ [STATUS CHANGE] Resetting loading states:', {
+        statusChanged,
+        counterAmountChanged,
+        isNewMessage,
+        reason: statusChanged ? 'status changed' : counterAmountChanged ? 'counter amount changed' : 'new message received'
+      });
       setIsAccepting(false);
       setIsRejecting(false);
       setIsCountering(false);
     }
     
-    // Update the ref with current status
+    // Update refs
     prevStatusRef.current = currentStatus;
-  }, [message.offer?.status]);
+    previousCounterAmountRef.current = currentCounterAmount;
+    previousMessageIdRef.current = message.id;
+  }, [message.offer?.status, message.offer?.counterAmount, message.id, message.offerId, isAccepting, isRejecting, isCountering]);
   
   // Timeout fallback - reset loading after 15 seconds if no response
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     
     if (isAccepting || isRejecting || isCountering) {
+      console.log('⏱️ [TIMEOUT] Setting timeout for loading state:', {
+        timestamp: new Date().toISOString(),
+        messageId: message.id,
+        offerId: message.offerId,
+        isAccepting,
+        isRejecting,
+        isCountering,
+        currentStatus: message.offer?.status,
+      });
+      
       timeout = setTimeout(() => {
+        console.warn('⚠️ [TIMEOUT] Loading state timeout reached - resetting:', {
+          timestamp: new Date().toISOString(),
+          messageId: message.id,
+          offerId: message.offerId,
+          isAccepting,
+          isRejecting,
+          isCountering,
+          currentStatus: message.offer?.status,
+          previousStatus: prevStatusRef.current,
+        });
         setIsAccepting(false);
         setIsRejecting(false);
         setIsCountering(false);
@@ -137,9 +206,12 @@ export default function ProductMessageCard({
     }
     
     return () => {
-      if (timeout) clearTimeout(timeout);
+      if (timeout) {
+        console.log('🧹 [TIMEOUT] Clearing timeout');
+        clearTimeout(timeout);
+      }
     };
-  }, [isAccepting, isRejecting, isCountering]);
+  }, [isAccepting, isRejecting, isCountering, message.id, message.offerId, message.offer?.status]);
   
   // Normalize image URL - convert cdn.dolabb.com URLs to use Next.js proxy
   const normalizeImageUrl = (url: string): string => {
@@ -287,17 +359,86 @@ export default function ProductMessageCard({
       : undefined) || 'SAR';
 
   const handleAccept = async () => {
-    if (!message.offerId || !selectedConversation?.otherUser.id) return;
+    console.log('🟢 [HANDLE ACCEPT] Button clicked:', {
+      timestamp: new Date().toISOString(),
+      message: {
+        id: message.id,
+        offerId: message.offerId,
+        text: message.text,
+        messageType: message.messageType,
+        offer: message.offer ? {
+          id: message.offer.id,
+          status: message.offer.status,
+          offerAmount: message.offer.offerAmount,
+          counterAmount: message.offer.counterAmount,
+        } : null,
+      },
+      selectedConversation: {
+        id: selectedConversation?.id,
+        otherUser: {
+          id: selectedConversation?.otherUser?.id,
+          username: selectedConversation?.otherUser?.username,
+        },
+      },
+      user: {
+        id: user?.id,
+        role: user?.role,
+      },
+    });
+
+    // Validate offerId
+    if (!message.offerId) {
+      console.error('❌ [HANDLE ACCEPT] Missing offerId:', {
+        messageId: message.id,
+        messageOfferId: message.offerId,
+        messageOffer: message.offer,
+      });
+      return;
+    }
+
+    // Validate selectedConversation
+    if (!selectedConversation) {
+      console.error('❌ [HANDLE ACCEPT] Missing selectedConversation');
+      return;
+    }
+
+    // Validate otherUser.id
+    if (!selectedConversation.otherUser?.id) {
+      console.error('❌ [HANDLE ACCEPT] Missing otherUser.id:', {
+        selectedConversation: selectedConversation,
+        otherUser: selectedConversation.otherUser,
+      });
+      return;
+    }
+
+    console.log('🟢 [HANDLE ACCEPT] Validation passed, setting loading state');
     setIsAccepting(true);
+
     try {
+      console.log('🟢 [HANDLE ACCEPT] Calling onAcceptOffer with:', {
+        offerId: message.offerId,
+        receiverId: selectedConversation.otherUser.id,
+        text: message.text,
+      });
+
       await onAcceptOffer(
         message.offerId,
         selectedConversation.otherUser.id,
         message.text
       );
+
+      console.log('✅ [HANDLE ACCEPT] onAcceptOffer completed successfully');
       // Don't reset here - wait for WebSocket response to update offer status
       // The useEffect watching message.offer?.status will reset loading
     } catch (error) {
+      console.error('❌ [HANDLE ACCEPT] Error in onAcceptOffer:', {
+        error: error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        offerId: message.offerId,
+        receiverId: selectedConversation.otherUser.id,
+      });
       // Only reset on error
       setIsAccepting(false);
       throw error;
