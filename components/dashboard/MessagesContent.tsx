@@ -1,11 +1,12 @@
 'use client';
 
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useGetConversationsQuery } from '@/lib/api/chatApi';
 import { useAppSelector } from '@/lib/store/hooks';
-import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ChatArea from './messages/components/ChatArea';
 import ChatHeader from './messages/components/ChatHeader';
 import MessageInput from './messages/components/MessageInput';
@@ -14,7 +15,6 @@ import { useMessages } from './messages/hooks/useMessages';
 import { useOffers } from './messages/hooks/useOffers';
 import type { ConversationUser, Message } from './messages/types';
 import { formatMessageTime } from './messages/utils';
-import { toast } from '@/utils/toast';
 
 export default function MessagesContent() {
   const locale = useLocale();
@@ -83,7 +83,8 @@ export default function MessagesContent() {
     messages,
   });
 
-  const [otherUserOnlineStatus, setOtherUserOnlineStatus] = useState<boolean>(false);
+  const [otherUserOnlineStatus, setOtherUserOnlineStatus] =
+    useState<boolean>(false);
 
   // Set up WebSocket message handler for current conversation
   // This will handle real-time message updates when WebSocket is connected
@@ -95,10 +96,14 @@ export default function MessagesContent() {
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        
+
         // Log all WebSocket messages for debugging
-        if (data.type === 'offer_countered' || data.type === 'offer_sent' || 
-            data.type === 'offer_accepted' || data.type === 'offer_rejected') {
+        if (
+          data.type === 'offer_countered' ||
+          data.type === 'offer_sent' ||
+          data.type === 'offer_accepted' ||
+          data.type === 'offer_rejected'
+        ) {
           console.log('📥 [WEBSOCKET] Received offer message:', {
             timestamp: new Date().toISOString(),
             type: data.type,
@@ -108,26 +113,41 @@ export default function MessagesContent() {
             rawData: data,
           });
         }
-        
+
         // Get current conversationId at the time of message processing
         const currentConvId = conversationId;
-        
+
         // For offer messages, also check if the offer belongs to current user
         // This ensures offer messages are processed even if conversation isn't selected
-        const isOfferMessage = data.type === 'offer_sent' || data.type === 'offer_countered' || 
-                              data.type === 'offer_accepted' || data.type === 'offer_rejected';
-        const offerBelongsToUser = isOfferMessage && data.offer && user?.id && 
-                                   (data.offer.buyerId === user?.id || data.offer.sellerId === user?.id);
-        
+        const isOfferMessage =
+          data.type === 'offer_sent' ||
+          data.type === 'offer_countered' ||
+          data.type === 'offer_accepted' ||
+          data.type === 'offer_rejected';
+        const offerBelongsToUser =
+          isOfferMessage &&
+          data.offer &&
+          user?.id &&
+          (data.offer.buyerId === user?.id || data.offer.sellerId === user?.id);
+
         // Only process messages for current conversation (or offer messages that belong to user)
-        if (data.conversationId !== currentConvId && data.type !== 'online_users' && !offerBelongsToUser) {
+        if (
+          data.conversationId !== currentConvId &&
+          data.type !== 'online_users' &&
+          !offerBelongsToUser
+        ) {
           return;
         }
 
-        if (data.type === 'chat_message' && data.message && data.conversationId === currentConvId) {
-          const isMyMessage = data.message.senderId === user?.id || 
-                              data.message.isSender === true ||
-                              data.message.sender === 'me';
+        if (
+          data.type === 'chat_message' &&
+          data.message &&
+          data.conversationId === currentConvId
+        ) {
+          const isMyMessage =
+            data.message.senderId === user?.id ||
+            data.message.isSender === true ||
+            data.message.sender === 'me';
 
           const newMessage: Message = {
             id: data.message.id,
@@ -148,14 +168,18 @@ export default function MessagesContent() {
             if (conversationId !== currentConvId) {
               return prev; // Don't add message if conversation changed
             }
-            
+
             // Check if message already exists
             if (prev.some(msg => msg.id === newMessage.id)) {
               return prev;
             }
             return [...prev, newMessage].sort((a, b) => {
-              const timeA = a.rawTimestamp ? new Date(a.rawTimestamp).getTime() : 0;
-              const timeB = b.rawTimestamp ? new Date(b.rawTimestamp).getTime() : 0;
+              const timeA = a.rawTimestamp
+                ? new Date(a.rawTimestamp).getTime()
+                : 0;
+              const timeB = b.rawTimestamp
+                ? new Date(b.rawTimestamp).getTime()
+                : 0;
               return timeA - timeB;
             });
           });
@@ -165,16 +189,22 @@ export default function MessagesContent() {
         }
 
         if (data.type === 'online_users' && selectedConversation) {
-          const isOtherUserOnline = data.onlineUsers?.includes(selectedConversation.otherUser.id);
+          const isOtherUserOnline = data.onlineUsers?.includes(
+            selectedConversation.otherUser.id
+          );
           setOtherUserOnlineStatus(isOtherUserOnline || false);
         }
 
         // Handle offer messages - update messages state immediately for instant UI update
         // Process if conversationId matches OR if offer belongs to current user
-        const shouldProcessOffer = (data.type === 'offer_sent' || data.type === 'offer_countered' || 
-             data.type === 'offer_accepted' || data.type === 'offer_rejected') && 
-            data.offer && (data.conversationId === currentConvId || offerBelongsToUser);
-        
+        const shouldProcessOffer =
+          (data.type === 'offer_sent' ||
+            data.type === 'offer_countered' ||
+            data.type === 'offer_accepted' ||
+            data.type === 'offer_rejected') &&
+          data.offer &&
+          (data.conversationId === currentConvId || offerBelongsToUser);
+
         if (shouldProcessOffer) {
           console.log('📨 [OFFER MESSAGE] Processing offer message:', {
             timestamp: new Date().toISOString(),
@@ -191,7 +221,7 @@ export default function MessagesContent() {
             senderId: data.message?.senderId,
             receiverId: data.message?.receiverId,
           });
-          
+
           // Get sender and receiver IDs - prioritize message data from backend
           // Backend should provide senderId and receiverId in the message object
           let messageSenderId: string | undefined;
@@ -212,24 +242,31 @@ export default function MessagesContent() {
               // Check if backend provides any indication of who sent the counter
               if (data.message?.senderId) {
                 messageSenderId = data.message.senderId;
-                messageReceiverId = data.message.senderId === data.offer.sellerId 
-                  ? data.offer.buyerId 
-                  : data.offer.sellerId;
+                messageReceiverId =
+                  data.message.senderId === data.offer.sellerId
+                    ? data.offer.buyerId
+                    : data.offer.sellerId;
               } else {
                 // Fallback: use offer's lastCounteredBy or assume seller countered
                 // This is a fallback - backend should provide senderId
-                messageSenderId = (data.offer as any)?.lastCounteredBy || data.offer.sellerId;
-                messageReceiverId = messageSenderId === data.offer.sellerId 
-                  ? data.offer.buyerId 
-                  : data.offer.sellerId;
+                messageSenderId =
+                  (data.offer as any)?.lastCounteredBy || data.offer.sellerId;
+                messageReceiverId =
+                  messageSenderId === data.offer.sellerId
+                    ? data.offer.buyerId
+                    : data.offer.sellerId;
               }
-            } else if (data.type === 'offer_accepted' || data.type === 'offer_rejected') {
+            } else if (
+              data.type === 'offer_accepted' ||
+              data.type === 'offer_rejected'
+            ) {
               // Accept/reject: the one who performs the action is the sender
               if (data.message?.senderId) {
                 messageSenderId = data.message.senderId;
-                messageReceiverId = data.message.senderId === data.offer.sellerId 
-                  ? data.offer.buyerId 
-                  : data.offer.sellerId;
+                messageReceiverId =
+                  data.message.senderId === data.offer.sellerId
+                    ? data.offer.buyerId
+                    : data.offer.sellerId;
               } else {
                 // Fallback: usually seller accepts/rejects buyer's offer
                 messageSenderId = data.offer.sellerId;
@@ -254,18 +291,21 @@ export default function MessagesContent() {
             isMyMessage = messageSenderId === user?.id;
           }
 
-          const offerRawTimestamp = data.message?.timestamp || 
-                                   data.message?.createdAt || 
-                                   data.offer.updatedAt || 
-                                   data.offer.createdAt;
+          const offerRawTimestamp =
+            data.message?.timestamp ||
+            data.message?.createdAt ||
+            data.offer.updatedAt ||
+            data.offer.createdAt;
 
           // Build offer message object
           // CRITICAL: Set sender based on actual senderId comparison, not just backend's sender field
           // This ensures "me" vs "other" is correct for both sender and receiver
-          const finalSender: 'me' | 'other' = (messageSenderId === user?.id) ? 'me' : 'other';
+          const finalSender: 'me' | 'other' =
+            messageSenderId === user?.id ? 'me' : 'other';
 
           const offerMessage: Message = {
-            id: data.message?.id || `${data.type}_${data.offer.id}_${Date.now()}`,
+            id:
+              data.message?.id || `${data.type}_${data.offer.id}_${Date.now()}`,
             text: data.message?.text || '',
             sender: finalSender, // Use the correctly determined sender
             senderId: messageSenderId,
@@ -279,7 +319,15 @@ export default function MessagesContent() {
               offerAmount: data.offer.offerAmount,
               counterAmount: data.offer.counterAmount,
               originalPrice: data.offer.originalPrice,
-              status: data.offer.status || (data.type === 'offer_accepted' ? 'accepted' : data.type === 'offer_rejected' ? 'rejected' : data.type === 'offer_countered' ? 'countered' : 'pending'),
+              status:
+                data.offer.status ||
+                (data.type === 'offer_accepted'
+                  ? 'accepted'
+                  : data.type === 'offer_rejected'
+                  ? 'rejected'
+                  : data.type === 'offer_countered'
+                  ? 'countered'
+                  : 'pending'),
               productId: data.offer.productId,
               shippingCost: data.offer.shippingCost || data.offer.shipping,
               product: data.offer.product
@@ -298,10 +346,14 @@ export default function MessagesContent() {
             },
             messageType: 'offer',
             isDelivered: isMyMessage
-              ? (data.message?.isDelivered !== undefined ? data.message.isDelivered : true)
+              ? data.message?.isDelivered !== undefined
+                ? data.message.isDelivered
+                : true
               : undefined,
             isRead: isMyMessage
-              ? (data.message?.isRead !== undefined ? data.message.isRead : false)
+              ? data.message?.isRead !== undefined
+                ? data.message.isRead
+                : false
               : undefined,
           };
 
@@ -310,52 +362,74 @@ export default function MessagesContent() {
             // For counter offers, try to replace optimistic messages first
             if (data.type === 'offer_countered' && isMyMessage) {
               // Find and replace optimistic counter offer messages
-              const optimisticIndex = prev.findIndex(m => 
-                m.id.startsWith('temp-counter-') && 
-                m.offerId === offerMessage.offerId &&
-                m.offer?.counterAmount === offerMessage.offer?.counterAmount
+              const optimisticIndex = prev.findIndex(
+                m =>
+                  m.id.startsWith('temp-counter-') &&
+                  m.offerId === offerMessage.offerId &&
+                  m.offer?.counterAmount === offerMessage.offer?.counterAmount
               );
-              
+
               if (optimisticIndex !== -1) {
-                console.log('✅ [REPLACE] Replacing optimistic counter offer with real message:', {
-                  optimisticId: prev[optimisticIndex].id,
-                  realId: offerMessage.id,
-                  offerId: offerMessage.offerId,
-                });
+                console.log(
+                  '✅ [REPLACE] Replacing optimistic counter offer with real message:',
+                  {
+                    optimisticId: prev[optimisticIndex].id,
+                    realId: offerMessage.id,
+                    offerId: offerMessage.offerId,
+                  }
+                );
                 const updated = [...prev];
                 updated[optimisticIndex] = offerMessage;
                 return updated.sort((a, b) => {
-                  const timeA = a.rawTimestamp ? new Date(a.rawTimestamp).getTime() : 0;
-                  const timeB = b.rawTimestamp ? new Date(b.rawTimestamp).getTime() : 0;
+                  const timeA = a.rawTimestamp
+                    ? new Date(a.rawTimestamp).getTime()
+                    : 0;
+                  const timeB = b.rawTimestamp
+                    ? new Date(b.rawTimestamp).getTime()
+                    : 0;
                   return timeA - timeB;
                 });
               }
             }
-            
+
             // For accept/reject, update existing message instead of adding new one
-            if (data.type === 'offer_accepted' || data.type === 'offer_rejected') {
+            if (
+              data.type === 'offer_accepted' ||
+              data.type === 'offer_rejected'
+            ) {
               // Search for existing message with same offerId (more flexible search)
               const existingOfferIndex = prev.findIndex(m => {
                 // Match by offerId (most reliable)
                 if (m.offerId === offerMessage.offerId) return true;
                 // Also check if offer object has matching ID
-                if (m.offer?.id === offerMessage.offer?.id && offerMessage.offer?.id) return true;
+                if (
+                  m.offer?.id === offerMessage.offer?.id &&
+                  offerMessage.offer?.id
+                )
+                  return true;
                 return false;
               });
-              
-              console.log('🔍 [ACCEPT/REJECT] Searching for existing offer message:', {
-                type: data.type,
-                offerId: offerMessage.offerId,
-                offerObjectId: offerMessage.offer?.id,
-                existingOfferIndex,
-                totalMessages: prev.length,
-                messagesWithOfferId: prev.filter(m => m.offerId === offerMessage.offerId).length,
-              });
-              
+
+              console.log(
+                '🔍 [ACCEPT/REJECT] Searching for existing offer message:',
+                {
+                  type: data.type,
+                  offerId: offerMessage.offerId,
+                  offerObjectId: offerMessage.offer?.id,
+                  existingOfferIndex,
+                  totalMessages: prev.length,
+                  messagesWithOfferId: prev.filter(
+                    m => m.offerId === offerMessage.offerId
+                  ).length,
+                }
+              );
+
               if (existingOfferIndex !== -1) {
                 const existingMessage = prev[existingOfferIndex];
-                const newStatus = offerMessage.offer?.status || (data.type === 'offer_accepted' ? 'accepted' : 'rejected');
-                
+                const newStatus =
+                  offerMessage.offer?.status ||
+                  (data.type === 'offer_accepted' ? 'accepted' : 'rejected');
+
                 console.log('✅ [UPDATE] Updating existing offer message:', {
                   messageIndex: existingOfferIndex,
                   existingMessageId: existingMessage.id,
@@ -365,48 +439,70 @@ export default function MessagesContent() {
                   existingOffer: existingMessage.offer,
                   newOffer: offerMessage.offer,
                 });
-                
+
                 // Create completely new objects to ensure React detects the change
                 // This is critical for UI updates - even if status is the same, we need new object references
                 const updated = [...prev];
-                
+
                 // Always use the new timestamp from the WebSocket message to ensure React detects change
-                const updatedTimestamp = offerMessage.rawTimestamp || new Date().toISOString();
-                const updatedFormattedTimestamp = offerMessage.timestamp || formatMessageTime(updatedTimestamp, locale);
-                
+                const updatedTimestamp =
+                  offerMessage.rawTimestamp || new Date().toISOString();
+                const updatedFormattedTimestamp =
+                  offerMessage.timestamp ||
+                  formatMessageTime(updatedTimestamp, locale);
+
                 updated[existingOfferIndex] = {
                   ...existingMessage,
                   sender: finalSender, // Update sender to ensure correctness
                   // Create a completely new offer object to trigger re-render
                   // Even if status is the same, new object reference forces React to re-render
-                  offer: existingMessage.offer ? {
-                    ...existingMessage.offer,
-                    ...offerMessage.offer,
-                    status: newStatus,
-                    // Ensure product object is also new if it exists
-                    product: offerMessage.offer?.product ? {
-                      ...(offerMessage.offer.product as Record<string, any>),
-                    } : existingMessage.offer.product ? {
-                      ...(existingMessage.offer.product as Record<string, any>),
-                    } : undefined,
-                  } : offerMessage.offer,
+                  offer: existingMessage.offer
+                    ? {
+                        ...existingMessage.offer,
+                        ...offerMessage.offer,
+                        status: newStatus,
+                        // Ensure product object is also new if it exists
+                        product: offerMessage.offer?.product
+                          ? {
+                              ...(offerMessage.offer.product as Record<
+                                string,
+                                any
+                              >),
+                            }
+                          : existingMessage.offer.product
+                          ? {
+                              ...(existingMessage.offer.product as Record<
+                                string,
+                                any
+                              >),
+                            }
+                          : undefined,
+                      }
+                    : offerMessage.offer,
                   text: offerMessage.text || existingMessage.text,
                   // Always update timestamp to ensure message is seen as updated
                   rawTimestamp: updatedTimestamp,
                   timestamp: updatedFormattedTimestamp,
                 };
-                
-                console.log('✅ [UPDATE] Message updated, triggering re-render:', {
-                  oldMessageId: existingMessage.id,
-                  newMessageId: updated[existingOfferIndex].id,
-                  oldStatus: existingMessage.offer?.status,
-                  newStatus: updated[existingOfferIndex].offer?.status,
-                  offerObjectChanged: existingMessage.offer !== updated[existingOfferIndex].offer,
-                });
-                
+
+                console.log(
+                  '✅ [UPDATE] Message updated, triggering re-render:',
+                  {
+                    oldMessageId: existingMessage.id,
+                    newMessageId: updated[existingOfferIndex].id,
+                    oldStatus: existingMessage.offer?.status,
+                    newStatus: updated[existingOfferIndex].offer?.status,
+                    offerObjectChanged:
+                      existingMessage.offer !==
+                      updated[existingOfferIndex].offer,
+                  }
+                );
+
                 return updated;
               } else {
-                console.log('⚠️ [NOT FOUND] Existing offer message not found, will add as new message');
+                console.log(
+                  '⚠️ [NOT FOUND] Existing offer message not found, will add as new message'
+                );
                 // Continue to add as new message below
               }
             }
@@ -417,37 +513,52 @@ export default function MessagesContent() {
             const existingMessageIndex = prev.findIndex(m => {
               // Exact ID match - always a duplicate
               if (m.id === offerMessage.id) {
-                console.log('⚠️ [DUPLICATE] Message already exists by ID:', offerMessage.id);
+                console.log(
+                  '⚠️ [DUPLICATE] Message already exists by ID:',
+                  offerMessage.id
+                );
                 return true;
               }
-              
+
               // For accept/reject: backend sends a new message, so allow it even if offerId matches
               // Only block if it's the exact same message ID
-              if (data.type === 'offer_accepted' || data.type === 'offer_rejected') {
+              if (
+                data.type === 'offer_accepted' ||
+                data.type === 'offer_rejected'
+              ) {
                 // Allow new accept/reject messages - they have new message IDs from backend
                 return false;
               }
-              
+
               // For counter offers: only consider it a duplicate if it's the exact same message (same ID)
               // Allow multiple counter offers with same or different amounts - each gets a new message ID from backend
-              if (data.type === 'offer_countered' && m.offerId === offerMessage.offerId) {
+              if (
+                data.type === 'offer_countered' &&
+                m.offerId === offerMessage.offerId
+              ) {
                 // Only duplicate if it's the exact same message ID
                 // Different message IDs mean different counter offers, even if counterAmount is the same
                 const isDuplicate = m.id === offerMessage.id;
                 if (isDuplicate) {
-                  console.log('⚠️ [DUPLICATE] Counter offer already exists (same ID):', {
-                    offerId: offerMessage.offerId,
-                    counterAmount: offerMessage.offer?.counterAmount,
-                    messageId: offerMessage.id,
-                  });
+                  console.log(
+                    '⚠️ [DUPLICATE] Counter offer already exists (same ID):',
+                    {
+                      offerId: offerMessage.offerId,
+                      counterAmount: offerMessage.offer?.counterAmount,
+                      messageId: offerMessage.id,
+                    }
+                  );
                 } else {
-                  console.log('✅ [NEW COUNTER] Different counter offer (different ID or amount):', {
-                    offerId: offerMessage.offerId,
-                    existingCounterAmount: m.offer?.counterAmount,
-                    newCounterAmount: offerMessage.offer?.counterAmount,
-                    existingMessageId: m.id,
-                    newMessageId: offerMessage.id,
-                  });
+                  console.log(
+                    '✅ [NEW COUNTER] Different counter offer (different ID or amount):',
+                    {
+                      offerId: offerMessage.offerId,
+                      existingCounterAmount: m.offer?.counterAmount,
+                      newCounterAmount: offerMessage.offer?.counterAmount,
+                      existingMessageId: m.id,
+                      newMessageId: offerMessage.id,
+                    }
+                  );
                 }
                 return isDuplicate;
               }
@@ -458,7 +569,7 @@ export default function MessagesContent() {
               console.log('⚠️ [DUPLICATE] Skipping duplicate message');
               return prev;
             }
-            
+
             console.log('✅ [NEW MESSAGE] Adding new offer message:', {
               type: data.type,
               messageId: offerMessage.id,
@@ -470,8 +581,12 @@ export default function MessagesContent() {
             // Add new message and sort chronologically
             const updated = [...prev, offerMessage];
             return updated.sort((a, b) => {
-              const timeA = a.rawTimestamp ? new Date(a.rawTimestamp).getTime() : 0;
-              const timeB = b.rawTimestamp ? new Date(b.rawTimestamp).getTime() : 0;
+              const timeA = a.rawTimestamp
+                ? new Date(a.rawTimestamp).getTime()
+                : 0;
+              const timeB = b.rawTimestamp
+                ? new Date(b.rawTimestamp).getTime()
+                : 0;
               return timeA - timeB;
             });
           });
@@ -506,10 +621,16 @@ export default function MessagesContent() {
     // Set up listener when WebSocket opens
     const setupListener = () => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        console.log('🔌 [WEBSOCKET] Setting up message listener for conversation:', conversationId);
+        console.log(
+          '🔌 [WEBSOCKET] Setting up message listener for conversation:',
+          conversationId
+        );
         wsRef.current.addEventListener('message', handleMessage);
       } else {
-        console.log('⚠️ [WEBSOCKET] WebSocket not open, cannot set up listener. State:', wsRef.current?.readyState);
+        console.log(
+          '⚠️ [WEBSOCKET] WebSocket not open, cannot set up listener. State:',
+          wsRef.current?.readyState
+        );
       }
     };
 
@@ -532,7 +653,16 @@ export default function MessagesContent() {
         ws.removeEventListener('open', setupListener);
       }
     };
-  }, [conversationId, wsRef, user, selectedConversation, setMessages, refetchConversations, refetchMessages, locale]);
+  }, [
+    conversationId,
+    wsRef,
+    user,
+    selectedConversation,
+    setMessages,
+    refetchConversations,
+    refetchMessages,
+    locale,
+  ]);
 
   // Use offers hook
   const { sendOffer, counterOffer, acceptOffer, rejectOffer } = useOffers({
@@ -563,7 +693,9 @@ export default function MessagesContent() {
           status?: string;
           isOnline?: boolean;
         }>;
-        lastMessage?: string | { text?: string; senderId?: string; isSender?: boolean };
+        lastMessage?:
+          | string
+          | { text?: string; senderId?: string; isSender?: boolean };
         lastMessageAt?: string;
         updatedAt?: string;
         unreadCount?: number | string;
@@ -588,16 +720,23 @@ export default function MessagesContent() {
             (p: { id: string; isOnline?: boolean }) => p.id !== user?.id
           )?.isOnline,
         };
-        
+
         // Enhance with online user details if available
-        if (onlineUsersDetails && onlineUsersDetails.length > 0 && otherUser.id) {
-          const onlineUserDetail = onlineUsersDetails.find(u => u.id === otherUser.id);
+        if (
+          onlineUsersDetails &&
+          onlineUsersDetails.length > 0 &&
+          otherUser.id
+        ) {
+          const onlineUserDetail = onlineUsersDetails.find(
+            u => u.id === otherUser.id
+          );
           if (onlineUserDetail) {
             // Update username and profileImage from online users details
             otherUser = {
               ...otherUser,
               username: onlineUserDetail.username || otherUser.username,
-              profileImage: onlineUserDetail.profileImage || otherUser.profileImage,
+              profileImage:
+                onlineUserDetail.profileImage || otherUser.profileImage,
             };
           }
         }
@@ -611,20 +750,21 @@ export default function MessagesContent() {
                 : conv.otherUser?.status === 'active');
 
         const convId = conv.conversationId || conv.id || '';
-        
+
         // Check if last message was sent by current user
         // Only show unread count for received messages, not sent messages
-        const lastMessageObj = typeof conv.lastMessage === 'object' ? conv.lastMessage : null;
-        const isLastMessageFromMe = 
-          lastMessageObj?.senderId === user?.id || 
+        const lastMessageObj =
+          typeof conv.lastMessage === 'object' ? conv.lastMessage : null;
+        const isLastMessageFromMe =
+          lastMessageObj?.senderId === user?.id ||
           lastMessageObj?.isSender === true;
-        
+
         // Only show unread count if there are unread messages AND the last message wasn't sent by the user
         // This ensures we only show indicators for received/unseen messages, not sent messages
-        const unreadCount = isLastMessageFromMe 
-          ? '0' 
-          : (conv.unreadCount?.toString() || '0');
-        
+        const unreadCount = isLastMessageFromMe
+          ? '0'
+          : conv.unreadCount?.toString() || '0';
+
         return {
           id: conv.id || conv.conversationId || '',
           conversationId: convId,
@@ -710,17 +850,24 @@ export default function MessagesContent() {
     .map(({ allConversationIds: _allIds, ...conv }) => {
       // Enhance with online user details if available (after grouping)
       let enhancedOtherUser = conv.otherUser;
-      if (onlineUsersDetails && onlineUsersDetails.length > 0 && conv.otherUser.id) {
-        const onlineUserDetail = onlineUsersDetails.find(u => u.id === conv.otherUser.id);
+      if (
+        onlineUsersDetails &&
+        onlineUsersDetails.length > 0 &&
+        conv.otherUser.id
+      ) {
+        const onlineUserDetail = onlineUsersDetails.find(
+          u => u.id === conv.otherUser.id
+        );
         if (onlineUserDetail) {
           enhancedOtherUser = {
             ...conv.otherUser,
             username: onlineUserDetail.username || conv.otherUser.username,
-            profileImage: onlineUserDetail.profileImage || conv.otherUser.profileImage,
+            profileImage:
+              onlineUserDetail.profileImage || conv.otherUser.profileImage,
           };
         }
       }
-      
+
       // Remove allConversationIds from final output (stored but not needed in UI)
       // Note: allConversationIds could be used in future to fetch messages from all conversations
       // Ensure required fields are strings
@@ -753,7 +900,10 @@ export default function MessagesContent() {
       wsRef.current.readyState === WebSocket.OPEN;
 
     // Clear messages immediately when switching to a different conversation
-    if (selectedConversation?.id !== conversation.id || conversationId !== convId) {
+    if (
+      selectedConversation?.id !== conversation.id ||
+      conversationId !== convId
+    ) {
       setMessages([]); // Clear messages first
     }
 
@@ -763,10 +913,10 @@ export default function MessagesContent() {
     // Set conversationId to trigger message loading
     if (convId) {
       const previousConvId = conversationId;
-      
+
       // Set conversationId immediately - this will trigger the query to refetch
       setConversationId(convId);
-      
+
       // Refetch conversations to update unread count when conversation is opened
       // This ensures the unread badge disappears when user opens the conversation
       if (parseInt(conversation.unreadCount || '0') > 0) {
@@ -775,14 +925,14 @@ export default function MessagesContent() {
           refetchConversations();
         }, 500);
       }
-      
+
       console.log('💬 [CONVERSATION SELECTED] Setting conversationId:', {
         conversationId: convId,
         previousConversationId: previousConvId,
         conversation: conversation,
         timestamp: new Date().toISOString(),
       });
-      
+
       // If same conversation, refetch to get latest messages
       if (previousConvId === convId) {
         setTimeout(() => {
@@ -801,7 +951,7 @@ export default function MessagesContent() {
   useEffect(() => {
     const buyerId = searchParams.get('buyerId');
     const sellerId = searchParams.get('sellerId');
-    
+
     if (
       (buyerId || sellerId) &&
       !selectedConversation &&
@@ -810,13 +960,13 @@ export default function MessagesContent() {
       user
     ) {
       const targetUserId = buyerId || sellerId;
-      
+
       // First, try to find existing conversation
       if (conversations.length > 0 && conversationsData) {
         const conversation = conversations.find(
           conv => conv.otherUser.id === targetUserId
         );
-        
+
         if (conversation) {
           hasSelectedFromQueryRef.current = true;
           hasAutoSelectedRef.current = true;
@@ -825,7 +975,7 @@ export default function MessagesContent() {
           return;
         }
       }
-      
+
       // If no conversation exists, we need to create it via API
       // For now, just refetch conversations - the user can manually start a conversation
       if (targetUserId) {
@@ -835,14 +985,20 @@ export default function MessagesContent() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isQueryInitialized, conversationsData, conversations.length, searchParams, user]);
+  }, [
+    isQueryInitialized,
+    conversationsData,
+    conversations.length,
+    searchParams,
+    user,
+  ]);
 
   // After conversations are refetched, find and select the newly created conversation
   useEffect(() => {
     const buyerId = searchParams.get('buyerId');
     const sellerId = searchParams.get('sellerId');
     const targetUserId = buyerId || sellerId;
-    
+
     if (
       targetUserId &&
       hasSelectedFromQueryRef.current &&
@@ -853,7 +1009,7 @@ export default function MessagesContent() {
       const conversation = conversations.find(
         conv => conv.otherUser.id === targetUserId
       );
-      
+
       if (conversation) {
         handleUserSelect(conversation);
         router.replace(`/${locale}/messages`);
