@@ -75,6 +75,14 @@ export default function Footer() {
                   <FaTiktok className='w-5 h-5 text-deep-charcoal group-hover:text-white transition-colors duration-300' />
                 </a>
               </div>
+              {/* Divider */}
+              <div className='w-full h-px bg-gradient-to-r from-transparent via-rich-sand/50 to-transparent my-2'></div>
+              <Link
+                href={`/${locale}/contact`}
+                className='text-saudi-green hover:text-saudi-green/80 transition-all duration-200 font-semibold text-sm md:text-base hover:underline underline-offset-4'
+              >
+                {locale === 'en' ? 'Contact Us' : 'اتصل بنا'}
+              </Link>
             </div>
 
             {/* Terms and Services Section */}
