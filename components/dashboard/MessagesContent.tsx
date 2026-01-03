@@ -385,9 +385,9 @@ export default function MessagesContent() {
                     status: newStatus,
                     // Ensure product object is also new if it exists
                     product: offerMessage.offer?.product ? {
-                      ...offerMessage.offer.product,
+                      ...(offerMessage.offer.product as Record<string, any>),
                     } : existingMessage.offer.product ? {
-                      ...existingMessage.offer.product,
+                      ...(existingMessage.offer.product as Record<string, any>),
                     } : undefined,
                   } : offerMessage.offer,
                   text: offerMessage.text || existingMessage.text,
