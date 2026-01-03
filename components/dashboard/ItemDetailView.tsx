@@ -401,12 +401,9 @@ export default function ItemDetailView({ itemId }: ItemDetailViewProps) {
 
                 {/* Out of Stock Alert */}
                 {(product.isOutOfStock ??
-                  (product.quantity ||
-                    product.Quantity === null ||
-                    product.quantity ||
-                    product.Quantity === undefined ||
-                    product.quantity ||
-                    product.Quantity <= 0)) && (
+                  (product.quantity === null ||
+                    product.quantity === undefined ||
+                    product.quantity <= 0)) && (
                   <div className='mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg'>
                     <div className='flex items-start gap-3'>
                       <div className='flex-1'>
