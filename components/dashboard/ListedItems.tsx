@@ -138,6 +138,16 @@ export default function ListedItems() {
                     {locale === 'en' ? 'Rejected' : 'مرفوض'}
                   </div>
                 )}
+                {product.status === 'removed' && (
+                  <div className='absolute top-2 right-2 bg-orange-600 text-white px-2 py-1 rounded text-xs font-semibold z-10 capitalize'>
+                    {product.status}
+                  </div>
+                )}
+                {product.status && product.status !== 'pending' && product.status !== 'rejected' && product.status !== 'removed' && (
+                  <div className='absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded text-xs font-semibold z-10 capitalize'>
+                    {product.status}
+                  </div>
+                )}
               </div>
               <div className='p-4'>
                 <h3 className='font-semibold text-deep-charcoal mb-2 line-clamp-2'>
