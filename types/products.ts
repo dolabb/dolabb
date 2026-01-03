@@ -49,7 +49,13 @@ export interface ProductFilters {
   condition?: string;
   onSale?: boolean;
   search?: string;
-  sortBy?: 'newest' | 'price: low to high' | 'price: high to low' | 'relevance' | 'price-low' | 'price-high';
+  sortBy?:
+    | 'newest'
+    | 'price: low to high'
+    | 'price: high to low'
+    | 'relevance'
+    | 'price-low'
+    | 'price-high';
   page?: number;
   limit?: number;
   format?: 'legacy';
@@ -131,4 +137,3 @@ export interface CategoryFiltersResponse {
   success: boolean;
   filters: CategoryFilters;
 }
-
