@@ -1,19 +1,19 @@
 'use client';
 
-import { useLocale } from 'next-intl';
-import Link from 'next/link';
-import Image from 'next/image';
-import { HiEye } from 'react-icons/hi2';
 import { useGetSellerProductsQuery } from '@/lib/api/productsApi';
-import { useState } from 'react';
 import { formatPrice } from '@/utils/formatPrice';
+import { useLocale } from 'next-intl';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useState } from 'react';
+import { HiEye } from 'react-icons/hi2';
 
 export default function ListedItems() {
   const locale = useLocale();
   const isRTL = locale === 'ar';
   const [currentPage, setCurrentPage] = useState(1);
   const [showOutOfStock, setShowOutOfStock] = useState(true);
-  
+
   // Remove status filter to show all products including out of stock
   const { data, isLoading, error } = useGetSellerProductsQuery({
     page: currentPage,
@@ -59,7 +59,11 @@ export default function ListedItems() {
   // Calculate isOutOfStock from quantity if not provided by backend
   const productsWithStockStatus = data.map(product => ({
     ...product,
-    isOutOfStock: product.isOutOfStock ?? (product.quantity === null || product.quantity === undefined || product.quantity <= 0),
+    isOutOfStock:
+      product.isOutOfStock ??
+      (product.quantity === null ||
+        product.quantity === undefined ||
+        product.quantity <= 0),
   }));
 
   // Filter products based on showOutOfStock toggle
@@ -82,7 +86,9 @@ export default function ListedItems() {
             className='w-4 h-4 text-saudi-green focus:ring-saudi-green rounded cursor-pointer'
           />
           <span className='text-sm text-deep-charcoal'>
-            {locale === 'en' ? 'Show out of stock' : 'إظهار المنتجات غير المتوفرة'}
+            {locale === 'en'
+              ? 'Show out of stock'
+              : 'إظهار المنتجات غير المتوفرة'}
           </span>
         </label>
       </div>
@@ -90,9 +96,16 @@ export default function ListedItems() {
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
         {filteredProducts.map(product => {
           // Get first valid image, clean any spaces in URL
-          const firstImage = product.images?.find(img => img && img.trim() !== '') || product.images?.[0] || '';
+          const firstImage =
+            product.images?.find(img => img && img.trim() !== '') ||
+            product.images?.[0] ||
+            '';
           const productImage = firstImage ? firstImage.replace(/\s+/g, '') : '';
-          const isOutOfStock = product.isOutOfStock ?? (product.quantity === null || product.quantity === undefined || product.quantity <= 0);
+          const isOutOfStock =
+            product.isOutOfStock ??
+            (product.quantity === null ||
+              product.quantity === undefined ||
+              product.quantity <= 0);
 
           return (
             <div
@@ -107,14 +120,16 @@ export default function ListedItems() {
                   {locale === 'en' ? 'Out of Stock' : 'غير متوفر'}
                 </div>
               )}
-              
+
               <div className='relative aspect-square bg-white'>
                 {productImage ? (
                   <Image
                     src={productImage}
                     alt={product.title}
                     fill
-                    className={`object-contain ${isOutOfStock ? 'opacity-60' : ''}`}
+                    className={`object-contain ${
+                      isOutOfStock ? 'opacity-60' : ''
+                    }`}
                     unoptimized
                   />
                 ) : (
@@ -143,11 +158,14 @@ export default function ListedItems() {
                     {product.status}
                   </div>
                 )}
-                {product.status && product.status !== 'pending' && product.status !== 'rejected' && product.status !== 'removed' && (
-                  <div className='absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded text-xs font-semibold z-10 capitalize'>
-                    {product.status}
-                  </div>
-                )}
+                {product.status &&
+                  product.status !== 'pending' &&
+                  product.status !== 'rejected' &&
+                  product.status !== 'removed' && (
+                    <div className='absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded text-xs font-semibold z-10 capitalize'>
+                      {product.status}
+                    </div>
+                  )}
               </div>
               <div className='p-4'>
                 <h3 className='font-semibold text-deep-charcoal mb-2 line-clamp-2'>
@@ -155,14 +173,29 @@ export default function ListedItems() {
                 </h3>
                 <div className='flex justify-between items-center mb-3'>
                   <span className='text-lg font-bold text-saudi-green'>
-                    {formatPrice(product.price, locale, 2, product.currency || (product as any).Currency)}
+                    {formatPrice(
+                      product.price,
+                      locale,
+                      2,
+                      product.currency || (product as any).Currency
+                    )}
                   </span>
                   {product.quantity !== undefined && (
-                    <span className={`text-xs ${isOutOfStock ? 'text-red-500 font-semibold' : 'text-deep-charcoal/60'}`}>
+                    <span
+                      className={`text-xs ${
+                        isOutOfStock
+                          ? 'text-red-500 font-semibold'
+                          : 'text-deep-charcoal/60'
+                      }`}
+                    >
                       {product.quantity}{' '}
-                      {locale === 'en' 
-                        ? (isOutOfStock ? 'out of stock' : 'in stock')
-                        : (isOutOfStock ? 'غير متوفر' : 'متوفر')}
+                      {locale === 'en'
+                        ? isOutOfStock
+                          ? 'out of stock'
+                          : 'in stock'
+                        : isOutOfStock
+                        ? 'غير متوفر'
+                        : 'متوفر'}
                     </span>
                   )}
                 </div>
@@ -181,4 +214,3 @@ export default function ListedItems() {
     </div>
   );
 }
-
