@@ -29,7 +29,7 @@ export interface Product {
     locations: string[];
   };
   affiliateCode?: string;
-  status?: 'pending' | 'approved' | 'rejected' | 'active' | 'sold';
+  status?: 'pending' | 'approved' | 'rejected' | 'active' | 'sold' | 'removed';
   quantity?: number;
   isOutOfStock?: boolean;
   taxPercentage?: number;
