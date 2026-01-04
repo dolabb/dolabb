@@ -436,7 +436,7 @@ export default function ChatArea({
             if (shouldRenderAsOffer) {
               return (
                 <ProductMessageCard
-                  key={message.id}
+                  key={`${message.id}-${message.offer?.status || 'pending'}`}
                   message={message}
                   messages={messages}
                   locale={locale}

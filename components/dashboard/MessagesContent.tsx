@@ -20,6 +20,7 @@ export default function MessagesContent() {
   const locale = useLocale();
   const isRTL = locale === 'ar';
   const user = useAppSelector(state => state.auth.user);
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -32,13 +33,15 @@ export default function MessagesContent() {
   const hasAutoSelectedRef = useRef<boolean>(false);
   const hasSelectedFromQueryRef = useRef<boolean>(false);
 
-  // Fetch conversations
+  // Fetch conversations - skip if not authenticated to prevent 403 errors
   const {
     data: conversationsData,
     refetch: refetchConversations,
     isLoading: isLoadingConversations,
     isFetching: isFetchingConversations,
-  } = useGetConversationsQuery();
+  } = useGetConversationsQuery(undefined, {
+    skip: !isAuthenticated,
+  });
 
   // Log conversations API response
   useEffect(() => {
@@ -392,56 +395,48 @@ export default function MessagesContent() {
               }
             }
 
-            // For accept/reject, update existing message instead of adding new one
+            // For accept/reject, update ALL existing messages with same offerId
+            // This is critical because there can be multiple messages (original offer + counter offers)
+            // and we need to update ALL of them to ensure the UI reflects the change correctly
             if (
               data.type === 'offer_accepted' ||
               data.type === 'offer_rejected'
             ) {
-              // Search for existing message with same offerId (more flexible search)
-              const existingOfferIndex = prev.findIndex(m => {
+              // Find ALL messages with same offerId
+              const matchingIndices: number[] = [];
+              prev.forEach((m, index) => {
                 // Match by offerId (most reliable)
-                if (m.offerId === offerMessage.offerId) return true;
+                if (m.offerId === offerMessage.offerId) {
+                  matchingIndices.push(index);
+                  return;
+                }
                 // Also check if offer object has matching ID
                 if (
                   m.offer?.id === offerMessage.offer?.id &&
                   offerMessage.offer?.id
-                )
-                  return true;
-                return false;
+                ) {
+                  matchingIndices.push(index);
+                }
               });
 
               console.log(
-                '🔍 [ACCEPT/REJECT] Searching for existing offer message:',
+                '🔍 [ACCEPT/REJECT] Searching for existing offer messages:',
                 {
                   type: data.type,
                   offerId: offerMessage.offerId,
                   offerObjectId: offerMessage.offer?.id,
-                  existingOfferIndex,
+                  matchingIndices,
+                  matchingCount: matchingIndices.length,
                   totalMessages: prev.length,
-                  messagesWithOfferId: prev.filter(
-                    m => m.offerId === offerMessage.offerId
-                  ).length,
                 }
               );
 
-              if (existingOfferIndex !== -1) {
-                const existingMessage = prev[existingOfferIndex];
+              if (matchingIndices.length > 0) {
                 const newStatus =
                   offerMessage.offer?.status ||
                   (data.type === 'offer_accepted' ? 'accepted' : 'rejected');
 
-                console.log('✅ [UPDATE] Updating existing offer message:', {
-                  messageIndex: existingOfferIndex,
-                  existingMessageId: existingMessage.id,
-                  existingStatus: existingMessage.offer?.status,
-                  newStatus: newStatus,
-                  statusChanged: existingMessage.offer?.status !== newStatus,
-                  existingOffer: existingMessage.offer,
-                  newOffer: offerMessage.offer,
-                });
-
-                // Create completely new objects to ensure React detects the change
-                // This is critical for UI updates - even if status is the same, we need new object references
+                // Create completely new array to ensure React detects the change
                 const updated = [...prev];
 
                 // Always use the new timestamp from the WebSocket message to ensure React detects change
@@ -451,38 +446,45 @@ export default function MessagesContent() {
                   offerMessage.timestamp ||
                   formatMessageTime(updatedTimestamp, locale);
 
-                updated[existingOfferIndex] = {
-                  ...existingMessage,
-                  sender: finalSender, // Update sender to ensure correctness
-                  // Create a completely new offer object to trigger re-render
-                  // Even if status is the same, new object reference forces React to re-render
-                  offer: existingMessage.offer
-                    ? {
-                        ...existingMessage.offer,
-                        ...offerMessage.offer,
-                        status: newStatus,
-                        // Ensure product object is also new if it exists
-                        product:
-                          offerMessage.offer?.product ||
-                          existingMessage.offer.product,
-                      }
-                    : offerMessage.offer,
-                  text: offerMessage.text || existingMessage.text,
-                  // Always update timestamp to ensure message is seen as updated
-                  rawTimestamp: updatedTimestamp,
-                  timestamp: updatedFormattedTimestamp,
-                };
+                // Update ALL matching messages with the new status
+                matchingIndices.forEach(index => {
+                  const existingMessage = prev[index];
+                  
+                  console.log('✅ [UPDATE] Updating offer message:', {
+                    messageIndex: index,
+                    existingMessageId: existingMessage.id,
+                    existingStatus: existingMessage.offer?.status,
+                    newStatus: newStatus,
+                  });
+
+                  // Create completely new objects to ensure React detects the change
+                  updated[index] = {
+                    ...existingMessage,
+                    // Create a completely new offer object to trigger re-render
+                    offer: existingMessage.offer
+                      ? {
+                          ...existingMessage.offer,
+                          status: newStatus,
+                          // Preserve product object
+                          product:
+                            offerMessage.offer?.product ||
+                            existingMessage.offer.product,
+                        }
+                      : {
+                          ...offerMessage.offer,
+                          status: newStatus,
+                        },
+                    // Always update timestamp to ensure message is seen as updated
+                    rawTimestamp: updatedTimestamp,
+                    timestamp: updatedFormattedTimestamp,
+                  };
+                });
 
                 console.log(
-                  '✅ [UPDATE] Message updated, triggering re-render:',
+                  '✅ [UPDATE] All messages updated, triggering re-render:',
                   {
-                    oldMessageId: existingMessage.id,
-                    newMessageId: updated[existingOfferIndex].id,
-                    oldStatus: existingMessage.offer?.status,
-                    newStatus: updated[existingOfferIndex].offer?.status,
-                    offerObjectChanged:
-                      existingMessage.offer !==
-                      updated[existingOfferIndex].offer,
+                    updatedCount: matchingIndices.length,
+                    newStatus: newStatus,
                   }
                 );
 

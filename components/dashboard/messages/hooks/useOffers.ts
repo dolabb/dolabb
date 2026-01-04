@@ -391,6 +391,36 @@ export function useOffers({ wsRef, user, setMessages }: UseOffersProps) {
             : 'اتفاق! دعنا نتابع الشراء'),
       };
 
+      // Optimistic update: immediately update all messages with this offerId to 'accepted' status
+      // This ensures the UI updates instantly without waiting for WebSocket response
+      if (setMessages) {
+        console.log('🔄 [ACCEPT OFFER] Applying optimistic update for offerId:', offerId);
+        setMessages(prev => {
+          const updated = prev.map(msg => {
+            if (msg.offerId === offerId || msg.offer?.id === offerId) {
+              console.log('✅ [ACCEPT OFFER] Optimistically updating message:', {
+                messageId: msg.id,
+                oldStatus: msg.offer?.status,
+                newStatus: 'accepted',
+              });
+              return {
+                ...msg,
+                offer: msg.offer
+                  ? {
+                      ...msg.offer,
+                      status: 'accepted' as const,
+                    }
+                  : undefined,
+                rawTimestamp: new Date().toISOString(),
+                timestamp: formatMessageTime(new Date().toISOString(), locale),
+              };
+            }
+            return msg;
+          });
+          return updated;
+        });
+      }
+
       console.log('📤 [ACCEPT OFFER] Sending via WebSocket:', {
         timestamp: new Date().toISOString(),
         payload: acceptPayload,
@@ -417,13 +447,34 @@ export function useOffers({ wsRef, user, setMessages }: UseOffersProps) {
           websocketProtocol: wsRef.current?.protocol,
           websocketExtensions: wsRef.current?.extensions,
         });
+        // Rollback optimistic update on error
+        if (setMessages) {
+          console.log('🔄 [ACCEPT OFFER] Rolling back optimistic update due to error');
+          setMessages(prev => {
+            return prev.map(msg => {
+              if (msg.offerId === offerId || msg.offer?.id === offerId) {
+                // Revert to previous status (countered or pending)
+                return {
+                  ...msg,
+                  offer: msg.offer
+                    ? {
+                        ...msg.offer,
+                        status: msg.offer.counterAmount ? 'countered' : 'pending',
+                      }
+                    : undefined,
+                };
+              }
+              return msg;
+            });
+          });
+        }
         toast.error(
           locale === 'en' ? 'Failed to accept offer' : 'فشل قبول العرض'
         );
         throw error;
       }
     },
-    [locale, wsRef, user]
+    [locale, wsRef, user, setMessages]
   );
 
   const rejectOffer = useCallback(
@@ -452,17 +503,66 @@ export function useOffers({ wsRef, user, setMessages }: UseOffersProps) {
             : 'عذراً، لا يمكنني قبول هذا العرض'),
       };
 
+      // Optimistic update: immediately update all messages with this offerId to 'rejected' status
+      if (setMessages) {
+        console.log('🔄 [REJECT OFFER] Applying optimistic update for offerId:', offerId);
+        setMessages(prev => {
+          const updated = prev.map(msg => {
+            if (msg.offerId === offerId || msg.offer?.id === offerId) {
+              console.log('✅ [REJECT OFFER] Optimistically updating message:', {
+                messageId: msg.id,
+                oldStatus: msg.offer?.status,
+                newStatus: 'rejected',
+              });
+              return {
+                ...msg,
+                offer: msg.offer
+                  ? {
+                      ...msg.offer,
+                      status: 'rejected' as const,
+                    }
+                  : undefined,
+                rawTimestamp: new Date().toISOString(),
+                timestamp: formatMessageTime(new Date().toISOString(), locale),
+              };
+            }
+            return msg;
+          });
+          return updated;
+        });
+      }
+
       try {
         wsRef.current.send(JSON.stringify(rejectPayload));
       } catch (error) {
         console.error('Error rejecting offer:', error);
+        // Rollback optimistic update on error
+        if (setMessages) {
+          console.log('🔄 [REJECT OFFER] Rolling back optimistic update due to error');
+          setMessages(prev => {
+            return prev.map(msg => {
+              if (msg.offerId === offerId || msg.offer?.id === offerId) {
+                return {
+                  ...msg,
+                  offer: msg.offer
+                    ? {
+                        ...msg.offer,
+                        status: msg.offer.counterAmount ? 'countered' : 'pending',
+                      }
+                    : undefined,
+                };
+              }
+              return msg;
+            });
+          });
+        }
         toast.error(
           locale === 'en' ? 'Failed to reject offer' : 'فشل رفض العرض'
         );
         throw error;
       }
     },
-    [locale, wsRef]
+    [locale, wsRef, setMessages]
   );
 
   return {
