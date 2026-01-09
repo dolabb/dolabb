@@ -470,10 +470,16 @@ export default function MessagesContent() {
                             offerMessage.offer?.product ||
                             existingMessage.offer.product,
                         }
-                      : {
-                          ...offerMessage.offer,
-                          status: newStatus,
-                        },
+                      : offerMessage.offer?.id
+                        ? {
+                            ...offerMessage.offer,
+                            status: newStatus,
+                          }
+                        : {
+                            id: offerMessage.offerId || existingMessage.offerId || '',
+                            ...offerMessage.offer,
+                            status: newStatus,
+                          },
                     // Always update timestamp to ensure message is seen as updated
                     rawTimestamp: updatedTimestamp,
                     timestamp: updatedFormattedTimestamp,
