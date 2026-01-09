@@ -1,5 +1,6 @@
 import LocaleHtml from '@/components/LocaleHtml';
 import AuthRestore from '@/components/shared/AuthRestore';
+import AppPrefetch from '@/components/shared/AppPrefetch';
 import ReduxProvider from '@/providers/ReduxProvider';
 import type { Metadata } from 'next';
 import './globals.css';
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <ReduxProvider>
           <AuthRestore />
+          <AppPrefetch />
           <LocaleHtml>{children}</LocaleHtml>
         </ReduxProvider>
       </body>

@@ -89,6 +89,14 @@ export const baseApi = createApi({
   baseQuery: axiosBaseQuery({
     baseUrl: 'https://dolabb-backend-2vsj.onrender.com',
   }),
+  // Keep cached data for 10 minutes by default - instant loads on navigation
+  keepUnusedDataFor: 600,
+  // Don't refetch on mount - use cached data, fetch in background
+  refetchOnMountOrArgChange: false,
+  // Don't refetch when window regains focus
+  refetchOnFocus: false,
+  // Refetch when reconnecting to internet
+  refetchOnReconnect: true,
   tagTypes: [
     'User',
     'Product',

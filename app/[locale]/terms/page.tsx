@@ -58,7 +58,7 @@ export default async function TermsOfServicePage({
                     <div className='flex-shrink-0 w-2 h-2 rounded-full bg-saudi-green mt-2'></div>
                     <p className='text-deep-charcoal'>
                       <strong>dوُlabb!</strong> ("Platform," "we," "our"), a
-                      Saudi-registered company operating an online marketplace;
+                      Registered company operating an online marketplace;
                     </p>
                   </div>
                   <div className='flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100/50 border border-blue-200/30'>

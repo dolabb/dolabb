@@ -28,8 +28,8 @@ export const productsApi = baseApi.injectEndpoints({
         };
       },
       providesTags: ['Product'],
-      // Cache for 30 seconds to improve performance
-      keepUnusedDataFor: 30,
+      // Cache for 10 minutes - instant loads on navigation
+      keepUnusedDataFor: 600,
     }),
 
     // Get Product Detail
@@ -165,6 +165,8 @@ export const productsApi = baseApi.injectEndpoints({
         };
       },
       providesTags: ['FeaturedProducts', 'Product'],
+      // Cache for 10 minutes - instant loads on navigation
+      keepUnusedDataFor: 600,
     }),
 
     // Get Trending Products
@@ -188,6 +190,8 @@ export const productsApi = baseApi.injectEndpoints({
         };
       },
       providesTags: ['TrendingProducts', 'Product'],
+      // Cache for 10 minutes - instant loads on navigation
+      keepUnusedDataFor: 600,
     }),
 
     // Get All Categories (New endpoint)

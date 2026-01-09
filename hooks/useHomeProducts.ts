@@ -1,5 +1,18 @@
 import { useGetFeaturedProductsQuery, useGetTrendingProductsQuery } from '@/lib/api/productsApi';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { Product } from '@/types/products';
+
+/**
+ * Fisher-Yates shuffle algorithm for randomizing array
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 /**
  * Custom hook to fetch featured and trending products with duplicate filtering
@@ -15,9 +28,18 @@ export function useHomeProducts(limit: number = 10) {
   // Ensure limit is within backend's valid range (1-50)
   const validLimit = Math.max(1, Math.min(50, limit));
   
+  // State to store shuffled featured products (persists across re-renders but resets on page reload)
+  const [shuffledFeatured, setShuffledFeatured] = useState<Product[] | null>(null);
+  
   // Featured products: Most recent (newest first)
   const { data: featuredData, isLoading: featuredLoading, error: featuredError } = 
-    useGetFeaturedProductsQuery({ limit: validLimit });
+    useGetFeaturedProductsQuery(
+      { limit: validLimit },
+      {
+        // Use cached data immediately, don't refetch on mount
+        refetchOnMountOrArgChange: false,
+      }
+    );
   
   // Trending products: Best-selling (most completed orders)
   // Fetch more to ensure we have enough after filtering out duplicates
@@ -25,7 +47,13 @@ export function useHomeProducts(limit: number = 10) {
   // but we still filter to be safe
   const trendingLimit = Math.min(50, validLimit * 3);
   const { data: trendingData, isLoading: trendingLoading, error: trendingError } = 
-    useGetTrendingProductsQuery({ limit: trendingLimit }); // Max 50 per backend limit
+    useGetTrendingProductsQuery(
+      { limit: trendingLimit },
+      {
+        // Use cached data immediately, don't refetch on mount
+        refetchOnMountOrArgChange: false,
+      }
+    ); // Max 50 per backend limit
 
   // Extract featured product IDs
   const featuredProductIds = useMemo(() => {
@@ -79,6 +107,28 @@ export function useHomeProducts(limit: number = 10) {
   // Define featured products for use in useEffect
   const featuredProducts = featuredData?.products || [];
 
+  // Shuffle first 5 featured products on initial load/page reload
+  // This runs once when data is first loaded
+  useEffect(() => {
+    if (featuredData?.products && featuredData.products.length > 0 && !shuffledFeatured) {
+      const products = [...featuredData.products];
+      
+      if (products.length > 5) {
+        // Shuffle only the first 5 items
+        const first5 = products.slice(0, 5);
+        const rest = products.slice(5);
+        const shuffledFirst5 = shuffleArray(first5);
+        setShuffledFeatured([...shuffledFirst5, ...rest]);
+      } else {
+        // If 5 or fewer items, shuffle all of them
+        setShuffledFeatured(shuffleArray(products));
+      }
+    }
+  }, [featuredData?.products, shuffledFeatured]);
+
+  // Use shuffled products if available, otherwise use original
+  const displayFeaturedProducts = shuffledFeatured || featuredProducts;
+
   // Log featured items API call
   useEffect(() => {
     if (featuredLoading) {
@@ -118,7 +168,7 @@ export function useHomeProducts(limit: number = 10) {
   }, [trendingData]);
 
   return {
-    featuredProducts,
+    featuredProducts: displayFeaturedProducts,
     trendingProducts: filteredTrendingProducts,
     featuredLoading,
     trendingLoading,

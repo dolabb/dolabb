@@ -1,9 +1,10 @@
 'use client';
 
 import { formatPrice } from '@/utils/formatPrice';
+import { usePrefetch } from '@/hooks/usePrefetch';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 interface ProductCardProps {
   id?: string;
@@ -30,6 +31,14 @@ export default function ProductCard({
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
   const isRTL = locale === 'ar';
+  const prefetch = usePrefetch();
+
+  // Prefetch product data on hover for instant navigation
+  const handleMouseEnter = useCallback(() => {
+    if (id) {
+      prefetch.product(id);
+    }
+  }, [id, prefetch]);
 
   // Handle empty or invalid image URLs
   const hasValidImage =
@@ -78,6 +87,7 @@ export default function ProductCard({
       href={productUrl}
       className='group relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer block'
       dir={isRTL ? 'rtl' : 'ltr'}
+      onMouseEnter={handleMouseEnter}
     >
       {/* Image Container */}
       <div className='relative aspect-square overflow-hidden bg-white'>
