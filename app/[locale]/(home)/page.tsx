@@ -21,7 +21,7 @@ export default function HomePage() {
     trendingProducts,
     featuredLoading,
     trendingLoading,
-  } = useHomeProducts(10);
+  } = useHomeProducts(5);
 
   // Show different content based on authentication
   if (isAuthenticated) {

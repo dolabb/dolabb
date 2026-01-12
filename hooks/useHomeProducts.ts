@@ -24,7 +24,7 @@ function shuffleArray<T>(array: T[]): T[] {
  * - Both: Only active and approved products
  * - Limit: 1-50, default: 5
  */
-export function useHomeProducts(limit: number = 10) {
+export function useHomeProducts(limit: number = 5) {
   // Ensure limit is within backend's valid range (1-50)
   const validLimit = Math.max(1, Math.min(50, limit));
   
@@ -47,11 +47,10 @@ export function useHomeProducts(limit: number = 10) {
     );
   
   // Trending products: Best-selling (most completed orders)
-  // Fetch more to ensure we have enough after filtering out duplicates
-  const trendingLimit = Math.min(50, validLimit * 3);
+  // Fetch the same limit as featured (default 5)
   const { data: trendingData, isLoading: trendingLoading, error: trendingError, isFetching: trendingFetching } = 
     useGetTrendingProductsQuery(
-      { limit: trendingLimit },
+      { limit: validLimit },
       {
         // Always refetch on mount to get fresh data (but cache is shown immediately)
         refetchOnMountOrArgChange: true,
@@ -161,11 +160,11 @@ export function useHomeProducts(limit: number = 10) {
       console.log('Trending Items API Call:', {
         endpoint: '/api/products/trending/',
         method: 'GET',
-        params: { limit: trendingLimit },
+        params: { limit: validLimit },
         description: 'Best-selling products (most completed orders)',
       });
     }
-  }, [trendingLoading, trendingLimit]);
+  }, [trendingLoading, validLimit]);
 
   // Log featured items API full response
   useEffect(() => {

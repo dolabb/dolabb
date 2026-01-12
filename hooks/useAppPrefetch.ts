@@ -14,8 +14,8 @@ export function useAppPrefetch() {
   useEffect(() => {
     // Prefetch home page data immediately on app load
     // This runs once and caches data for instant navigation
-    dispatch(productsApi.endpoints.getFeaturedProducts.initiate({ limit: 10 }));
-    dispatch(productsApi.endpoints.getTrendingProducts.initiate({ limit: 30 }));
+    dispatch(productsApi.endpoints.getFeaturedProducts.initiate({ limit: 5 }));
+    dispatch(productsApi.endpoints.getTrendingProducts.initiate({ limit: 5 }));
     dispatch(productsApi.endpoints.getAllCategories.initiate());
     dispatch(productsApi.endpoints.getHeroSection.initiate());
   }, [dispatch]);

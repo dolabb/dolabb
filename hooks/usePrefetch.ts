@@ -11,8 +11,8 @@ export function usePrefetch() {
 
   // Prefetch home page data
   const prefetchHome = useCallback(() => {
-    dispatch(productsApi.endpoints.getFeaturedProducts.initiate({ limit: 10 }));
-    dispatch(productsApi.endpoints.getTrendingProducts.initiate({ limit: 30 }));
+    dispatch(productsApi.endpoints.getFeaturedProducts.initiate({ limit: 5 }));
+    dispatch(productsApi.endpoints.getTrendingProducts.initiate({ limit: 5 }));
     dispatch(productsApi.endpoints.getHeroSection.initiate());
     dispatch(productsApi.endpoints.getAllCategories.initiate());
   }, [dispatch]);

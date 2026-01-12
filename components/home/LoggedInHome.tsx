@@ -23,7 +23,7 @@ export default function LoggedInHome() {
     trendingLoading,
     featuredError,
     trendingError,
-  } = useHomeProducts(10);
+  } = useHomeProducts(5);
 
   const itemsYouMightLike = featuredProducts;
 
