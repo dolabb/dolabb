@@ -49,6 +49,16 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
+    // Log complete error details for debugging
+    console.error('=== API ERROR ===');
+    console.error('URL:', originalRequest?.url);
+    console.error('Method:', originalRequest?.method);
+    console.error('Status:', error.response?.status);
+    console.error('Status Text:', error.response?.statusText);
+    console.error('Response Data:', error.response?.data);
+    console.error('Error Message:', error.message);
+    console.error('=================');
+
     // Handle 401 Unauthorized - Token expired or invalid
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;

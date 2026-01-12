@@ -19,6 +19,7 @@ import { HiPencilSquare, HiUser, HiXMark, HiTag } from 'react-icons/hi2';
 import SaleHistoryTab from './SaleHistoryTab';
 import PayoutTab from './PayoutTab';
 import PayoutRequestsTab from './PayoutRequestsTab';
+import BankDetailsTab from './BankDetailsTab';
 
 // Skeleton Loading Component
 const ProfileSkeleton = ({ isRTL }: { isRTL: boolean }) => (
@@ -410,7 +411,7 @@ export default function ProfileContent() {
   }, [user, refetchProfile]);
   
   const [activeTab, setActiveTab] = useState<
-    'reviews' | 'profileDetails' | 'saleHistory' | 'overview' | 'payoutRequests'
+    'reviews' | 'profileDetails' | 'saleHistory' | 'overview' | 'payoutRequests' | 'bankDetails'
   >('overview');
   
   const [imageError, setImageError] = useState(false);
@@ -946,6 +947,16 @@ export default function ProfileContent() {
               >
                 {locale === 'en' ? 'Profile Details' : 'تفاصيل الملف الشخصي'}
               </button>
+              <button
+                onClick={() => setActiveTab('bankDetails')}
+                className={`px-4 sm:px-6 py-3 font-medium transition-colors border-b-2 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'bankDetails'
+                    ? 'border-saudi-green text-saudi-green'
+                    : 'border-transparent text-deep-charcoal/70 hover:text-saudi-green'
+                }`}
+              >
+                {locale === 'en' ? 'Bank Details' : 'تفاصيل البنك'}
+              </button>
             </div>
           ) : null}
         </div>
@@ -1078,6 +1089,10 @@ export default function ProfileContent() {
 
         {activeTab === 'payoutRequests' && (
           <PayoutRequestsTab />
+        )}
+
+        {activeTab === 'bankDetails' && (
+          <BankDetailsTab />
         )}
 
         {/* Reviews tab removed for buyer mode - buyers don't receive reviews, only sellers do */}

@@ -12,7 +12,7 @@
     "women": "نساء",
     "men": "رجال",
     "watches": "ساعات",
-    "jewellery": "مجوهرات",
+    "jewelry": "مجوهرات",
     "accessories": "إكسسوارات",
     "shopByCategory": "تسوق حسب الفئة",
     "featured": "مميز",
@@ -89,7 +89,7 @@
         "see-all-watches": "عرض كل الساعات"
       }
     },
-    "jewellerySub": {
+    "jewelrySub": {
       "rings": "خواتم",
       "necklaces": "قلائد",
       "earrings": "أقراط",
@@ -103,8 +103,8 @@
         "gold-collection": "مجموعة الذهب",
         "silver-collection": "مجموعة الفضة",
         "diamond-collection": "مجموعة الماس",
-        "vintage-jewellery": "مجوهرات عتيقة",
-        "see-all-jewellery": "عرض كل المجوهرات"
+        "vintage-jewelry": "مجوهرات عتيقة",
+        "see-all-jewelry": "عرض كل المجوهرات"
       }
     },
     "accessoriesSub": {

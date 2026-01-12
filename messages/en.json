@@ -12,7 +12,7 @@
     "women": "Women",
     "men": "Men",
     "watches": "Watches",
-    "jewellery": "Jewellery",
+    "jewelry": "Jewelry",
     "accessories": "Accessories",
     "shopByCategory": "Shop by category",
     "featured": "Featured",
@@ -89,7 +89,7 @@
         "see-all-watches": "See all watches"
       }
     },
-    "jewellerySub": {
+    "jewelrySub": {
       "rings": "Rings",
       "necklaces": "Necklaces",
       "earrings": "Earrings",
@@ -103,8 +103,8 @@
         "gold-collection": "Gold Collection",
         "silver-collection": "Silver Collection",
         "diamond-collection": "Diamond Collection",
-        "vintage-jewellery": "Vintage Jewellery",
-        "see-all-jewellery": "See all jewellery"
+        "vintage-jewelry": "Vintage Jewelry",
+        "see-all-jewelry": "See all jewelry"
       }
     },
     "accessoriesSub": {

@@ -1,25 +1,51 @@
 'use client';
 
+import TermsModal from '@/components/shared/TermsModal';
 import { navigationCategories } from '@/data/navigation';
+import { authApi, useUploadImageMutation } from '@/lib/api/authApi';
+import {
+  productsApi,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+} from '@/lib/api/productsApi';
+import { useAppDispatch } from '@/lib/store/hooks';
+import type { Product } from '@/types/products';
+import { toast } from '@/utils/toast';
 import { useLocale } from 'next-intl';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HiPlus, HiXMark } from 'react-icons/hi2';
-import TermsModal from '@/components/shared/TermsModal';
-import { useCreateProductMutation, useUpdateProductMutation } from '@/lib/api/productsApi';
-import { useAppDispatch } from '@/lib/store/hooks';
-import { productsApi } from '@/lib/api/productsApi';
-import { authApi } from '@/lib/api/authApi';
-import { useUploadImageMutation } from '@/lib/api/authApi';
-import { toast } from '@/utils/toast';
-import type { Product } from '@/types/products';
 
 interface ListItemFormProps {
   onCancel: () => void;
   productId?: string;
   initialData?: Product;
 }
+
+// Valid category values accepted by the backend
+// IMPORTANT: These must match exactly what the backend expects
+const VALID_BACKEND_CATEGORIES = ['women', 'men', 'watches', 'jewelry', 'accessories'] as const;
+type ValidCategory = typeof VALID_BACKEND_CATEGORIES[number];
+
+// Map any frontend category key to the valid backend category
+// This handles any legacy data or typos (e.g., 'jewellery' -> 'jewelry')
+const mapToValidCategory = (category: string): ValidCategory | string => {
+  const normalized = category.toLowerCase().trim();
+  
+  // Handle jewellery (British spelling) -> jewelry (American spelling)
+  if (normalized === 'jewellery') {
+    return 'jewelry';
+  }
+  
+  // If it's already a valid category, return it
+  if (VALID_BACKEND_CATEGORIES.includes(normalized as ValidCategory)) {
+    return normalized as ValidCategory;
+  }
+  
+  // Return as-is if not found (will be rejected by backend validation)
+  return normalized;
+};
 
 // Supported currencies with their symbols
 const currencies = [
@@ -37,57 +63,141 @@ const genders = ['Men', 'Women', 'Unisex', 'Kids'];
 // Category-specific size mappings
 const categorySizes: Record<string, string[]> = {
   // Clothing - T-shirts, Shirts, Tops
-  'tshirts': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
-  'shirts': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
-  'tops': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
-  'blouses': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'dresses': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'pants': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'jeans': ['24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '36', '38', '40', '42'],
-  'shorts': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'skirts': ['XS', 'S', 'M', 'L', 'XL', '2XL'],
-  'jackets': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'coats': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'hoodies': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  'sweaters': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
-  
+  tshirts: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+  shirts: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+  tops: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+  blouses: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  dresses: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  pants: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  jeans: [
+    '24',
+    '25',
+    '26',
+    '27',
+    '28',
+    '29',
+    '30',
+    '31',
+    '32',
+    '33',
+    '34',
+    '36',
+    '38',
+    '40',
+    '42',
+  ],
+  shorts: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  skirts: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+  jackets: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  coats: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  hoodies: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+  sweaters: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+
   // Shoes
-  'shoes': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
-  'sneakers': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
-  'boots': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'],
-  'sandals': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'],
-  'heels': ['35', '36', '37', '38', '39', '40', '41', '42', '43'],
-  'flats': ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
-  
+  shoes: [
+    '35',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+    '41',
+    '42',
+    '43',
+    '44',
+    '45',
+    '46',
+    '47',
+    '48',
+  ],
+  sneakers: [
+    '35',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+    '41',
+    '42',
+    '43',
+    '44',
+    '45',
+    '46',
+    '47',
+    '48',
+  ],
+  boots: [
+    '35',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+    '41',
+    '42',
+    '43',
+    '44',
+    '45',
+    '46',
+  ],
+  sandals: ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'],
+  heels: ['35', '36', '37', '38', '39', '40', '41', '42', '43'],
+  flats: ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+
   // Bags
-  'bags': ['Small', 'Medium', 'Large', 'Extra Large'],
-  'handbags': ['Small', 'Medium', 'Large'],
-  'backpacks': ['Small', 'Medium', 'Large', 'Extra Large'],
+  bags: ['Small', 'Medium', 'Large', 'Extra Large'],
+  handbags: ['Small', 'Medium', 'Large'],
+  backpacks: ['Small', 'Medium', 'Large', 'Extra Large'],
   'tote-bags': ['Small', 'Medium', 'Large'],
-  'clutches': ['Small', 'Medium'],
-  'crossbody': ['Small', 'Medium', 'Large'],
-  
+  clutches: ['Small', 'Medium'],
+  crossbody: ['Small', 'Medium', 'Large'],
+
   // Accessories
-  'accessories': ['One Size'],
-  'jewelry': ['One Size'],
-  'watches': ['Small', 'Medium', 'Large'],
-  'belts': ['XS', 'S', 'M', 'L', 'XL'],
-  'hats': ['S', 'M', 'L', 'XL'],
-  'scarves': ['One Size'],
-  'sunglasses': ['One Size'],
-  
+  accessories: ['One Size'],
+  jewelry: ['One Size'],
+  watches: ['Small', 'Medium', 'Large'],
+  belts: ['XS', 'S', 'M', 'L', 'XL'],
+  hats: ['S', 'M', 'L', 'XL'],
+  scarves: ['One Size'],
+  sunglasses: ['One Size'],
+
   // Underwear & Lingerie
-  'underwear': ['XS', 'S', 'M', 'L', 'XL', '2XL'],
-  'bras': ['32A', '32B', '32C', '34A', '34B', '34C', '36A', '36B', '36C', '38A', '38B', '38C'],
-  'lingerie': ['XS', 'S', 'M', 'L', 'XL'],
-  
+  underwear: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+  bras: [
+    '32A',
+    '32B',
+    '32C',
+    '34A',
+    '34B',
+    '34C',
+    '36A',
+    '36B',
+    '36C',
+    '38A',
+    '38B',
+    '38C',
+  ],
+  lingerie: ['XS', 'S', 'M', 'L', 'XL'],
+
   // Swimwear
-  'swimwear': ['XS', 'S', 'M', 'L', 'XL', '2XL'],
-  'bikinis': ['XS', 'S', 'M', 'L', 'XL'],
-  
+  swimwear: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+  bikinis: ['XS', 'S', 'M', 'L', 'XL'],
+
   // Kids
   'kids-clothing': ['2T', '3T', '4T', '5T', '6', '7', '8', '10', '12', '14'],
-  'kids-shoes': ['25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35'],
+  'kids-shoes': [
+    '25',
+    '26',
+    '27',
+    '28',
+    '29',
+    '30',
+    '31',
+    '32',
+    '33',
+    '34',
+    '35',
+  ],
 };
 
 // Default sizes (fallback)
@@ -105,62 +215,87 @@ const defaultSizes = [
 ];
 
 // Function to get sizes based on category and subcategory
-const getSizesForCategory = (category: string, subCategory: string): string[] => {
+const getSizesForCategory = (
+  category: string,
+  subCategory: string
+): string[] => {
   // Normalize subcategory key (remove spaces, hyphens, convert to lowercase)
-  const normalizedSubCategory = subCategory 
-    ? subCategory.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  const normalizedSubCategory = subCategory
+    ? subCategory
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
     : '';
-  
+
   // First try subcategory (exact match)
   if (normalizedSubCategory && categorySizes[normalizedSubCategory]) {
     return categorySizes[normalizedSubCategory];
   }
-  
+
   // Try subcategory without normalization (for keys like 'tshirts', 'shoes')
   if (subCategory && categorySizes[subCategory.toLowerCase()]) {
     return categorySizes[subCategory.toLowerCase()];
   }
-  
+
   // Try common subcategory patterns
   if (normalizedSubCategory) {
     // Check for shoes-related
-    if (normalizedSubCategory.includes('shoe') || normalizedSubCategory.includes('sneaker') || 
-        normalizedSubCategory.includes('boot') || normalizedSubCategory.includes('sandal') ||
-        normalizedSubCategory.includes('heel') || normalizedSubCategory.includes('flat')) {
+    if (
+      normalizedSubCategory.includes('shoe') ||
+      normalizedSubCategory.includes('sneaker') ||
+      normalizedSubCategory.includes('boot') ||
+      normalizedSubCategory.includes('sandal') ||
+      normalizedSubCategory.includes('heel') ||
+      normalizedSubCategory.includes('flat')
+    ) {
       return categorySizes['shoes'];
     }
-    
+
     // Check for bags-related
-    if (normalizedSubCategory.includes('bag') || normalizedSubCategory.includes('purse') ||
-        normalizedSubCategory.includes('backpack') || normalizedSubCategory.includes('tote') ||
-        normalizedSubCategory.includes('clutch') || normalizedSubCategory.includes('crossbody')) {
+    if (
+      normalizedSubCategory.includes('bag') ||
+      normalizedSubCategory.includes('purse') ||
+      normalizedSubCategory.includes('backpack') ||
+      normalizedSubCategory.includes('tote') ||
+      normalizedSubCategory.includes('clutch') ||
+      normalizedSubCategory.includes('crossbody')
+    ) {
       return categorySizes['bags'];
     }
-    
+
     // Check for clothing
-    if (normalizedSubCategory.includes('tshirt') || normalizedSubCategory.includes('shirt') ||
-        normalizedSubCategory.includes('top') || normalizedSubCategory.includes('blouse')) {
+    if (
+      normalizedSubCategory.includes('tshirt') ||
+      normalizedSubCategory.includes('shirt') ||
+      normalizedSubCategory.includes('top') ||
+      normalizedSubCategory.includes('blouse')
+    ) {
       return categorySizes['tshirts'];
     }
-    
+
     // Check for jeans
     if (normalizedSubCategory.includes('jean')) {
       return categorySizes['jeans'];
     }
-    
+
     // Check for accessories
-    if (normalizedSubCategory.includes('accessory') || normalizedSubCategory.includes('jewelry') ||
-        normalizedSubCategory.includes('jewellery') || normalizedSubCategory.includes('sunglass') ||
-        normalizedSubCategory.includes('scarf') || normalizedSubCategory.includes('hat')) {
+    if (
+      normalizedSubCategory.includes('accessory') ||
+      normalizedSubCategory.includes('jewelry') ||
+      normalizedSubCategory.includes('jewellery') ||
+      normalizedSubCategory.includes('sunglass') ||
+      normalizedSubCategory.includes('scarf') ||
+      normalizedSubCategory.includes('hat')
+    ) {
       return categorySizes['accessories'];
     }
   }
-  
+
   // Then try category
   if (category && categorySizes[category.toLowerCase()]) {
     return categorySizes[category.toLowerCase()];
   }
-  
+
   // Default fallback
   return defaultSizes;
 };
@@ -170,17 +305,17 @@ const conditions = ['New with tag', 'Like new', 'Good', 'Fair', 'Poor'];
 const conditionMap: Record<string, string> = {
   'New with tag': 'new',
   'Like new': 'like-new',
-  'Good': 'good',
-  'Fair': 'fair',
-  'Poor': 'fair', // Map Poor to fair as API doesn't have 'poor'
+  Good: 'good',
+  Fair: 'fair',
+  Poor: 'fair', // Map Poor to fair as API doesn't have 'poor'
 };
 
 // Reverse map: API values to display values (for edit mode)
 const reverseConditionMap: Record<string, string> = {
-  'new': 'New with tag',
+  new: 'New with tag',
   'like-new': 'Like new',
-  'good': 'Good',
-  'fair': 'Fair',
+  good: 'Good',
+  fair: 'Fair',
 };
 const colors = [
   'Black',
@@ -206,60 +341,76 @@ const colors = [
 
 // Color mapping for display swatches
 const colorMap: Record<string, string> = {
-  'Black': '#000000',
-  'Grey': '#808080',
-  'White': '#FFFFFF',
-  'Brown': '#8B4513',
-  'Tan': '#D2B48C',
-  'Cream': '#FFFDD0',
-  'Yellow': '#FFFF00',
-  'Red': '#FF0000',
-  'Burgundy': '#800020',
-  'Orange': '#FFA500',
-  'Pink': '#FFC0CB',
-  'Purple': '#800080',
-  'Blue': '#0000FF',
-  'Navy': '#000080',
-  'Green': '#008000',
-  'Khaki': '#C3B091',
-  'Silver': '#C0C0C0',
-  'Gold': '#FFD700',
-  'Multi': 'multi', // Special case
+  Black: '#000000',
+  Grey: '#808080',
+  White: '#FFFFFF',
+  Brown: '#8B4513',
+  Tan: '#D2B48C',
+  Cream: '#FFFDD0',
+  Yellow: '#FFFF00',
+  Red: '#FF0000',
+  Burgundy: '#800020',
+  Orange: '#FFA500',
+  Pink: '#FFC0CB',
+  Purple: '#800080',
+  Blue: '#0000FF',
+  Navy: '#000080',
+  Green: '#008000',
+  Khaki: '#C3B091',
+  Silver: '#C0C0C0',
+  Gold: '#FFD700',
+  Multi: 'multi', // Special case
 };
 
-export default function ListItemForm({ onCancel, productId, initialData }: ListItemFormProps) {
+export default function ListItemForm({
+  onCancel,
+  productId,
+  initialData,
+}: ListItemFormProps) {
   const locale = useLocale();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const isEditMode = !!productId && !!initialData;
-  
+
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
-  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] =
+    useUploadImageMutation();
 
   // Helper function to normalize API response to Product type
   // Handles both capitalized API field names and lowercase Product type field names
   const normalizeProductData = (data: any): Product | null => {
     if (!data) return null;
-    
+
     // Handle images - check both "Images" (capital) and "images" (lowercase)
     const images = (data as any).Images || data.images || [];
-    const filteredImages = Array.isArray(images) 
-      ? images.filter((img: any) => img && img.trim() !== '' && img !== 'undefined' && img !== 'null')
+    const filteredImages = Array.isArray(images)
+      ? images.filter(
+          (img: any) =>
+            img && img.trim() !== '' && img !== 'undefined' && img !== 'null'
+        )
       : [];
 
     // Handle tags - check both "Tags/Keywords" and "tags"
     const tagsData = (data as any)['Tags/Keywords'] || data.tags || [];
-    const normalizedTags = Array.isArray(tagsData) 
+    const normalizedTags = Array.isArray(tagsData)
       ? tagsData.filter((tag: any) => tag && tag.trim() !== '')
-      : (typeof tagsData === 'string' 
-          ? tagsData.split(',').map((t: string) => t.trim()).filter(Boolean) 
-          : []);
+      : typeof tagsData === 'string'
+      ? tagsData
+          .split(',')
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : [];
 
     // Handle shipping info - check both nested object and flat API fields
-    const shippingCost = data.shippingInfo?.cost ?? (data as any)['Shipping Cost'] ?? 0;
-    const estimatedDays = data.shippingInfo?.estimatedDays ?? (data as any)['Processing Time (days)'] ?? 3;
-    const shippingLocations = data.shippingInfo?.locations ?? (data as any)['Shipping Locations'] ?? ['Saudi Arabia'];
+    const shippingCost =
+      data.shippingInfo?.cost ?? (data as any)['Shipping Cost'] ?? 0;
+    const estimatedDays =
+      data.shippingInfo?.estimatedDays ??
+      (data as any)['Processing Time (days)'] ??
+      3;
+    const shippingLocations = data.shippingInfo?.locations ??
+      (data as any)['Shipping Locations'] ?? ['Saudi Arabia'];
 
     // Handle currency - check both "Currency" (capital) and "currency" (lowercase)
     const currency = (data as any).Currency || (data as any).currency || 'SAR';
@@ -282,18 +433,30 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
       quantity: (data as any).Quantity ?? data.quantity ?? 1,
       seller: data.seller || { id: '', username: '' },
       shippingInfo: {
-        cost: typeof shippingCost === 'number' ? shippingCost : parseFloat(shippingCost) || 0,
-        estimatedDays: typeof estimatedDays === 'number' ? estimatedDays : parseInt(estimatedDays) || 3,
-        locations: Array.isArray(shippingLocations) ? shippingLocations : ['Saudi Arabia'],
+        cost:
+          typeof shippingCost === 'number'
+            ? shippingCost
+            : parseFloat(shippingCost) || 0,
+        estimatedDays:
+          typeof estimatedDays === 'number'
+            ? estimatedDays
+            : parseInt(estimatedDays) || 3,
+        locations: Array.isArray(shippingLocations)
+          ? shippingLocations
+          : ['Saudi Arabia'],
       },
-      affiliateCode: data.affiliateCode || (data as any)['Affiliate Code (Optional)'] || '',
+      affiliateCode:
+        data.affiliateCode || (data as any)['Affiliate Code (Optional)'] || '',
       taxPercentage: (data as any)['Tax Percentage'] ?? data.taxPercentage,
       ...data, // Spread to include any other fields
     };
   };
 
   // Normalize initial data - use useMemo to avoid recalculating on every render
-  const normalizedData = useMemo(() => normalizeProductData(initialData), [initialData]);
+  const normalizedData = useMemo(
+    () => normalizeProductData(initialData),
+    [initialData]
+  );
 
   // Store photo files and previews separately
   // photos array contains: File objects for new uploads, or string URLs for existing images
@@ -312,15 +475,19 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     description: normalizedData?.description || '',
     price: normalizedData?.price?.toString() || '',
     originalPrice: normalizedData?.originalPrice?.toString() || '',
-    currency: (normalizedData as any)?.Currency || (normalizedData as any)?.currency || 'SAR', // Use product currency if available, default to SAR
+    currency:
+      (normalizedData as any)?.Currency ||
+      (normalizedData as any)?.currency ||
+      'SAR', // Use product currency if available, default to SAR
     category: normalizedData?.category || '',
     gender: 'Unisex', // Default
     subCategory: normalizedData?.subcategory || '',
     size: normalizedData?.size || '',
     color: normalizedData?.color || '',
     customSize: '',
-    condition: normalizedData?.condition 
-      ? (reverseConditionMap[normalizedData.condition] || normalizedData.condition)
+    condition: normalizedData?.condition
+      ? reverseConditionMap[normalizedData.condition] ||
+        normalizedData.condition
       : '',
     brandName: normalizedData?.brand || '',
     quantity: normalizedData?.quantity?.toString() || '',
@@ -329,7 +496,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     sku: '',
     tags: normalizedData?.tags?.join(', ') || '',
     shippingCost: normalizedData?.shippingInfo?.cost?.toString() || '',
-    processingTime: normalizedData?.shippingInfo?.estimatedDays?.toString() || '',
+    processingTime:
+      normalizedData?.shippingInfo?.estimatedDays?.toString() || '',
     affiliateCode: normalizedData?.affiliateCode || '',
     isVatRegistered: normalizedData?.taxPercentage ? true : false,
     taxPercentage: normalizedData?.taxPercentage?.toString() || '',
@@ -347,12 +515,29 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     normalizedData?.shippingInfo?.locations || ['Saudi Arabia']
   );
   const [newShippingLocation, setNewShippingLocation] = useState('');
+  // Validation errors state
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showErrors, setShowErrors] = useState(false);
+  
+  // Helper function to clear a specific error when user corrects the field
+  const clearError = (field: string) => {
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
   // Handle colors as array for multi-select
   const [selectedColors, setSelectedColors] = useState<string[]>(() => {
     if (normalizedData?.color) {
       // Handle both string (comma-separated) and array formats
       if (typeof normalizedData.color === 'string') {
-        return normalizedData.color.split(',').map(c => c.trim()).filter(Boolean);
+        return normalizedData.color
+          .split(',')
+          .map(c => c.trim())
+          .filter(Boolean);
       }
       if (Array.isArray(normalizedData.color)) {
         return normalizedData.color;
@@ -376,15 +561,19 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         description: normalizedData.description || '',
         price: normalizedData.price?.toString() || '',
         originalPrice: normalizedData.originalPrice?.toString() || '',
-        currency: (normalizedData as any).Currency || (normalizedData as any).currency || 'SAR',
+        currency:
+          (normalizedData as any).Currency ||
+          (normalizedData as any).currency ||
+          'SAR',
         category: normalizedData.category || '',
         gender: 'Unisex',
         subCategory: normalizedData.subcategory || '',
         size: normalizedData.size || '',
         color: normalizedData.color || '',
         customSize: '',
-        condition: normalizedData.condition 
-          ? (reverseConditionMap[normalizedData.condition] || normalizedData.condition)
+        condition: normalizedData.condition
+          ? reverseConditionMap[normalizedData.condition] ||
+            normalizedData.condition
           : '',
         brandName: normalizedData.brand || '',
         quantity: normalizedData.quantity?.toString() || '',
@@ -393,7 +582,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         sku: '',
         tags: normalizedData.tags?.join(', ') || '',
         shippingCost: normalizedData.shippingInfo?.cost?.toString() || '',
-        processingTime: normalizedData.shippingInfo?.estimatedDays?.toString() || '',
+        processingTime:
+          normalizedData.shippingInfo?.estimatedDays?.toString() || '',
         affiliateCode: normalizedData.affiliateCode || '',
         isVatRegistered: normalizedData.taxPercentage ? true : false,
         taxPercentage: normalizedData.taxPercentage?.toString() || '',
@@ -403,12 +593,19 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
       setTags(normalizedData.tags || []);
 
       // Update shipping locations
-      setShippingLocations(normalizedData.shippingInfo?.locations || ['Saudi Arabia']);
+      setShippingLocations(
+        normalizedData.shippingInfo?.locations || ['Saudi Arabia']
+      );
 
       // Update selected colors
       if (normalizedData.color) {
         if (typeof normalizedData.color === 'string') {
-          setSelectedColors(normalizedData.color.split(',').map(c => c.trim()).filter(Boolean));
+          setSelectedColors(
+            normalizedData.color
+              .split(',')
+              .map(c => c.trim())
+              .filter(Boolean)
+          );
         } else if (Array.isArray(normalizedData.color)) {
           setSelectedColors(normalizedData.color);
         } else {
@@ -429,8 +626,8 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         if (item instanceof File) {
           // Create preview for File object
           const reader = new FileReader();
-          const preview = await new Promise<string>((resolve) => {
-            reader.onload = (e) => {
+          const preview = await new Promise<string>(resolve => {
+            reader.onload = e => {
               resolve(e.target?.result as string);
             };
             reader.readAsDataURL(item);
@@ -451,11 +648,11 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     if (files) {
       const currentPhotoCount = photoFiles.length;
       const filesToAdd = Array.from(files);
-      
+
       // Validate file sizes (10MB limit per file)
       const maxSize = 10 * 1024 * 1024; // 10MB in bytes
       const oversizedFiles = filesToAdd.filter(file => file.size > maxSize);
-      
+
       if (oversizedFiles.length > 0) {
         toast.error(
           locale === 'en'
@@ -465,34 +662,40 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         e.target.value = '';
         return;
       }
-      
+
       const totalAfterUpload = currentPhotoCount + filesToAdd.length;
-      
+
       // Check if adding these files would exceed the limit of 5
       if (totalAfterUpload > 5) {
         const maxAllowed = 5 - currentPhotoCount;
         if (maxAllowed > 0) {
           toast.warning(
-            locale === 'en' 
-              ? `You can only upload ${maxAllowed} more image${maxAllowed > 1 ? 's' : ''}. Maximum 5 images allowed.`
-              : `يمكنك تحميل ${maxAllowed} صورة${maxAllowed > 1 ? '' : ''} فقط. الحد الأقصى 5 صور.`
+            locale === 'en'
+              ? `You can only upload ${maxAllowed} more image${
+                  maxAllowed > 1 ? 's' : ''
+                }. Maximum 5 images allowed.`
+              : `يمكنك تحميل ${maxAllowed} صورة${
+                  maxAllowed > 1 ? '' : ''
+                } فقط. الحد الأقصى 5 صور.`
           );
           // Only process the files that fit within the limit
           setPhotoFiles(prev => [...prev, ...filesToAdd.slice(0, maxAllowed)]);
+          clearError('photos');
         } else {
           toast.error(
-            locale === 'en' 
+            locale === 'en'
               ? 'Maximum 5 images allowed. Please remove some images before adding new ones.'
               : 'الحد الأقصى 5 صور. يرجى إزالة بعض الصور قبل إضافة صور جديدة.'
           );
-          }
+        }
         // Reset the input so the same file can be selected again if needed
         e.target.value = '';
         return;
       }
-      
+
       // If within limit, add all files
       setPhotoFiles(prev => [...prev, ...filesToAdd]);
+      clearError('photos');
     }
   };
 
@@ -527,7 +730,10 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     if (newSubCategoryInput.trim() && selectedCategory) {
       const newSubCategory = newSubCategoryInput.trim();
       setCustomSubCategories(prev => [...prev, newSubCategory]);
-      setFormData(prev => ({ ...prev, subCategory: `create ${newSubCategory}` }));
+      setFormData(prev => ({
+        ...prev,
+        subCategory: `create ${newSubCategory}`,
+      }));
       setNewSubCategoryInput('');
     }
   };
@@ -546,13 +752,73 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
   const selectedCategory = navigationCategories.find(
     cat => cat.key === formData.category
   );
-  
+
   // Get dynamic sizes based on category and subcategory
-  const availableSizes = getSizesForCategory(formData.category, formData.subCategory);
+  const availableSizes = getSizesForCategory(
+    formData.category,
+    formData.subCategory
+  );
 
   const handleSubmit = async (e: React.FormEvent, skipTermsCheck = false) => {
     e.preventDefault();
+
+    // Validate required fields
+    const newErrors: Record<string, string> = {};
     
+    if (photoFiles.length === 0) {
+      newErrors.photos = locale === 'en' ? 'At least one photo is required' : 'مطلوب صورة واحدة على الأقل';
+    }
+    if (!formData.title.trim()) {
+      newErrors.title = locale === 'en' ? 'Title is required' : 'العنوان مطلوب';
+    }
+    if (!formData.description.trim()) {
+      newErrors.description = locale === 'en' ? 'Description is required' : 'الوصف مطلوب';
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      newErrors.price = locale === 'en' ? 'Valid price is required' : 'السعر مطلوب';
+    }
+    if (!formData.quantity || parseInt(formData.quantity) < 0) {
+      newErrors.quantity = locale === 'en' ? 'Quantity is required' : 'الكمية مطلوبة';
+    }
+    if (!formData.category) {
+      newErrors.category = locale === 'en' ? 'Category is required' : 'الفئة مطلوبة';
+    }
+    if (!formData.condition) {
+      newErrors.condition = locale === 'en' ? 'Condition is required' : 'الحالة مطلوبة';
+    }
+    if (!formData.shippingCost && formData.shippingCost !== '0') {
+      newErrors.shippingCost = locale === 'en' ? 'Shipping cost is required' : 'تكلفة الشحن مطلوبة';
+    }
+    if (!formData.processingTime) {
+      newErrors.processingTime = locale === 'en' ? 'Processing time is required' : 'وقت المعالجة مطلوب';
+    }
+    if (!authenticityConfirmed) {
+      newErrors.authenticity = locale === 'en' ? 'Please confirm authenticity' : 'يرجى تأكيد الأصالة';
+    }
+    
+    // If there are errors, show them and stop
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setShowErrors(true);
+      // Scroll to first error
+      setTimeout(() => {
+        const firstErrorField = document.querySelector('[data-error="true"]');
+        if (firstErrorField) {
+          firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      toast.error(
+        locale === 'en'
+          ? 'Please fill in all required fields'
+          : 'يرجى ملء جميع الحقول المطلوبة'
+      );
+      return;
+    }
+    
+    // Clear errors if validation passes
+    setErrors({});
+    setShowErrors(false);
+
     // Show terms modal if not accepted (only for create mode)
     // Skip check if called from handleAcceptTerms
     if (!skipTermsCheck && !isEditMode && !termsAccepted) {
@@ -573,16 +839,16 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     try {
       // Step 1: Upload all new image files first
       const imageUrls: string[] = [];
-      
+
       for (const item of photoFiles) {
         if (item instanceof File) {
           // Upload new file
           try {
             const imageFormData = new FormData();
             imageFormData.append('image', item, item.name);
-            
+
             const uploadResult = await uploadImage(imageFormData).unwrap();
-            
+
             if (uploadResult.success && uploadResult.image_url) {
               imageUrls.push(uploadResult.image_url);
             } else {
@@ -590,32 +856,34 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             }
           } catch (uploadError: any) {
             console.error('Image upload failed:', uploadError);
-            
+
             // Extract error message from API response (check multiple possible error structures)
-            const apiErrorMessage = 
-              uploadError?.data?.error || 
+            const apiErrorMessage =
+              uploadError?.data?.error ||
               uploadError?.data?.message ||
               uploadError?.error?.data?.error ||
               uploadError?.error?.data?.message ||
               uploadError?.error?.data ||
               (typeof uploadError?.data === 'string' ? uploadError.data : null);
-            
+
             // Check if it's a timeout error (check multiple possible timeout indicators)
-            const errorMessage = 
-              uploadError?.message || 
-              uploadError?.error?.data || 
+            const errorMessage =
+              uploadError?.message ||
+              uploadError?.error?.data ||
               uploadError?.data ||
-              (typeof uploadError?.error?.data === 'string' ? uploadError.error.data : '') ||
+              (typeof uploadError?.error?.data === 'string'
+                ? uploadError.error.data
+                : '') ||
               '';
-            
+
             const errorString = String(errorMessage).toLowerCase();
-            const isTimeout = 
+            const isTimeout =
               errorString.includes('timeout') ||
               errorString.includes('exceeded') ||
               uploadError?.code === 'ECONNABORTED' ||
               uploadError?.name === 'TimeoutError' ||
               uploadError?.status === undefined; // Axios timeout errors often have undefined status
-            
+
             if (isTimeout) {
               toast.error(
                 locale === 'en'
@@ -655,43 +923,58 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
       }
 
       // Step 2: Prepare API data with uploaded image URLs
+      // Ensure category is a valid backend value
+      const validCategory = mapToValidCategory(formData.category);
+      
       const apiData: any = {
         itemtitle: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
         Images: imageUrls, // Use uploaded URLs instead of base64
-        category: formData.category,
+        category: validCategory,
         subcategory: formData.subCategory,
         brand: formData.brandName,
         Size: formData.size,
-        Condition: formData.condition ? conditionMap[formData.condition] || formData.condition.toLowerCase() : 'fair',
-        'Tags/Keywords': tags.length > 0 ? tags : (formData.tags ? formData.tags.split(',').map(t => t.trim()) : []),
+        Condition: formData.condition
+          ? conditionMap[formData.condition] || formData.condition.toLowerCase()
+          : 'fair',
+        'Tags/Keywords':
+          tags.length > 0
+            ? tags
+            : formData.tags
+            ? formData.tags.split(',').map(t => t.trim())
+            : [],
         Quantity: formData.quantity ? parseInt(formData.quantity) : 1,
         currency: formData.currency,
         Gender: formData.gender || 'Unisex',
-        'Shipping Cost': formData.shippingCost ? parseFloat(formData.shippingCost) : 0,
-        'Processing Time (days)': formData.processingTime ? parseInt(formData.processingTime) : 3,
-        'Shipping Locations': shippingLocations.length > 0 ? shippingLocations : ['Saudi Arabia'],
+        'Shipping Cost': formData.shippingCost
+          ? parseFloat(formData.shippingCost)
+          : 0,
+        'Processing Time (days)': formData.processingTime
+          ? parseInt(formData.processingTime)
+          : 3,
+        'Shipping Locations':
+          shippingLocations.length > 0 ? shippingLocations : ['Saudi Arabia'],
       };
 
       // Optional fields
       if (formData.sku) {
         apiData['SKU/ID (Optional)'] = formData.sku;
       }
-      
+
       if (selectedColors.length > 0) {
         // Send colors as comma-separated string for API compatibility
         apiData.Color = selectedColors.join(', ');
       }
-      
+
       if (formData.originalPrice) {
         apiData.originalPrice = parseFloat(formData.originalPrice);
       }
-      
+
       if (formData.affiliateCode) {
         apiData['Affiliate Code (Optional)'] = formData.affiliateCode;
       }
-      
+
       // Add tax percentage if VAT registered
       if (formData.isVatRegistered && formData.taxPercentage) {
         const taxPercent = parseFloat(formData.taxPercentage);
@@ -703,14 +986,21 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
       if (isEditMode && productId) {
         // Update product
         console.log('Updating product with data:', apiData);
-        const result = await updateProduct({ productId, data: apiData }).unwrap();
+        const result = await updateProduct({
+          productId,
+          data: apiData,
+        }).unwrap();
         console.log('Update result:', result);
-        
+
         // Check if product was restocked (quantity changed from 0 or less to positive)
-        const wasOutOfStock = normalizedData?.isOutOfStock ?? (normalizedData?.quantity === null || normalizedData?.quantity === undefined || normalizedData?.quantity <= 0);
+        const wasOutOfStock =
+          normalizedData?.isOutOfStock ??
+          (normalizedData?.quantity === null ||
+            normalizedData?.quantity === undefined ||
+            normalizedData?.quantity <= 0);
         const newQuantity = formData.quantity ? parseInt(formData.quantity) : 0;
         const isRestocked = wasOutOfStock && newQuantity > 0;
-        
+
         if (isRestocked) {
           toast.success(
             locale === 'en'
@@ -718,16 +1008,22 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               : 'تم تجديد المخزون بنجاح! المنتج متاح الآن للشراء.'
           );
         } else {
-          toast.success(locale === 'en' ? 'Product updated successfully!' : 'تم تحديث المنتج بنجاح!');
+          toast.success(
+            locale === 'en'
+              ? 'Product updated successfully!'
+              : 'تم تحديث المنتج بنجاح!'
+          );
         }
         // Invalidate and refetch seller products, featured products, and trending products
         // Also invalidate the specific product detail cache to ensure it refreshes
-        dispatch(productsApi.util.invalidateTags([
-          { type: 'Product', id: productId },
-          'Product',
-          'FeaturedProducts',
-          'TrendingProducts'
-        ]));
+        dispatch(
+          productsApi.util.invalidateTags([
+            { type: 'Product', id: productId },
+            'Product',
+            'FeaturedProducts',
+            'TrendingProducts',
+          ])
+        );
         // Small delay to ensure cache is updated before redirect
         setTimeout(() => {
           router.push(`/${locale}/my-store`);
@@ -736,20 +1032,32 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         // Create product
         console.log('Creating product with data:', apiData);
         await createProduct(apiData).unwrap();
-        toast.success(locale === 'en' ? 'Product created successfully!' : 'تم إنشاء المنتج بنجاح!');
+        toast.success(
+          locale === 'en'
+            ? 'Product created successfully!'
+            : 'تم إنشاء المنتج بنجاح!'
+        );
         // Invalidate and refetch seller products, featured products, and trending products
-        dispatch(productsApi.util.invalidateTags(['Product', 'FeaturedProducts', 'TrendingProducts']));
+        dispatch(
+          productsApi.util.invalidateTags([
+            'Product',
+            'FeaturedProducts',
+            'TrendingProducts',
+          ])
+        );
         // Invalidate user profile to refetch updated role (buyer -> seller)
         dispatch(authApi.util.invalidateTags(['User']));
         onCancel();
       }
     } catch (error: any) {
       console.error('Product update/create error:', error);
-      const errorMessage = 
-        error?.data?.message || 
-        error?.data?.error || 
-        error?.message || 
-        (locale === 'en' ? 'Failed to save product. Please check the console for details.' : 'فشل حفظ المنتج. يرجى التحقق من وحدة التحكم للتفاصيل.');
+      const errorMessage =
+        error?.data?.message ||
+        error?.data?.error ||
+        error?.message ||
+        (locale === 'en'
+          ? 'Failed to save product. Please check the console for details.'
+          : 'فشل حفظ المنتج. يرجى التحقق من وحدة التحكم للتفاصيل.');
       toast.error(errorMessage);
     }
   };
@@ -766,30 +1074,44 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
   const ColorSwatch = ({ colorName }: { colorName: string }) => {
     if (colorName === 'Multi') {
       // Show all colors for Multi - using a conic gradient pattern
-      const allColors = colors.filter(c => c !== 'Multi').map(c => colorMap[c] || '#CCCCCC');
-      const colorStops = allColors.map((color, index) => {
-        const percentage = (index / allColors.length) * 100;
-        return `${color} ${percentage}%`;
-      }).join(', ');
-      
+      const allColors = colors
+        .filter(c => c !== 'Multi')
+        .map(c => colorMap[c] || '#CCCCCC');
+      const colorStops = allColors
+        .map((color, index) => {
+          const percentage = (index / allColors.length) * 100;
+          return `${color} ${percentage}%`;
+        })
+        .join(', ');
+
       return (
-        <div className='w-5 h-5 rounded-full border border-gray-300 relative overflow-hidden flex-shrink-0' title='Multi'>
-          <div 
+        <div
+          className='w-5 h-5 rounded-full border border-gray-300 relative overflow-hidden flex-shrink-0'
+          title='Multi'
+        >
+          <div
             className='absolute inset-0'
             style={{
-              background: `conic-gradient(from 0deg, ${colorStops})`
+              background: `conic-gradient(from 0deg, ${colorStops})`,
             }}
           />
         </div>
       );
     }
-    
+
     const colorHex = colorMap[colorName] || '#CCCCCC';
-    const isLight = colorName === 'White' || colorName === 'Cream' || colorName === 'Yellow' || colorName === 'Silver' || colorName === 'Gold';
-    
+    const isLight =
+      colorName === 'White' ||
+      colorName === 'Cream' ||
+      colorName === 'Yellow' ||
+      colorName === 'Silver' ||
+      colorName === 'Gold';
+
     return (
       <div
-        className={`w-5 h-5 rounded-full border ${isLight ? 'border-gray-300' : 'border-transparent'} flex-shrink-0`}
+        className={`w-5 h-5 rounded-full border ${
+          isLight ? 'border-gray-300' : 'border-transparent'
+        } flex-shrink-0`}
         style={{ backgroundColor: colorHex }}
         title={colorName}
       />
@@ -838,10 +1160,16 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             paddingRight: '2.5rem',
           }}
         >
-          <span className={selectedColors.length > 0 ? '' : 'text-deep-charcoal/50'}>
+          <span
+            className={selectedColors.length > 0 ? '' : 'text-deep-charcoal/50'}
+          >
             {selectedColors.length > 0
-              ? `${selectedColors.length} ${locale === 'en' ? 'color(s) selected' : 'لون محدد'}`
-              : locale === 'en' ? 'Select Colors' : 'اختر الألوان'}
+              ? `${selectedColors.length} ${
+                  locale === 'en' ? 'color(s) selected' : 'لون محدد'
+                }`
+              : locale === 'en'
+              ? 'Select Colors'
+              : 'اختر الألوان'}
           </span>
         </button>
         {isOpen && (
@@ -882,12 +1210,14 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
     options,
     placeholder,
     className = '',
+    hasError = false,
   }: {
     value: string;
     onChange: (value: string) => void;
     options: { value: string; label: string }[];
     placeholder: string;
     className?: string;
+    hasError?: boolean;
   }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -914,7 +1244,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         <button
           type='button'
           onClick={() => setIsOpen(!isOpen)}
-          className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors bg-white text-deep-charcoal cursor-pointer text-left flex items-center justify-between'
+          className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors bg-white text-deep-charcoal cursor-pointer text-left flex items-center justify-between ${hasError ? 'border-red-500' : 'border-rich-sand/30'}`}
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23006747' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
             backgroundPosition: 'right 0.5rem center',
@@ -978,15 +1308,21 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
 
       <form onSubmit={handleSubmit} className='p-6 space-y-4'>
         {/* Add Photos */}
-        <div className='bg-rich-sand/10 rounded-lg p-4 border border-rich-sand/20'>
+        <div 
+          className={`bg-rich-sand/10 rounded-lg p-4 border ${showErrors && errors.photos ? 'border-red-500' : 'border-rich-sand/20'}`}
+          data-error={showErrors && errors.photos ? 'true' : undefined}
+        >
           <div className='flex items-center justify-between mb-2'>
             <label className='block text-xs font-semibold text-deep-charcoal uppercase tracking-wide'>
-            {locale === 'en' ? 'Photos' : 'الصور'}
-          </label>
+              {locale === 'en' ? 'Photos' : 'الصور'} <span className='text-red-500'>*</span>
+            </label>
             <span className='text-xs text-deep-charcoal/60'>
               {photoFiles.length}/5 {locale === 'en' ? 'images' : 'صور'}
             </span>
           </div>
+          {showErrors && errors.photos && (
+            <p className='text-xs text-red-500 mb-2'>{errors.photos}</p>
+          )}
           <input
             type='file'
             accept='image/*'
@@ -1050,19 +1386,23 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
 
         {/* Item Title & Description Row */}
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          <div>
+          <div data-error={showErrors && errors.title ? 'true' : undefined}>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Item Title' : 'عنوان المنتج'}
+              {locale === 'en' ? 'Item Title' : 'عنوان المنتج'} <span className='text-red-500'>*</span>
             </label>
             <input
               type='text'
               value={formData.title}
-              onChange={e =>
-                setFormData(prev => ({ ...prev, title: e.target.value }))
-              }
-              className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+              onChange={e => {
+                setFormData(prev => ({ ...prev, title: e.target.value }));
+                clearError('title');
+              }}
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${showErrors && errors.title ? 'border-red-500' : 'border-rich-sand/30'}`}
               required
             />
+            {showErrors && errors.title && (
+              <p className='text-xs text-red-500 mt-1'>{errors.title}</p>
+            )}
           </div>
           <div>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
@@ -1080,48 +1420,61 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         </div>
 
         {/* Description */}
-        <div>
+        <div data-error={showErrors && errors.description ? 'true' : undefined}>
           <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-            {locale === 'en' ? 'Description' : 'الوصف'}
+            {locale === 'en' ? 'Description' : 'الوصف'} <span className='text-red-500'>*</span>
           </label>
           <textarea
             value={formData.description}
-            onChange={e =>
-              setFormData(prev => ({ ...prev, description: e.target.value }))
-            }
+            onChange={e => {
+              setFormData(prev => ({ ...prev, description: e.target.value }));
+              clearError('description');
+            }}
             rows={3}
-            className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors resize-none'
+            className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors resize-none ${showErrors && errors.description ? 'border-red-500' : 'border-rich-sand/30'}`}
             required
           />
+          {showErrors && errors.description && (
+            <p className='text-xs text-red-500 mt-1'>{errors.description}</p>
+          )}
         </div>
 
         {/* Price, Original Price, Currency, Quantity Row */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-          <div>
+          <div data-error={showErrors && errors.price ? 'true' : undefined}>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Price' : 'السعر'}
+              {locale === 'en' ? 'Price' : 'السعر'} <span className='text-red-500'>*</span>
             </label>
             <input
               type='number'
               step='0.01'
               value={formData.price}
-              onChange={e =>
-                setFormData(prev => ({ ...prev, price: e.target.value }))
-              }
-              className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+              onChange={e => {
+                setFormData(prev => ({ ...prev, price: e.target.value }));
+                clearError('price');
+              }}
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${showErrors && errors.price ? 'border-red-500' : 'border-rich-sand/30'}`}
               required
             />
+            {showErrors && errors.price && (
+              <p className='text-xs text-red-500 mt-1'>{errors.price}</p>
+            )}
           </div>
           <div>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Original Price (Optional)' : 'السعر الأصلي (اختياري)'}
+              {locale === 'en'
+                ? 'Original Price (Optional)'
+                : 'السعر الأصلي (اختياري)'}
             </label>
             <input
               type='number'
               step='0.01'
               value={formData.originalPrice}
               onChange={e =>
-                setFormData(prev => ({ ...prev, originalPrice: e.target.value }))
+                setFormData(prev => ({
+                  ...prev,
+                  originalPrice: e.target.value,
+                }))
               }
               className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
             />
@@ -1135,48 +1488,61 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
               onChange={value =>
                 setFormData(prev => ({ ...prev, currency: value }))
               }
-              options={currencies.map(c => ({ value: c.code, label: `${c.code} (${c.symbol})` }))}
+              options={currencies.map(c => ({
+                value: c.code,
+                label: `${c.code} (${c.symbol})`,
+              }))}
               placeholder={locale === 'en' ? 'Select Currency' : 'اختر العملة'}
             />
           </div>
-          <div>
+          <div data-error={showErrors && errors.quantity ? 'true' : undefined}>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Quantity' : 'الكمية'}
+              {locale === 'en' ? 'Quantity' : 'الكمية'} <span className='text-red-500'>*</span>
             </label>
             <input
               type='number'
               min='0'
               value={formData.quantity}
-              onChange={e =>
-                setFormData(prev => ({ ...prev, quantity: e.target.value }))
-              }
-              className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+              onChange={e => {
+                setFormData(prev => ({ ...prev, quantity: e.target.value }));
+                clearError('quantity');
+              }}
+              className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${showErrors && errors.quantity ? 'border-red-500' : 'border-rich-sand/30'}`}
               required
             />
-            {/* Show helpful message for out of stock products */}
-            {isEditMode && normalizedData && (normalizedData.isOutOfStock ?? (normalizedData.quantity === null || normalizedData.quantity === undefined || normalizedData.quantity <= 0)) && (
-              <p className='mt-1.5 text-xs text-amber-600 font-medium'>
-                {locale === 'en'
-                  ? 'This product is out of stock. Increase quantity to make it available again.'
-                  : 'هذا المنتج غير متوفر. قم بزيادة الكمية لجعله متاحاً مرة أخرى.'}
-              </p>
+            {showErrors && errors.quantity && (
+              <p className='text-xs text-red-500 mt-1'>{errors.quantity}</p>
             )}
+            {/* Show helpful message for out of stock products */}
+            {isEditMode &&
+              normalizedData &&
+              (normalizedData.isOutOfStock ??
+                (normalizedData.quantity === null ||
+                  normalizedData.quantity === undefined ||
+                  normalizedData.quantity <= 0)) && (
+                <p className='mt-1.5 text-xs text-amber-600 font-medium'>
+                  {locale === 'en'
+                    ? 'This product is out of stock. Increase quantity to make it available again.'
+                    : 'هذا المنتج غير متوفر. قم بزيادة الكمية لجعله متاحاً مرة أخرى.'}
+                </p>
+              )}
           </div>
         </div>
 
         {/* Category, Gender, Size, Sub Category Row */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-          <div>
+          <div data-error={showErrors && errors.category ? 'true' : undefined}>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Category' : 'الفئة'}
+              {locale === 'en' ? 'Category' : 'الفئة'} <span className='text-red-500'>*</span>
             </label>
             <CustomDropdown
               value={formData.category}
               onChange={value => {
                 const newCategory = value;
                 const newSizes = getSizesForCategory(newCategory, '');
-                const currentSizeValid = !formData.size || newSizes.includes(formData.size);
-                
+                const currentSizeValid =
+                  !formData.size || newSizes.includes(formData.size);
+
                 setFormData(prev => ({
                   ...prev,
                   category: newCategory,
@@ -1185,6 +1551,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                 }));
                 setCustomSubCategories([]);
                 setNewSubCategoryInput('');
+                clearError('category');
               }}
               options={[
                 {
@@ -1197,7 +1564,11 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                 })),
               ]}
               placeholder={locale === 'en' ? 'Select Category' : 'اختر الفئة'}
+              hasError={showErrors && !!errors.category}
             />
+            {showErrors && errors.category && (
+              <p className='text-xs text-red-500 mt-1'>{errors.category}</p>
+            )}
           </div>
           <div>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
@@ -1281,9 +1652,13 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                 value={formData.subCategory}
                 onChange={value => {
                   const newSubCategory = value;
-                  const newSizes = getSizesForCategory(formData.category, newSubCategory);
-                  const currentSizeValid = !formData.size || newSizes.includes(formData.size);
-                  
+                  const newSizes = getSizesForCategory(
+                    formData.category,
+                    newSubCategory
+                  );
+                  const currentSizeValid =
+                    !formData.size || newSizes.includes(formData.size);
+
                   setFormData(prev => ({
                     ...prev,
                     subCategory: newSubCategory,
@@ -1370,21 +1745,26 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
 
         {/* Condition and Color Row */}
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          <div>
+          <div data-error={showErrors && errors.condition ? 'true' : undefined}>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-              {locale === 'en' ? 'Condition' : 'الحالة'}
+              {locale === 'en' ? 'Condition' : 'الحالة'} <span className='text-red-500'>*</span>
             </label>
             <CustomDropdown
               value={formData.condition}
-              onChange={value =>
-                setFormData(prev => ({ ...prev, condition: value }))
-              }
+              onChange={value => {
+                setFormData(prev => ({ ...prev, condition: value }));
+                clearError('condition');
+              }}
               options={[
                 { value: '', label: locale === 'en' ? 'Select' : 'اختر' },
                 ...conditions.map(c => ({ value: c, label: c })),
               ]}
               placeholder={locale === 'en' ? 'Select' : 'اختر'}
+              hasError={showErrors && !!errors.condition}
             />
+            {showErrors && errors.condition && (
+              <p className='text-xs text-red-500 mt-1'>{errors.condition}</p>
+            )}
           </div>
           <div>
             <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
@@ -1402,7 +1782,11 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                     {color}
                     <button
                       type='button'
-                      onClick={() => setSelectedColors(prev => prev.filter((_, i) => i !== index))}
+                      onClick={() =>
+                        setSelectedColors(prev =>
+                          prev.filter((_, i) => i !== index)
+                        )
+                      }
                       className='hover:text-red-500 transition-colors cursor-pointer ml-1'
                     >
                       <HiXMark className='w-4 h-4' />
@@ -1506,43 +1890,51 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
             {locale === 'en' ? 'Shipping Information' : 'معلومات الشحن'}
           </h3>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            <div>
+            <div data-error={showErrors && errors.shippingCost ? 'true' : undefined}>
               <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-                {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'}
+                {locale === 'en' ? 'Shipping Cost' : 'تكلفة الشحن'} <span className='text-red-500'>*</span>
               </label>
               <input
                 type='number'
                 step='0.01'
                 value={formData.shippingCost}
-                onChange={e =>
+                onChange={e => {
                   setFormData(prev => ({
                     ...prev,
                     shippingCost: e.target.value,
-                  }))
-                }
-                className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+                  }));
+                  clearError('shippingCost');
+                }}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${showErrors && errors.shippingCost ? 'border-red-500' : 'border-rich-sand/30'}`}
                 required
               />
+              {showErrors && errors.shippingCost && (
+                <p className='text-xs text-red-500 mt-1'>{errors.shippingCost}</p>
+              )}
             </div>
-            <div>
+            <div data-error={showErrors && errors.processingTime ? 'true' : undefined}>
               <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
                 {locale === 'en'
                   ? 'Processing Time (days)'
-                  : 'وقت المعالجة (أيام)'}
+                  : 'وقت المعالجة (أيام)'} <span className='text-red-500'>*</span>
               </label>
               <input
                 type='number'
                 min='1'
                 value={formData.processingTime}
-                onChange={e =>
+                onChange={e => {
                   setFormData(prev => ({
                     ...prev,
                     processingTime: e.target.value,
-                  }))
-                }
-                className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
+                  }));
+                  clearError('processingTime');
+                }}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors ${showErrors && errors.processingTime ? 'border-red-500' : 'border-rich-sand/30'}`}
                 required
               />
+              {showErrors && errors.processingTime && (
+                <p className='text-xs text-red-500 mt-1'>{errors.processingTime}</p>
+              )}
             </div>
           </div>
           {/* Shipping Locations */}
@@ -1562,9 +1954,7 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                   }
                 }}
                 placeholder={
-                  locale === 'en'
-                    ? 'Add shipping location'
-                    : 'إضافة موقع الشحن'
+                  locale === 'en' ? 'Add shipping location' : 'إضافة موقع الشحن'
                 }
                 className='flex-1 px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
               />
@@ -1601,7 +1991,9 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         {/* Affiliate Code (Optional) */}
         <div>
           <label className='block text-xs font-semibold text-deep-charcoal mb-1.5 uppercase tracking-wide'>
-            {locale === 'en' ? 'Affiliate Code (Optional)' : 'رمز الشريك (اختياري)'}
+            {locale === 'en'
+              ? 'Affiliate Code (Optional)'
+              : 'رمز الشريك (اختياري)'}
           </label>
           <input
             type='text'
@@ -1639,7 +2031,9 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                   className='w-4 h-4 text-saudi-green focus:ring-saudi-green rounded'
                 />
                 <span className='text-sm font-medium text-deep-charcoal'>
-                  {locale === 'en' ? 'Are you VAT registered?' : 'هل أنت مسجل في ضريبة القيمة المضافة؟'}
+                  {locale === 'en'
+                    ? 'Are you VAT registered?'
+                    : 'هل أنت مسجل في ضريبة القيمة المضافة؟'}
                 </span>
               </label>
             </div>
@@ -1664,7 +2058,9 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
                     placeholder={locale === 'en' ? '15.0' : '15.0'}
                     className='w-full px-3 py-2 text-sm border border-rich-sand/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-saudi-green focus:border-saudi-green transition-colors'
                   />
-                  <span className='text-sm text-deep-charcoal/70 whitespace-nowrap'>%</span>
+                  <span className='text-sm text-deep-charcoal/70 whitespace-nowrap'>
+                    %
+                  </span>
                 </div>
               </div>
             )}
@@ -1672,21 +2068,30 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         </div>
 
         {/* Authenticity Confirmation */}
-        <div className='bg-rich-sand/10 rounded-lg p-4 border border-rich-sand/20'>
+        <div 
+          className={`bg-rich-sand/10 rounded-lg p-4 border ${showErrors && errors.authenticity ? 'border-red-500' : 'border-rich-sand/20'}`}
+          data-error={showErrors && errors.authenticity ? 'true' : undefined}
+        >
           <label className='flex items-start gap-3 cursor-pointer'>
             <input
               type='checkbox'
               checked={authenticityConfirmed}
-              onChange={e => setAuthenticityConfirmed(e.target.checked)}
+              onChange={e => {
+                setAuthenticityConfirmed(e.target.checked);
+                if (e.target.checked) clearError('authenticity');
+              }}
               className='mt-1 w-4 h-4 text-saudi-green focus:ring-saudi-green rounded cursor-pointer'
               required
             />
             <span className='text-sm text-deep-charcoal leading-relaxed'>
               {locale === 'en'
                 ? 'I confirm that the item I am listing is authentic, legally owned by me, and not stolen, counterfeit, fake or an imitation.'
-                : 'أؤكد أن المنتج الذي أقوم بإدراجه أصلي ومملوك قانونياً لي، وليس مسروقاً أو مزيفاً أو تقليداً.'}
+                : 'أؤكد أن المنتج الذي أقوم بإدراجه أصلي ومملوك قانونياً لي، وليس مسروقاً أو مزيفاً أو تقليداً.'} <span className='text-red-500'>*</span>
             </span>
           </label>
+          {showErrors && errors.authenticity && (
+            <p className='text-xs text-red-500 mt-2'>{errors.authenticity}</p>
+          )}
         </div>
 
         {/* Form Actions */}
@@ -1728,7 +2133,11 @@ export default function ListItemForm({ onCancel, productId, initialData }: ListI
         onAccept={handleAcceptTerms}
         onClose={() => setShowTermsModal(false)}
         title={locale === 'en' ? 'Accept Terms of Service' : 'قبول شروط الخدمة'}
-        description={locale === 'en' ? 'You must accept our Terms of Service to list an item' : 'يجب عليك قبول شروط الخدمة لإدراج منتج'}
+        description={
+          locale === 'en'
+            ? 'You must accept our Terms of Service to list an item'
+            : 'يجب عليك قبول شروط الخدمة لإدراج منتج'
+        }
       />
     </div>
   );

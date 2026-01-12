@@ -63,6 +63,15 @@ const axiosBaseQuery =
         console.log('============================');
       }
 
+      // Log API requests for seller payout endpoint
+      if (finalUrl.includes('/api/seller/payout')) {
+        console.log('=== SELLER PAYOUT API REQUEST ===');
+        console.log('URL:', finalUrl);
+        console.log('Method:', method);
+        console.log('Request Data:', JSON.stringify(data, null, 2));
+        console.log('=================================');
+      }
+
       const result = await apiClient(requestConfig);
       
       // Log API responses for payments endpoint
@@ -71,6 +80,14 @@ const axiosBaseQuery =
         console.log('Status:', result.status);
         console.log('Data:', result.data);
         console.log('=============================');
+      }
+
+      // Log API responses for seller payout endpoint
+      if (finalUrl.includes('/api/seller/payout')) {
+        console.log('=== SELLER PAYOUT API RESPONSE ===');
+        console.log('Status:', result.status);
+        console.log('Data:', JSON.stringify(result.data, null, 2));
+        console.log('==================================');
       }
       return { data: result.data };
     } catch (axiosError: any) {
@@ -91,10 +108,11 @@ export const baseApi = createApi({
   }),
   // Keep cached data for 10 minutes by default - instant loads on navigation
   keepUnusedDataFor: 600,
-  // Don't refetch on mount - use cached data, fetch in background
-  refetchOnMountOrArgChange: false,
-  // Don't refetch when window regains focus
-  refetchOnFocus: false,
+  // Stale-while-revalidate: show cached data immediately, refetch in background
+  // Set to 30 seconds - if data is older than 30s, refetch on mount
+  refetchOnMountOrArgChange: 30,
+  // Refetch when window regains focus (user comes back to tab)
+  refetchOnFocus: true,
   // Refetch when reconnecting to internet
   refetchOnReconnect: true,
   tagTypes: [

@@ -1,5 +1,5 @@
 import { useGetFeaturedProductsQuery, useGetTrendingProductsQuery } from '@/lib/api/productsApi';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import type { Product } from '@/types/products';
 
 /**
@@ -16,7 +16,7 @@ function shuffleArray<T>(array: T[]): T[] {
 
 /**
  * Custom hook to fetch featured and trending products with duplicate filtering
- * This ensures that products shown in featured section don't appear in trending section
+ * Uses stale-while-revalidate pattern: shows cached data instantly, fetches fresh data in background
  * 
  * Backend behavior:
  * - Featured: Most recent products (newest first), sorted by created_at descending
@@ -31,27 +31,30 @@ export function useHomeProducts(limit: number = 10) {
   // State to store shuffled featured products (persists across re-renders but resets on page reload)
   const [shuffledFeatured, setShuffledFeatured] = useState<Product[] | null>(null);
   
+  // Track if this is the initial mount to handle shuffle correctly on fresh data
+  const hasShuffledRef = useRef(false);
+  const lastFeaturedIdsRef = useRef<string>('');
+  
   // Featured products: Most recent (newest first)
-  const { data: featuredData, isLoading: featuredLoading, error: featuredError } = 
+  // Using stale-while-revalidate: show cache immediately, but always refetch in background
+  const { data: featuredData, isLoading: featuredLoading, error: featuredError, isFetching: featuredFetching } = 
     useGetFeaturedProductsQuery(
       { limit: validLimit },
       {
-        // Use cached data immediately, don't refetch on mount
-        refetchOnMountOrArgChange: false,
+        // Always refetch on mount to get fresh data (but cache is shown immediately)
+        refetchOnMountOrArgChange: true,
       }
     );
   
   // Trending products: Best-selling (most completed orders)
   // Fetch more to ensure we have enough after filtering out duplicates
-  // Since featured = newest and trending = best-selling, overlap should be minimal,
-  // but we still filter to be safe
   const trendingLimit = Math.min(50, validLimit * 3);
-  const { data: trendingData, isLoading: trendingLoading, error: trendingError } = 
+  const { data: trendingData, isLoading: trendingLoading, error: trendingError, isFetching: trendingFetching } = 
     useGetTrendingProductsQuery(
       { limit: trendingLimit },
       {
-        // Use cached data immediately, don't refetch on mount
-        refetchOnMountOrArgChange: false,
+        // Always refetch on mount to get fresh data (but cache is shown immediately)
+        refetchOnMountOrArgChange: true,
       }
     ); // Max 50 per backend limit
 
@@ -108,23 +111,34 @@ export function useHomeProducts(limit: number = 10) {
   const featuredProducts = featuredData?.products || [];
 
   // Shuffle first 5 featured products on initial load/page reload
-  // This runs once when data is first loaded
+  // Re-shuffle when data changes (e.g., after background refetch brings new data)
   useEffect(() => {
-    if (featuredData?.products && featuredData.products.length > 0 && !shuffledFeatured) {
-      const products = [...featuredData.products];
+    if (featuredData?.products && featuredData.products.length > 0) {
+      // Create a unique identifier for current product set
+      const currentIds = featuredData.products.map(p => p.id).sort().join(',');
       
-      if (products.length > 5) {
-        // Shuffle only the first 5 items
-        const first5 = products.slice(0, 5);
-        const rest = products.slice(5);
-        const shuffledFirst5 = shuffleArray(first5);
-        setShuffledFeatured([...shuffledFirst5, ...rest]);
-      } else {
-        // If 5 or fewer items, shuffle all of them
-        setShuffledFeatured(shuffleArray(products));
+      // Only shuffle if:
+      // 1. We haven't shuffled yet (initial load), OR
+      // 2. The product IDs have changed (data was updated from API)
+      if (!hasShuffledRef.current || currentIds !== lastFeaturedIdsRef.current) {
+        const products = [...featuredData.products];
+        
+        if (products.length > 5) {
+          // Shuffle only the first 5 items
+          const first5 = products.slice(0, 5);
+          const rest = products.slice(5);
+          const shuffledFirst5 = shuffleArray(first5);
+          setShuffledFeatured([...shuffledFirst5, ...rest]);
+        } else {
+          // If 5 or fewer items, shuffle all of them
+          setShuffledFeatured(shuffleArray(products));
+        }
+        
+        hasShuffledRef.current = true;
+        lastFeaturedIdsRef.current = currentIds;
       }
     }
-  }, [featuredData?.products, shuffledFeatured]);
+  }, [featuredData?.products]);
 
   // Use shuffled products if available, otherwise use original
   const displayFeaturedProducts = shuffledFeatured || featuredProducts;
@@ -174,6 +188,9 @@ export function useHomeProducts(limit: number = 10) {
     trendingLoading,
     featuredError,
     trendingError,
+    // Fetching states (true when refetching in background)
+    featuredFetching,
+    trendingFetching,
     // Include pagination info
     featuredPagination: featuredData?.pagination,
     trendingPagination: trendingData?.pagination,

@@ -56,7 +56,7 @@ const categoryIcons: Record<
   women: HiUserGroup,
   men: HiUser,
   watches: HiClock,
-  jewellery: HiSparkles,
+  jewelry: HiSparkles,
   accessories: HiTag,
 };
 
